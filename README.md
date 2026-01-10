@@ -190,8 +190,3 @@ This project does **not** attempt to solve:
 - Merkle-tree–based audit verification
 - More expressive access policies
 - Multi-tenant isolation
-
----
-
-## License
-
