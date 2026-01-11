@@ -1,28 +1,29 @@
 CREATE SCHEMA IF NOT EXISTS sm;
 
 CREATE TABLE IF NOT EXISTS sm.users(
-    id UUID PRIMARY KEY,
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
     name VARCHAR(255) NOT NULL UNIQUE,
     pw_salt BYTEA NOT NULL,
     pw_digest BYTEA NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    modified_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     hash_algo VARCHAR(31) NOT NULL,
     hash_params JSONB NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS sm.master_keys(
     version INT PRIMARY KEY,
-    created_at TIMESTAMPTZ NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     status VARCHAR(31) NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS sm.secret_groups(
-    id UUID PRIMARY KEY,
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
     name VARCHAR(255) NOT NULL UNIQUE,
     data_key_length INT NOT NULL,
     encrypt_algo VARCHAR(31) NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL,
-    modified_at TIMESTAMPTZ NOT NULL
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    modified_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS sm.authorizations(
@@ -30,6 +31,7 @@ CREATE TABLE IF NOT EXISTS sm.authorizations(
     group_id UUID NOT NULL,
     p_read BOOLEAN DEFAULT FALSE NOT NULL,
     p_write BOOLEAN DEFAULT FALSE NOT NULL,
+    modified_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY(user_id, group_id)
 );
 
@@ -37,15 +39,15 @@ ALTER TABLE sm.authorizations ADD CONSTRAINT authorizations_user_id_fk FOREIGN K
 ALTER TABLE sm.authorizations ADD CONSTRAINT authorizations_group_id_fk FOREIGN KEY (group_id) REFERENCES sm.secret_groups(id);
 
 CREATE TABLE IF NOT EXISTS sm.secrets(
-    id UUID PRIMARY KEY,
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
     group_id UUID NOT NULL,
     secret_name VARCHAR(511) NOT NULL,
     encrypted_value BYTEA NOT NULL,
     data_encryption_key BYTEA NOT NULL,
     data_key_version INT NOT NULL,
     master_key_version INT NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL,
-    modified_at TIMESTAMPTZ NOT NULL
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    modified_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 ALTER TABLE sm.secrets ADD CONSTRAINT secrets_group_id_fk FOREIGN KEY (group_id) REFERENCES sm.secret_groups(id);
@@ -58,7 +60,7 @@ CREATE TABLE IF NOT EXISTS sm.audit_logs(
     user_id UUID NOT NULL,
     action VARCHAR(31) NOT NULL,
     secret_id UUID NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     prev_hash BYTEA NOT NULL,
     data_hash BYTEA NOT NULL
 );
@@ -67,11 +69,11 @@ ALTER TABLE sm.audit_logs ADD CONSTRAINT audit_logs_user_id_fk FOREIGN KEY (user
 ALTER TABLE sm.audit_logs ADD CONSTRAINT audit_logs_secret_id_fk FOREIGN KEY (secret_id) REFERENCES sm.secrets(id);
 
 CREATE TABLE IF NOT EXISTS sm.tasks(
-    id UUID PRIMARY KEY,
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
     parent_task_id UUID,
     initiator_user_id UUID NOT NULL,
     initiator_audit_seq_id BIGINT NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     started_at TIMESTAMPTZ,
     completed_at TIMESTAMPTZ,
     type VARCHAR(31) NOT NULL,
