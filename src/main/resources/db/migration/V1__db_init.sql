@@ -11,11 +11,17 @@ CREATE TABLE IF NOT EXISTS sm.users(
     hash_params JSONB NOT NULL
 );
 
+INSERT INTO sm.users (id, name, pw_salt, pw_digest, hash_algo, hash_params)
+VALUES ('00000000-0000-0000-0000-000000000000', 'system', '\x', '\x', 'NONE', '{}') ON CONFLICT(id) DO NOTHING;
+
 CREATE TABLE IF NOT EXISTS sm.master_keys(
     version INT PRIMARY KEY,
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     status VARCHAR(31) NOT NULL
 );
+
+INSERT INTO sm.master_keys (version, created_at, status)
+VALUES (0, CURRENT_TIMESTAMP, 'INACTIVE') ON CONFLICT (version) DO NOTHING;
 
 CREATE TABLE IF NOT EXISTS sm.secret_groups(
     id UUID PRIMARY KEY DEFAULT uuidv7(),
@@ -25,6 +31,9 @@ CREATE TABLE IF NOT EXISTS sm.secret_groups(
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     modified_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+
+INSERT INTO sm.secret_groups (id, name, data_key_length, encrypt_algo, created_at, modified_at)
+VALUES ('00000000-0000-0000-0000-000000000000', 'system', 256, 'NONE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) ON CONFLICT (id) DO NOTHING;
 
 CREATE TABLE IF NOT EXISTS sm.authorizations(
     user_id UUID NOT NULL,
@@ -53,6 +62,9 @@ CREATE TABLE IF NOT EXISTS sm.secrets(
 ALTER TABLE sm.secrets ADD CONSTRAINT secrets_group_id_fk FOREIGN KEY (group_id) REFERENCES sm.secret_groups(id);
 ALTER TABLE sm.secrets ADD CONSTRAINT secrets_master_key_version_fk FOREIGN KEY (master_key_version) REFERENCES sm.master_keys(version);
 ALTER TABLE sm.secrets ADD CONSTRAINT secrets_group_id_secret_name_unique UNIQUE (group_id, secret_name);
+
+INSERT INTO sm.secrets (id, group_id, secret_name, encrypted_value, data_encryption_key, data_key_version, master_key_version, created_at, modified_at)
+VALUES ('00000000-0000-0000-0000-000000000000', '00000000-0000-0000-0000-000000000000', 'genesis-placeholder', '\x', '\x', 0, 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) ON CONFLICT (id) DO NOTHING;
 
 CREATE TABLE IF NOT EXISTS sm.audit_logs(
     seq_id BIGSERIAL PRIMARY KEY,
