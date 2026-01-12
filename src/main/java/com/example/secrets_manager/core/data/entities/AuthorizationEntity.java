@@ -15,7 +15,7 @@ import java.time.Instant;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class Authorization {
+public class AuthorizationEntity {
 
     public static final String COL_P_READ = "p_read";
     public static final String COL_P_WRITE = "p_write";

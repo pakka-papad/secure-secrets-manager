@@ -16,7 +16,7 @@ import java.util.UUID;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class Task {
+public class TaskEntity {
 
     public static final String COL_ID = "id";
     public static final String COL_PARENT_TASK_ID = "parent_task_id";

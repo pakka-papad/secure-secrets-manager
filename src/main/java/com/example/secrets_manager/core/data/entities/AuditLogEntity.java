@@ -16,7 +16,7 @@ import java.util.UUID;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class AuditLog {
+public class AuditLogEntity {
 
     public static final String COL_SEQ_ID = "seq_id";
     public static final String COL_CAUSE_SEQ_ID = "cause_seq_id";

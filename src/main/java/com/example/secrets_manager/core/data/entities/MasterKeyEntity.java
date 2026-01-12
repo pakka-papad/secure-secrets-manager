@@ -15,7 +15,7 @@ import java.time.Instant;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class MasterKey {
+public class MasterKeyEntity {
 
     public static final String COL_VERSION = "version";
     public static final String COL_CREATED_AT = "created_at";

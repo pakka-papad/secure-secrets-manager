@@ -13,13 +13,13 @@ import java.util.UUID;
 
 @Entity
 @Table(name = CoreDataConstants.TABLE_SECRETS, schema = CoreDataConstants.SCHEMA_NAME, uniqueConstraints = {
-    @UniqueConstraint(columnNames = {Secret.COL_GROUP_ID, Secret.COL_SECRET_NAME})
+    @UniqueConstraint(columnNames = {SecretEntity.COL_GROUP_ID, SecretEntity.COL_SECRET_NAME})
 })
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class Secret {
+public class SecretEntity {
 
     public static final String COL_ID = "id";
     public static final String COL_GROUP_ID = "group_id";

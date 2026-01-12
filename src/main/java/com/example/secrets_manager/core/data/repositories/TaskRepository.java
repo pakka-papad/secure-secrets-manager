@@ -1,11 +1,11 @@
 package com.example.secrets_manager.core.data.repositories;
 
-import com.example.secrets_manager.core.data.entities.Task;
+import com.example.secrets_manager.core.data.entities.TaskEntity;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
 import java.util.UUID;
 
 @Repository
-public interface TaskRepository extends JpaRepository<Task, UUID> {
+public interface TaskRepository extends JpaRepository<TaskEntity, UUID> {
 }
