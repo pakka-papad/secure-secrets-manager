@@ -7,6 +7,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.ToString;
+import org.hibernate.annotations.SQLDelete;
 
 import java.time.Instant;
 import java.util.UUID;
@@ -19,6 +20,7 @@ import java.util.UUID;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@SQLDelete(sql = "UPDATE sm.secrets SET deleted_at = CURRENT_TIMESTAMP WHERE id = ?")
 public class SecretEntity {
 
     public static final String COL_ID = "id";
@@ -30,6 +32,7 @@ public class SecretEntity {
     public static final String COL_MASTER_KEY_VERSION = "master_key_version";
     public static final String COL_CREATED_AT = "created_at";
     public static final String COL_MODIFIED_AT = "modified_at";
+    public static final String COL_DELETED_AT = "deleted_at";
 
     @Id
     @Column(name = COL_ID)
@@ -60,6 +63,9 @@ public class SecretEntity {
 
     @Column(name = COL_MODIFIED_AT, nullable = false)
     private Instant modifiedAt;
+
+    @Column(name = COL_DELETED_AT)
+    private Instant deletedAt;
 
     @PrePersist
     protected void onCreate() {

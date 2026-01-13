@@ -7,6 +7,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.ToString;
+import org.hibernate.annotations.SQLDelete;
 
 import java.time.Instant;
 import java.util.UUID;
@@ -17,6 +18,7 @@ import java.util.UUID;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@SQLDelete(sql = "UPDATE sm.users SET deleted_at = CURRENT_TIMESTAMP WHERE id = ?")
 public class UserEntity {
 
     public static final String COL_ID = "id";
@@ -27,6 +29,7 @@ public class UserEntity {
     public static final String COL_MODIFIED_AT = "modified_at";
     public static final String COL_HASH_ALGO = "hash_algo";
     public static final String COL_HASH_PARAMS = "hash_params";
+    public static final String COL_DELETED_AT = "deleted_at";
 
     @Id
     @Column(name = COL_ID)
@@ -54,6 +57,9 @@ public class UserEntity {
 
     @Column(name = COL_HASH_PARAMS, nullable = false, columnDefinition = "jsonb")
     private String hashParams;
+
+    @Column(name = COL_DELETED_AT)
+    private Instant deletedAt;
 
     @PrePersist
     protected void onCreate() {

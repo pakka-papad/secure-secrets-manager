@@ -8,7 +8,8 @@ CREATE TABLE IF NOT EXISTS sm.users(
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     modified_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     hash_algo VARCHAR(31) NOT NULL,
-    hash_params JSONB NOT NULL
+    hash_params JSONB NOT NULL,
+    deleted_at TIMESTAMPTZ NULL
 );
 
 INSERT INTO sm.users (id, name, pw_salt, pw_digest, hash_algo, hash_params)
@@ -20,20 +21,15 @@ CREATE TABLE IF NOT EXISTS sm.master_keys(
     status VARCHAR(31) NOT NULL
 );
 
-INSERT INTO sm.master_keys (version, created_at, status)
-VALUES (0, CURRENT_TIMESTAMP, 'INACTIVE') ON CONFLICT (version) DO NOTHING;
-
 CREATE TABLE IF NOT EXISTS sm.secret_groups(
     id UUID PRIMARY KEY DEFAULT uuidv7(),
     name VARCHAR(255) NOT NULL UNIQUE,
     data_key_length INT NOT NULL,
     encrypt_algo VARCHAR(31) NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    modified_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+    modified_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMPTZ NULL
 );
-
-INSERT INTO sm.secret_groups (id, name, data_key_length, encrypt_algo, created_at, modified_at)
-VALUES ('00000000-0000-0000-0000-000000000000', 'system', 256, 'NONE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) ON CONFLICT (id) DO NOTHING;
 
 CREATE TABLE IF NOT EXISTS sm.authorizations(
     user_id UUID NOT NULL,
@@ -56,29 +52,34 @@ CREATE TABLE IF NOT EXISTS sm.secrets(
     data_key_version INT NOT NULL,
     master_key_version INT NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    modified_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+    modified_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMPTZ NULL
 );
 
 ALTER TABLE sm.secrets ADD CONSTRAINT secrets_group_id_fk FOREIGN KEY (group_id) REFERENCES sm.secret_groups(id);
 ALTER TABLE sm.secrets ADD CONSTRAINT secrets_master_key_version_fk FOREIGN KEY (master_key_version) REFERENCES sm.master_keys(version);
 ALTER TABLE sm.secrets ADD CONSTRAINT secrets_group_id_secret_name_unique UNIQUE (group_id, secret_name);
 
-INSERT INTO sm.secrets (id, group_id, secret_name, encrypted_value, data_encryption_key, data_key_version, master_key_version, created_at, modified_at)
-VALUES ('00000000-0000-0000-0000-000000000000', '00000000-0000-0000-0000-000000000000', 'genesis-placeholder', '\x', '\x', 0, 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) ON CONFLICT (id) DO NOTHING;
-
 CREATE TABLE IF NOT EXISTS sm.audit_logs(
     seq_id BIGSERIAL PRIMARY KEY,
     cause_seq_id BIGINT NULL,
-    user_id UUID NOT NULL,
-    action VARCHAR(31) NOT NULL,
-    secret_id UUID NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    actor_user_id UUID NOT NULL,
+    action VARCHAR(31) NOT NULL,
+    target_user_id UUID NULL,
+    target_group_id UUID NULL,
+    target_secret_id UUID NULL,
+    target_master_key_version INT NULL,
+    details JSONB NULL,
     prev_hash BYTEA NOT NULL,
     data_hash BYTEA NOT NULL
 );
 
-ALTER TABLE sm.audit_logs ADD CONSTRAINT audit_logs_user_id_fk FOREIGN KEY (user_id) REFERENCES sm.users(id);
-ALTER TABLE sm.audit_logs ADD CONSTRAINT audit_logs_secret_id_fk FOREIGN KEY (secret_id) REFERENCES sm.secrets(id);
+ALTER TABLE sm.audit_logs ADD CONSTRAINT audit_logs_actor_user_id_fk FOREIGN KEY (actor_user_id) REFERENCES sm.users(id);
+ALTER TABLE sm.audit_logs ADD CONSTRAINT audit_logs_target_user_id_fk FOREIGN KEY (target_user_id) REFERENCES sm.users(id);
+ALTER TABLE sm.audit_logs ADD CONSTRAINT audit_logs_target_group_id_fk FOREIGN KEY (target_group_id) REFERENCES sm.secret_groups(id);
+ALTER TABLE sm.audit_logs ADD CONSTRAINT audit_logs_target_secret_id_fk FOREIGN KEY (target_secret_id) REFERENCES sm.secrets(id);
+ALTER TABLE sm.audit_logs ADD CONSTRAINT audit_logs_target_master_key_version_fk FOREIGN KEY (target_master_key_version) REFERENCES sm.master_keys(version);
 
 CREATE TABLE IF NOT EXISTS sm.tasks(
     id UUID PRIMARY KEY DEFAULT uuidv7(),

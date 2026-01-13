@@ -25,4 +25,5 @@ public class Secret {
     private Integer masterKeyVersion;
     private Instant createdAt;
     private Instant modifiedAt;
+    private Instant deletedAt;
 }

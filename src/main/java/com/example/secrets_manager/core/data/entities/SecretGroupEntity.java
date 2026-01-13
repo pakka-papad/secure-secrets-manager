@@ -6,6 +6,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.SQLDelete;
 
 import java.time.Instant;
 import java.util.UUID;
@@ -16,6 +17,7 @@ import java.util.UUID;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@SQLDelete(sql = "UPDATE sm.secret_groups SET deleted_at = CURRENT_TIMESTAMP WHERE id = ?")
 public class SecretGroupEntity {
 
     public static final String COL_ID = "id";
@@ -24,6 +26,7 @@ public class SecretGroupEntity {
     public static final String COL_ENCRYPT_ALGO = "encrypt_algo";
     public static final String COL_CREATED_AT = "created_at";
     public static final String COL_MODIFIED_AT = "modified_at";
+    public static final String COL_DELETED_AT = "deleted_at";
 
     @Id
     @Column(name = COL_ID)
@@ -43,6 +46,9 @@ public class SecretGroupEntity {
 
     @Column(name = COL_MODIFIED_AT, nullable = false)
     private Instant modifiedAt;
+
+    @Column(name = COL_DELETED_AT)
+    private Instant deletedAt;
 
     @PrePersist
     protected void onCreate() {

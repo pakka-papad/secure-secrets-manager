@@ -24,4 +24,5 @@ public class User {
     private Instant modifiedAt;
     private String hashAlgo;
     private String hashParams;
+    private Instant deletedAt;
 }

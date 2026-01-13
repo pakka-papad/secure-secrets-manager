@@ -19,4 +19,5 @@ public class SecretGroup {
     private String encryptAlgo;
     private Instant createdAt;
     private Instant modifiedAt;
+    private Instant deletedAt;
 }

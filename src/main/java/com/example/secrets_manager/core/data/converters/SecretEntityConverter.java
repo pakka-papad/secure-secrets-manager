@@ -20,6 +20,7 @@ public class SecretEntityConverter {
                 .masterKeyVersion(entity.getMasterKeyVersion())
                 .createdAt(entity.getCreatedAt())
                 .modifiedAt(entity.getModifiedAt())
+                .deletedAt(entity.getDeletedAt())
                 .build();
     }
 
@@ -38,6 +39,7 @@ public class SecretEntityConverter {
                 .masterKeyVersion(model.getMasterKeyVersion())
                 .createdAt(model.getCreatedAt())
                 .modifiedAt(model.getModifiedAt())
+                .deletedAt(model.getDeletedAt())
                 .build();
     }
 }

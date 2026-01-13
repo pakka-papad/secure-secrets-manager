@@ -17,6 +17,7 @@ public class SecretGroupEntityConverter {
                 .encryptAlgo(entity.getEncryptAlgo())
                 .createdAt(entity.getCreatedAt())
                 .modifiedAt(entity.getModifiedAt())
+                .deletedAt(entity.getDeletedAt())
                 .build();
     }
 
@@ -32,6 +33,7 @@ public class SecretGroupEntityConverter {
                 .encryptAlgo(model.getEncryptAlgo())
                 .createdAt(model.getCreatedAt())
                 .modifiedAt(model.getModifiedAt())
+                .deletedAt(model.getDeletedAt())
                 .build();
     }
 }

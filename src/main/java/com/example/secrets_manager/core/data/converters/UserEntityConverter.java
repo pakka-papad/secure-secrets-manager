@@ -19,6 +19,7 @@ public class UserEntityConverter {
                 .modifiedAt(entity.getModifiedAt())
                 .hashAlgo(entity.getHashAlgo())
                 .hashParams(entity.getHashParams())
+                .deletedAt(entity.getDeletedAt())
                 .build();
     }
 
@@ -36,6 +37,7 @@ public class UserEntityConverter {
                 .modifiedAt(model.getModifiedAt())
                 .hashAlgo(model.getHashAlgo())
                 .hashParams(model.getHashParams())
+                .deletedAt(model.getDeletedAt())
                 .build();
     }
 }
