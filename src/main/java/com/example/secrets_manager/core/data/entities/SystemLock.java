@@ -13,14 +13,13 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class SystemLock {
 
-    public static final String COL_LOCK_NAME = "lock_name";
-    public static final String COL_DESCRIPTION = "description";
+  public static final String COL_LOCK_NAME = "lock_name";
+  public static final String COL_DESCRIPTION = "description";
 
-    @Id
-    @Column(name = COL_LOCK_NAME)
-    private String lockName;
+  @Id
+  @Column(name = COL_LOCK_NAME)
+  private String lockName;
 
-    @Column(name = COL_DESCRIPTION)
-    private String description;
+  @Column(name = COL_DESCRIPTION)
+  private String description;
 }
-
