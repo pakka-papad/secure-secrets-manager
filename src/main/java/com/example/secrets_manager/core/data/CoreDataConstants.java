@@ -15,4 +15,5 @@ public final class CoreDataConstants {
     public static final String TABLE_SECRETS = "secrets";
     public static final String TABLE_AUDIT_LOGS = "audit_logs";
     public static final String TABLE_TASKS = "tasks";
+    public static final String TABLE_SYSTEM_LOCKS = "system_locks";
 }
