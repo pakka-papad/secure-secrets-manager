@@ -51,9 +51,4 @@ public class AuditLogEntity {
 
   @Column(name = COL_DATA_HASH, nullable = false)
   private byte[] dataHash;
-
-  @PrePersist
-  protected void onCreate() {
-    createdAt = Instant.now();
-  }
 }
