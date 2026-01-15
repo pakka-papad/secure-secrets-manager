@@ -16,7 +16,7 @@ public class AuditLogEntityConverter {
         .causeSeqId(entity.getCauseSeqId())
         .createdAt(entity.getCreatedAt())
         .actorUserId(entity.getActorUserId())
-        .action(AuditAction.valueOf(entity.getAction())) // Convert String to Enum
+        .action(AuditAction.valueOf(entity.getAction()))
         .targetUserId(entity.getTargetUserId())
         .targetGroupId(entity.getTargetGroupId())
         .targetSecretId(entity.getTargetSecretId())
@@ -37,7 +37,7 @@ public class AuditLogEntityConverter {
         .causeSeqId(model.getCauseSeqId())
         .createdAt(model.getCreatedAt())
         .actorUserId(model.getActorUserId())
-        .action(model.getAction().name()) // Convert Enum to String
+        .action(model.getAction().name())
         .targetUserId(model.getTargetUserId())
         .targetGroupId(model.getTargetGroupId())
         .targetSecretId(model.getTargetSecretId())
