@@ -1,6 +1,7 @@
 package com.example.secrets_manager.core.data.converters;
 
 import com.example.secrets_manager.core.data.entities.AuditLogEntity;
+import com.example.secrets_manager.core.models.AuditAction;
 import com.example.secrets_manager.core.models.AuditLog;
 
 public class AuditLogEntityConverter {
@@ -13,10 +14,14 @@ public class AuditLogEntityConverter {
     return AuditLog.builder()
         .seqId(entity.getSeqId())
         .causeSeqId(entity.getCauseSeqId())
-        .userId(entity.getUserId())
-        .action(entity.getAction())
-        .secretId(entity.getSecretId())
         .createdAt(entity.getCreatedAt())
+        .actorUserId(entity.getActorUserId())
+        .action(AuditAction.valueOf(entity.getAction())) // Convert String to Enum
+        .targetUserId(entity.getTargetUserId())
+        .targetGroupId(entity.getTargetGroupId())
+        .targetSecretId(entity.getTargetSecretId())
+        .targetMasterKeyVersion(entity.getTargetMasterKeyVersion())
+        .details(entity.getDetails())
         .prevHash(entity.getPrevHash())
         .dataHash(entity.getDataHash())
         .build();
@@ -30,10 +35,14 @@ public class AuditLogEntityConverter {
     return AuditLogEntity.builder()
         .seqId(model.getSeqId())
         .causeSeqId(model.getCauseSeqId())
-        .userId(model.getUserId())
-        .action(model.getAction())
-        .secretId(model.getSecretId())
         .createdAt(model.getCreatedAt())
+        .actorUserId(model.getActorUserId())
+        .action(model.getAction().name()) // Convert Enum to String
+        .targetUserId(model.getTargetUserId())
+        .targetGroupId(model.getTargetGroupId())
+        .targetSecretId(model.getTargetSecretId())
+        .targetMasterKeyVersion(model.getTargetMasterKeyVersion())
+        .details(model.getDetails())
         .prevHash(model.getPrevHash())
         .dataHash(model.getDataHash())
         .build();

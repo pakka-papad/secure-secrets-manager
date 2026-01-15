@@ -15,10 +15,14 @@ import lombok.ToString;
 public class AuditLog {
   private Long seqId;
   private Long causeSeqId;
-  private UUID userId;
-  private String action;
-  private UUID secretId;
   private Instant createdAt;
+  private UUID actorUserId;
+  private AuditAction action;
+  private UUID targetUserId;
+  private UUID targetGroupId;
+  private UUID targetSecretId;
+  private Integer targetMasterKeyVersion;
+  private String details;
   @ToString.Exclude private byte[] prevHash;
   @ToString.Exclude private byte[] dataHash;
 }
