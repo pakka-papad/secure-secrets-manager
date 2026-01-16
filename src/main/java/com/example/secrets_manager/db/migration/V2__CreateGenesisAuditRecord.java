@@ -40,6 +40,7 @@ public class V2__CreateGenesisAuditRecord extends BaseJavaMigration {
     }
 
     log.info("No audit logs found. Creating GENESIS record...");
+    // 1. Manually construct the genesis AuditLog model.
     final var genesisPrevHash = new byte[32];
 
     AuditLog genesisLog =
@@ -55,8 +56,6 @@ public class V2__CreateGenesisAuditRecord extends BaseJavaMigration {
     genesisLog.setDataHash(dataHash);
 
     // 3. Convert to an entity and save it using the injected repository.
-    // This works because Spring Boot's Flyway integration runs after the DataSource
-    // and JPA entities are available.
     AuditLogEntity genesisEntity = AuditLogEntityConverter.fromModel(genesisLog);
     auditLogRepository.save(genesisEntity);
 
