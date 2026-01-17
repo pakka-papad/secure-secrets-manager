@@ -7,11 +7,16 @@ import com.example.secrets_manager.core.models.AuditAction;
 import com.example.secrets_manager.core.models.AuditLogPayload;
 import com.example.secrets_manager.core.models.User;
 import com.example.secrets_manager.core.models.UserCreationPayload;
+import com.example.secrets_manager.core.models.UserPasswordUpdatePayload;
+import com.example.secrets_manager.core.services.exceptions.InvalidPasswordException;
 import com.example.secrets_manager.core.services.exceptions.UserAlreadyExistsException;
 import com.example.secrets_manager.core.services.exceptions.UserServiceException;
 import com.example.secrets_manager.crypto.CryptographyService;
+import com.example.secrets_manager.crypto.dto.HashedPassword;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.persistence.EntityNotFoundException;
+import java.util.Map;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
@@ -48,7 +53,7 @@ public class UserService {
    *     unexpected service errors occur.
    */
   @Transactional
-  public User createUser(UserCreationPayload payload) {
+  public User createUser(UserCreationPayload payload) throws UserServiceException {
     // 1. Hash the password
     var hashedPassword = cryptographyService.hashPassword(payload.getPassword());
 
@@ -101,5 +106,72 @@ public class UserService {
 
     // 6. Convert and return the User domain model
     return UserEntityConverter.toModel(savedUserEntity);
+  }
+
+  /**
+   * Updates the password for a specified user.
+   *
+   * @param payload The {@link UserPasswordUpdatePayload} containing user ID, old and new password.
+   * @throws EntityNotFoundException if the user is not found.
+   * @throws InvalidPasswordException if the provided old password does not match the current one.
+   * @throws UserServiceException for internal errors like JSON serialization.
+   */
+  @Transactional
+  public void updatePassword(UserPasswordUpdatePayload payload)
+      throws UserServiceException, EntityNotFoundException {
+    // 1. Find the active user
+    var userEntity =
+        userRepository
+            .findByIdAndDeletedAtIsNull(payload.getUserId())
+            .orElseThrow(
+                () ->
+                    new EntityNotFoundException(
+                        String.format("User not found with ID: %s", payload.getUserId())));
+
+    // 2. Verify the old password
+    var storedHash =
+        new HashedPassword(
+            userEntity.getPwDigest(),
+            userEntity.getPwSalt(),
+            userEntity.getHashAlgo(),
+            readHashParams(userEntity.getHashParams()));
+    boolean passwordMatches =
+        cryptographyService.verifyPassword(payload.getOldPassword(), storedHash);
+    if (!passwordMatches) {
+      throw new InvalidPasswordException("The provided old password does not match.");
+    }
+
+    // 3. Hash the new password
+    var newHashedPassword = cryptographyService.hashPassword(payload.getNewPassword());
+
+    // 4. Update the user entity with the new password details
+    userEntity.setPwSalt(newHashedPassword.getSalt());
+    userEntity.setPwDigest(newHashedPassword.getDigest());
+    userEntity.setHashAlgo(newHashedPassword.getAlgorithm());
+    try {
+      userEntity.setHashParams(objectMapper.writeValueAsString(newHashedPassword.getParams()));
+    } catch (JsonProcessingException e) {
+      throw new UserServiceException("Failed to serialize new password hash parameters.", e);
+    }
+    // The @PreUpdate annotation will handle the modifiedAt timestamp automatically
+    userRepository.save(userEntity);
+
+    // 5. Create audit log entry
+    var auditPayload =
+        AuditLogPayload.builder()
+            .actorUserId(userEntity.getId())
+            .action(AuditAction.USER_PASSWORD_UPDATE)
+            .targetUserId(userEntity.getId())
+            .build();
+    auditService.save(auditPayload);
+  }
+
+  @SuppressWarnings("unchecked")
+  private Map<String, Object> readHashParams(String hashParamsJson) {
+    try {
+      return (Map<String, Object>) objectMapper.readValue(hashParamsJson, Map.class);
+    } catch (JsonProcessingException e) {
+      throw new UserServiceException("Failed to deserialize password hash parameters.", e);
+    }
   }
 }
