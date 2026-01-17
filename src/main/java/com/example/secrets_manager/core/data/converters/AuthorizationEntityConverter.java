@@ -16,6 +16,7 @@ public class AuthorizationEntityConverter {
         .groupId(entity.getId().getGroupId())
         .pRead(entity.isPRead())
         .pWrite(entity.isPWrite())
+        .pDelete(entity.isPDelete())
         .modifiedAt(entity.getModifiedAt())
         .build();
   }
@@ -32,6 +33,7 @@ public class AuthorizationEntityConverter {
         .id(id)
         .pRead(model.isPRead())
         .pWrite(model.isPWrite())
+        .pDelete(model.isPDelete())
         .modifiedAt(model.getModifiedAt())
         .build();
   }

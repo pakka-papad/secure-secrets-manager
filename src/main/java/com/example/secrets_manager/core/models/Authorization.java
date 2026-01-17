@@ -16,5 +16,6 @@ public class Authorization {
   private UUID groupId;
   private boolean pRead;
   private boolean pWrite;
+  private boolean pDelete;
   private Instant modifiedAt;
 }

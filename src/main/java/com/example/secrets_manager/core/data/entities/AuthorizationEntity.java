@@ -18,6 +18,7 @@ public class AuthorizationEntity {
 
   public static final String COL_P_READ = "p_read";
   public static final String COL_P_WRITE = "p_write";
+  public static final String COL_P_DELETE = "p_delete";
   public static final String COL_MODIFIED_AT = "modified_at";
 
   @EmbeddedId private AuthorizationId id;
@@ -27,6 +28,9 @@ public class AuthorizationEntity {
 
   @Column(name = COL_P_WRITE, nullable = false)
   private boolean pWrite = false;
+
+  @Column(name = COL_P_DELETE, nullable = false)
+  private boolean pDelete = false;
 
   @Column(name = COL_MODIFIED_AT, nullable = false)
   private Instant modifiedAt;
