@@ -24,12 +24,15 @@ public class AuthorizationEntity {
   @EmbeddedId private AuthorizationId id;
 
   @Column(name = COL_P_READ, nullable = false)
+  @Builder.Default
   private boolean pRead = false;
 
   @Column(name = COL_P_WRITE, nullable = false)
+  @Builder.Default
   private boolean pWrite = false;
 
   @Column(name = COL_P_DELETE, nullable = false)
+  @Builder.Default
   private boolean pDelete = false;
 
   @Column(name = COL_MODIFIED_AT, nullable = false)
