@@ -16,13 +16,18 @@ import com.example.secrets_manager.crypto.dto.HashedPassword;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.persistence.EntityNotFoundException;
+import jakarta.validation.Valid;
 import java.util.Map;
+
+import jakarta.validation.constraints.NotNull;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.validation.annotation.Validated;
 
 @Service
+@Validated
 public class UserService {
 
   private final UserRepository userRepository;
@@ -53,7 +58,7 @@ public class UserService {
    *     unexpected service errors occur.
    */
   @Transactional
-  public User createUser(UserCreationPayload payload) throws UserServiceException {
+  public User createUser(@NotNull @Valid UserCreationPayload payload) throws UserServiceException {
     // 1. Hash the password
     var hashedPassword = cryptographyService.hashPassword(payload.getPassword());
 
@@ -117,7 +122,7 @@ public class UserService {
    * @throws UserServiceException for internal errors like JSON serialization.
    */
   @Transactional
-  public void updatePassword(UserPasswordUpdatePayload payload)
+  public void updatePassword(@NotNull @Valid UserPasswordUpdatePayload payload)
       throws UserServiceException, EntityNotFoundException {
     // 1. Find the active user
     var userEntity =

@@ -48,7 +48,7 @@ class UserServiceTest {
   void setUp() {
     mockHashedPassword =
         new HashedPassword(
-                new byte[] {4, 5, 6}, new byte[] {1, 2, 3}, "BCRYPT", Map.of("rounds", 12));
+            new byte[] {4, 5, 6}, new byte[] {1, 2, 3}, "BCRYPT", Map.of("rounds", 12));
 
     mockUserEntity =
         UserEntity.builder()

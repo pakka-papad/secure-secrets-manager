@@ -1,5 +1,7 @@
 package com.example.secrets_manager.core.models;
 
+import com.example.secrets_manager.core.validators.Password;
+import com.example.secrets_manager.core.validators.Username;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -10,6 +12,6 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class UserCreationPayload {
-  private String name;
-  private byte[] password;
+  @Username private String name;
+  @Password private byte[] password;
 }
