@@ -84,4 +84,3 @@ public class V2__CreateGenesisAuditRecord extends BaseJavaMigration {
     return digest.digest(serializedData);
   }
 }
-

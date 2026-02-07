@@ -39,8 +39,7 @@ public class UserController {
   @ApiResponse(responseCode = "409", description = "User with given name already exists")
   @ApiResponse(responseCode = "500", description = "Internal server error")
   @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
-  public ResponseEntity<UserResponse> createUser(
-      @Valid @RequestBody UserCreationPayload payload) {
+  public ResponseEntity<UserResponse> createUser(@Valid @RequestBody UserCreationPayload payload) {
     var user = userService.createUser(payload);
     var userResponse =
         UserResponse.builder()
@@ -51,5 +50,4 @@ public class UserController {
             .build();
     return new ResponseEntity<>(userResponse, HttpStatus.CREATED);
   }
-
 }
