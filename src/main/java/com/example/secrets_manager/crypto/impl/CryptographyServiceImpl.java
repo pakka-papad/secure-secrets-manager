@@ -22,17 +22,20 @@ public class CryptographyServiceImpl implements CryptographyService {
 
   private final Map<String, PasswordHasher> passwordHashers;
   private final Map<String, SymmetricCipher> symmetricCiphers;
-  private final ObjectMapper objectMapper = new ObjectMapper();
+  private final ObjectMapper objectMapper;
 
   @Autowired
   public CryptographyServiceImpl(
-      List<PasswordHasher> passwordHashers, List<SymmetricCipher> symmetricCiphers) {
+      List<PasswordHasher> passwordHashers,
+      List<SymmetricCipher> symmetricCiphers,
+      ObjectMapper objectMapper) {
     this.passwordHashers =
         passwordHashers.stream()
             .collect(Collectors.toMap(PasswordHasher::getAlgorithmName, Function.identity()));
     this.symmetricCiphers =
         symmetricCiphers.stream()
             .collect(Collectors.toMap(SymmetricCipher::getAlgorithmName, Function.identity()));
+    this.objectMapper = objectMapper;
   }
 
   @Override
@@ -80,7 +83,7 @@ public class CryptographyServiceImpl implements CryptographyService {
   public byte[] createDataHash(Object dataToHash) {
     try {
       // Use a stable JSON representation for hashing to ensure determinism.
-      // ObjectMapper is suitable for this, ensuring consistent ordering of fields.
+      // This will now use the Spring-configured ObjectMapper with the JavaTimeModule.
       byte[] serializedData = objectMapper.writeValueAsBytes(dataToHash);
       MessageDigest digest = MessageDigest.getInstance("SHA-256");
       return digest.digest(serializedData);
