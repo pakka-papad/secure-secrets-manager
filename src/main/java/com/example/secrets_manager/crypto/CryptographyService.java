@@ -1,5 +1,6 @@
 package com.example.secrets_manager.crypto;
 
+import com.example.secrets_manager.crypto.dto.BinaryHash; // Add import
 import com.example.secrets_manager.crypto.dto.EncryptedData;
 import com.example.secrets_manager.crypto.dto.HashedPassword;
 import com.example.secrets_manager.crypto.exception.CryptoOperationException;
@@ -31,4 +32,12 @@ public interface CryptographyService {
    * dataHash in the audit log.
    */
   byte[] createDataHash(Object dataToHash);
+
+  /**
+   * Hashes a high-entropy byte array (like a token) using a fast, standard algorithm.
+   *
+   * @param data The raw bytes to hash.
+   * @return A BinaryHash object containing the hash and algorithm name.
+   */
+  BinaryHash hashBytes(byte[] data);
 }

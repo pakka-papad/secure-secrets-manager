@@ -1,10 +1,14 @@
 package com.example.secrets_manager.core.data.repositories;
 
 import com.example.secrets_manager.core.data.entities.UserEntity;
+import jakarta.persistence.QueryHint;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.jpa.repository.QueryHints;
 import org.springframework.stereotype.Repository;
 
 @Repository
@@ -12,4 +16,11 @@ public interface UserRepository extends JpaRepository<UserEntity, UUID> {
   Optional<UserEntity> findByIdAndDeletedAtIsNull(UUID id);
 
   List<UserEntity> findAllByDeletedAtIsNull();
+
+  Optional<UserEntity> findByNameAndDeletedAtIsNull(String username);
+
+  @Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+  @QueryHints({@QueryHint(name = "jakarta.persistence.lock.timeout", value = "5000")})
+  @Query("SELECT u FROM UserEntity u WHERE u.id = :id AND u.deletedAt IS NULL")
+  Optional<UserEntity> findAndLockById(UUID id);
 }

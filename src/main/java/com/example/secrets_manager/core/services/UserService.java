@@ -11,6 +11,7 @@ import com.example.secrets_manager.core.models.UserPasswordUpdatePayload;
 import com.example.secrets_manager.core.services.exceptions.InvalidPasswordException;
 import com.example.secrets_manager.core.services.exceptions.UserAlreadyExistsException;
 import com.example.secrets_manager.core.services.exceptions.UserServiceException;
+import com.example.secrets_manager.core.utils.CoreUtils;
 import com.example.secrets_manager.crypto.CryptographyService;
 import com.example.secrets_manager.crypto.dto.HashedPassword;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -18,7 +19,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
-import java.util.Map;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
@@ -138,7 +138,7 @@ public class UserService {
             userEntity.getPwDigest(),
             userEntity.getPwSalt(),
             userEntity.getHashAlgo(),
-            readHashParams(userEntity.getHashParams()));
+            CoreUtils.jsonStringToObjectMap(objectMapper, userEntity.getHashParams()));
     boolean passwordMatches =
         cryptographyService.verifyPassword(payload.getOldPassword(), storedHash);
     if (!passwordMatches) {
@@ -168,14 +168,5 @@ public class UserService {
             .targetUserId(userEntity.getId())
             .build();
     auditService.save(auditPayload);
-  }
-
-  @SuppressWarnings("unchecked")
-  private Map<String, Object> readHashParams(String hashParamsJson) {
-    try {
-      return (Map<String, Object>) objectMapper.readValue(hashParamsJson, Map.class);
-    } catch (JsonProcessingException e) {
-      throw new UserServiceException("Failed to deserialize password hash parameters.", e);
-    }
   }
 }

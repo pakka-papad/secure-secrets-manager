@@ -108,3 +108,15 @@ CREATE TABLE IF NOT EXISTS sm.system_locks (
 );
 
 INSERT INTO sm.system_locks (lock_name, description) VALUES ('AUDIT_LOG_CHAIN', 'Serializes access to the audit log chain.') ON CONFLICT (lock_name) DO NOTHING;
+
+CREATE TABLE IF NOT EXISTS sm.refresh_tokens (
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
+    user_id UUID NOT NULL UNIQUE,
+    token_hash BYTEA NOT NULL UNIQUE,
+    hash_algo VARCHAR(31) NOT NULL,
+    expiry_date TIMESTAMPTZ NOT NULL
+);
+
+ALTER TABLE sm.refresh_tokens ADD CONSTRAINT refresh_tokens_user_id_fk FOREIGN KEY (user_id) REFERENCES sm.users(id);
+
+CREATE INDEX IF NOT EXISTS idx_refresh_tokens_user_id ON sm.refresh_tokens (user_id);

@@ -3,6 +3,7 @@ package com.example.secrets_manager.crypto.impl;
 import com.example.secrets_manager.crypto.CryptographyService;
 import com.example.secrets_manager.crypto.PasswordHasher;
 import com.example.secrets_manager.crypto.SymmetricCipher;
+import com.example.secrets_manager.crypto.dto.BinaryHash;
 import com.example.secrets_manager.crypto.dto.EncryptedData;
 import com.example.secrets_manager.crypto.dto.HashedPassword;
 import com.example.secrets_manager.crypto.exception.CryptoOperationException;
@@ -19,6 +20,9 @@ import org.springframework.stereotype.Service;
 
 @Service
 public class CryptographyServiceImpl implements CryptographyService {
+
+  private static final String DATA_HASH_ALGO = "SHA-256";
+  private static final String BYTES_HASH_ALGO = "SHA-256";
 
   private final Map<String, PasswordHasher> passwordHashers;
   private final Map<String, SymmetricCipher> symmetricCiphers;
@@ -85,10 +89,21 @@ public class CryptographyServiceImpl implements CryptographyService {
       // Use a stable JSON representation for hashing to ensure determinism.
       // This will now use the Spring-configured ObjectMapper with the JavaTimeModule.
       byte[] serializedData = objectMapper.writeValueAsBytes(dataToHash);
-      MessageDigest digest = MessageDigest.getInstance("SHA-256");
+      var digest = MessageDigest.getInstance(DATA_HASH_ALGO);
       return digest.digest(serializedData);
     } catch (JsonProcessingException | NoSuchAlgorithmException e) {
-      throw new RuntimeException("Could not create data hash", e);
+      throw new RuntimeException("Could not create data hash using " + DATA_HASH_ALGO, e);
+    }
+  }
+
+  @Override
+  public BinaryHash hashBytes(byte[] data) {
+    try {
+      var digest = MessageDigest.getInstance(BYTES_HASH_ALGO);
+      byte[] hash = digest.digest(data);
+      return new BinaryHash(BYTES_HASH_ALGO, hash);
+    } catch (NoSuchAlgorithmException e) {
+      throw new RuntimeException(BYTES_HASH_ALGO + " algorithm not found", e);
     }
   }
 }
