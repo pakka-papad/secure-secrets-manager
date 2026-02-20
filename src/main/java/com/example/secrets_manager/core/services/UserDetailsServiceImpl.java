@@ -3,6 +3,7 @@ package com.example.secrets_manager.core.services;
 import com.example.secrets_manager.core.data.converters.UserEntityConverter;
 import com.example.secrets_manager.core.data.repositories.UserRepository;
 import com.example.secrets_manager.security.AppUserDetails;
+import java.util.Set;
 import org.jspecify.annotations.NonNull;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -12,6 +13,8 @@ import org.springframework.stereotype.Service;
 
 @Service
 public class UserDetailsServiceImpl implements UserDetailsService {
+
+  private static final Set<String> blockedUsernames = Set.of("system");
 
   private final UserRepository userRepository;
 
@@ -32,10 +35,16 @@ public class UserDetailsServiceImpl implements UserDetailsService {
   @Override
   public @NonNull UserDetails loadUserByUsername(@NonNull String username)
       throws UsernameNotFoundException {
+    final var isBlocked =
+        blockedUsernames.stream().anyMatch(invalidName -> invalidName.equalsIgnoreCase(username));
+    if (isBlocked) {
+      throw new UsernameNotFoundException(String.format("User not found: %s", username));
+    }
+
     return userRepository
         .findByNameAndDeletedAtIsNull(username)
         .map(UserEntityConverter::toModel)
         .map(AppUserDetails::new)
-        .orElseThrow(() -> new UsernameNotFoundException("User not found: " + username));
+        .orElseThrow(() -> new UsernameNotFoundException(String.format("User not found: %s", username)));
   }
 }
