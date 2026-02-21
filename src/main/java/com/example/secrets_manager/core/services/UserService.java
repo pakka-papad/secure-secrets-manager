@@ -20,8 +20,12 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
+import java.util.Objects;
+import java.util.UUID;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.validation.annotation.Validated;
@@ -117,19 +121,51 @@ public class UserService {
   }
 
   /**
-   * Updates the password for a specified user.
-   * This action also invalidates all active refresh tokens for the user, effectively
-   * performing a global logout.
+   * Updates the password for a specified user. This action also invalidates all active refresh
+   * tokens for the user, effectively performing a global logout.
    *
    * @param payload The {@link UserPasswordUpdatePayload} containing user ID, old and new password.
    * @throws EntityNotFoundException if the user is not found.
    * @throws InvalidPasswordException if the provided old password does not match the current one.
+   * @throws AccessDeniedException if the authenticated user is not authorized to change this
+   *     password.
    * @throws UserServiceException for internal errors like JSON serialization.
    */
   @Transactional
   public void updatePassword(@NotNull @Valid UserPasswordUpdatePayload payload)
-      throws UserServiceException, EntityNotFoundException {
-    // 1. Find the active user
+      throws UserServiceException,
+          EntityNotFoundException,
+          InvalidPasswordException,
+          AccessDeniedException {
+    // 1. Ownership Check: Ensure the authenticated user is changing their own password
+    var auth = SecurityContextHolder.getContext().getAuthentication();
+    if (auth == null || !auth.isAuthenticated()) {
+      throw new AccessDeniedException("User is not authenticated");
+    }
+
+    var authenticatedUserIdStr = (String) auth.getPrincipal();
+    final var authenticatedUserId =
+        authenticatedUserIdStr != null ? UUID.fromString(authenticatedUserIdStr) : null;
+
+    if (!Objects.equals(payload.getUserId(), authenticatedUserId)) {
+      // Log the unauthorized attempt
+      // We use null for targetUserId to avoid FK violations with untrusted payload data.
+      // The attempted ID is stored safely in the details JSON.
+      auditService.save(
+          AuditLogPayload.builder()
+              .actorUserId(authenticatedUserId)
+              .action(AuditAction.ACCESS_DENIED)
+              .targetUserId(null)
+              .details(
+                  String.format(
+                      "{\"action\":\"password_update_attempt_on_other_user\", \"attempted_target_id\":\"%s\"}",
+                      payload.getUserId()))
+              .build());
+      throw new AccessDeniedException(
+          "You are not authorized to change the password for this user");
+    }
+
+    // 2. Find the active user
     var userEntity =
         userRepository
             .findByIdAndDeletedAtIsNull(payload.getUserId())
@@ -138,7 +174,7 @@ public class UserService {
                     new EntityNotFoundException(
                         String.format("User not found with ID: %s", payload.getUserId())));
 
-    // 2. Verify the old password
+    // 3. Verify the old password
     var storedHash =
         new HashedPassword(
             userEntity.getPwDigest(),
@@ -151,10 +187,10 @@ public class UserService {
       throw new InvalidPasswordException("The provided old password does not match.");
     }
 
-    // 3. Hash the new password
+    // 4. Hash the new password
     var newHashedPassword = cryptographyService.hashPassword(payload.getNewPassword());
 
-    // 4. Update the user entity with the new password details
+    // 5. Update the user entity with the new password details
     userEntity.setPwSalt(newHashedPassword.getSalt());
     userEntity.setPwDigest(newHashedPassword.getDigest());
     userEntity.setHashAlgo(newHashedPassword.getAlgorithm());
@@ -166,10 +202,10 @@ public class UserService {
     // The @PreUpdate annotation will handle the modifiedAt timestamp automatically
     userRepository.save(userEntity);
 
-    // 5. Global Logout: Invalidate all existing refresh tokens for this user
+    // 6. Global Logout: Invalidate all existing refresh tokens for this user
     refreshTokenRepository.deleteByUserId(userEntity.getId());
 
-    // 6. Create audit log entry
+    // 7. Create audit log entry
     var auditPayload =
         AuditLogPayload.builder()
             .actorUserId(userEntity.getId())
