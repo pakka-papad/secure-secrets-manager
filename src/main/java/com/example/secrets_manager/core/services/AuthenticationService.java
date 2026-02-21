@@ -7,15 +7,19 @@ import com.example.secrets_manager.core.models.AuditAction;
 import com.example.secrets_manager.core.models.AuditLogPayload;
 import com.example.secrets_manager.core.models.AuthResponse;
 import com.example.secrets_manager.core.models.LoginPayload;
+import com.example.secrets_manager.core.models.RefreshTokenPayload;
 import com.example.secrets_manager.core.services.exceptions.InvalidPasswordException;
+import com.example.secrets_manager.core.services.exceptions.TokenRevokedException;
 import com.example.secrets_manager.core.utils.CoreUtils;
 import com.example.secrets_manager.crypto.CryptographyService;
+import com.example.secrets_manager.crypto.dto.BinaryHash;
 import com.example.secrets_manager.security.AppUserDetails;
 import com.example.secrets_manager.security.DetailedAuthenticationException;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -136,10 +140,7 @@ public class AuthenticationService {
           .build();
 
     } catch (AuthenticationException | EntityNotFoundException e) {
-      UUID targetUserId = null;
-      if (e instanceof DetailedAuthenticationException de) {
-        targetUserId = de.getUserId();
-      }
+      UUID targetUserId = (e instanceof DetailedAuthenticationException de) ? de.getUserId() : null;
 
       auditService.save(
           AuditLogPayload.builder()
@@ -152,7 +153,104 @@ public class AuthenticationService {
                       payload.getUsername(), e.getMessage()))
               .build());
 
-      throw new InvalidPasswordException("Invalid credentials.");
+      throw new InvalidPasswordException("Invalid credentials.", e);
+    }
+  }
+
+  /**
+   * Refreshes the authentication tokens using a valid refresh token.
+   *
+   * <p>This method performs the following steps:
+   *
+   * <ol>
+   *   <li>Parses and validates the provided refresh token JWT.
+   *   <li>Acquires a pessimistic lock on the user record to serialize operations.
+   *   <li>Hashes the provided token and verifies it against the database record.
+   *   <li>Generates a new access token and a new refresh token (rotation).
+   *   <li>Updates the database with the new refresh token's hash.
+   *   <li>Records the refresh event in the audit log.
+   * </ol>
+   *
+   * @param payload The payload containing the raw refresh token string.
+   * @return An {@link AuthResponse} containing the new JWT access and refresh tokens.
+   * @throws InvalidPasswordException if the provided token is cryptographically invalid or expired.
+   * @throws TokenRevokedException if the token is valid but has been revoked (not found in DB).
+   * @throws EntityNotFoundException if the user associated with the token is not found.
+   */
+  @Transactional
+  public AuthResponse refreshToken(@NotNull @Valid RefreshTokenPayload payload) {
+    UUID userId = null;
+    try {
+      // 1. Validate the JWT itself
+      var claims =
+          jwtTokenService
+              .parseToken(payload.getRefreshToken())
+              .orElseThrow(() -> new InvalidPasswordException("Invalid or expired refresh token."));
+
+      userId = UUID.fromString(claims.getSubject());
+
+      // 2. Acquire lock on the User to serialize operations
+      userRepository
+          .findAndLockById(userId)
+          .orElseThrow(
+              () -> new EntityNotFoundException("User not found or deleted during refresh"));
+
+      // 3. Hash the provided token and check the database
+      var providedTokenHash = cryptographyService.hashBytes(payload.getRefreshToken().getBytes());
+
+      var storedToken =
+          refreshTokenRepository
+              .findByUserId(userId)
+              .orElseThrow(
+                  () ->
+                      new TokenRevokedException(
+                          "Refresh token has been revoked or is no longer valid."));
+
+      // 4. Verify that the provided token matches the one stored in the DB
+      var storedBinaryHash = new BinaryHash(storedToken.getHashAlgo(), storedToken.getTokenHash());
+      if (!Objects.equals(providedTokenHash, storedBinaryHash)) {
+        throw new TokenRevokedException("Invalid refresh token credentials.");
+      }
+
+      // 5. Rotate tokens: Generate new ones
+      var newAccessTokenInfo = jwtTokenService.generateAccessToken(userId, List.of("USER"));
+      var newRefreshTokenInfo = jwtTokenService.generateRefreshToken(userId);
+
+      // 6. Update the database with the new rotated token hash
+      var newHashedToken = cryptographyService.hashBytes(newRefreshTokenInfo.getToken().getBytes());
+      storedToken.setTokenHash(newHashedToken.getHash());
+      storedToken.setHashAlgo(newHashedToken.getAlgorithm());
+      storedToken.setExpiryDate(newRefreshTokenInfo.getExpiry());
+      refreshTokenRepository.save(storedToken);
+
+      // 7. Audit the successful refresh
+      auditService.save(
+          AuditLogPayload.builder()
+              .actorUserId(userId)
+              .action(AuditAction.USER_TOKEN_REFRESH_SUCCESS)
+              .targetUserId(userId)
+              .build());
+
+      return AuthResponse.builder()
+          .accessToken(newAccessTokenInfo.getToken())
+          .accessTokenExpiresAt(newAccessTokenInfo.getExpiry())
+          .refreshToken(newRefreshTokenInfo.getToken())
+          .refreshTokenExpiresAt(newRefreshTokenInfo.getExpiry())
+          .build();
+
+    } catch (InvalidPasswordException
+        | TokenRevokedException
+        | EntityNotFoundException
+        | IllegalArgumentException e) {
+      auditService.save(
+          AuditLogPayload.builder()
+              .actorUserId(CoreUtils.SYSTEM_USER_ID)
+              .action(AuditAction.USER_TOKEN_REFRESH_FAILED)
+              .targetUserId(userId)
+              .details(String.format("{\"reason\":\"%s\"}", e.getMessage()))
+              .build());
+
+      throw e;
     }
   }
 }

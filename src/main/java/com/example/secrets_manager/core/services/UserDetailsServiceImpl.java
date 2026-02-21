@@ -45,6 +45,7 @@ public class UserDetailsServiceImpl implements UserDetailsService {
         .findByNameAndDeletedAtIsNull(username)
         .map(UserEntityConverter::toModel)
         .map(AppUserDetails::new)
-        .orElseThrow(() -> new UsernameNotFoundException(String.format("User not found: %s", username)));
+        .orElseThrow(
+            () -> new UsernameNotFoundException(String.format("User not found: %s", username)));
   }
 }

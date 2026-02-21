@@ -2,6 +2,7 @@ package com.example.secrets_manager.api.rest.advice;
 
 import com.example.secrets_manager.api.rest.dto.ErrorResponse;
 import com.example.secrets_manager.core.services.exceptions.InvalidPasswordException;
+import com.example.secrets_manager.core.services.exceptions.TokenRevokedException;
 import com.example.secrets_manager.core.services.exceptions.UserAlreadyExistsException;
 import com.example.secrets_manager.core.services.exceptions.UserServiceException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -41,6 +42,20 @@ public class UserExceptionHandler {
             .path(request.getRequestURI())
             .build();
     return new ResponseEntity<>(errorResponse, HttpStatus.FORBIDDEN);
+  }
+
+  @ExceptionHandler(TokenRevokedException.class)
+  public ResponseEntity<ErrorResponse> handleTokenRevokedException(
+      TokenRevokedException ex, HttpServletRequest request) {
+    var errorResponse =
+        ErrorResponse.builder()
+            .timestamp(Instant.now())
+            .status(HttpStatus.UNAUTHORIZED.value()) // 401
+            .error(HttpStatus.UNAUTHORIZED.getReasonPhrase())
+            .messages(List.of(ex.getMessage()))
+            .path(request.getRequestURI())
+            .build();
+    return new ResponseEntity<>(errorResponse, HttpStatus.UNAUTHORIZED);
   }
 
   @ExceptionHandler(UserServiceException.class)
