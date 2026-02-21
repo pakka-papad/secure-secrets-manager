@@ -2,6 +2,7 @@ package com.example.secrets_manager.core.services;
 
 import com.example.secrets_manager.core.data.converters.UserEntityConverter;
 import com.example.secrets_manager.core.data.entities.UserEntity;
+import com.example.secrets_manager.core.data.repositories.RefreshTokenRepository;
 import com.example.secrets_manager.core.data.repositories.UserRepository;
 import com.example.secrets_manager.core.models.AuditAction;
 import com.example.secrets_manager.core.models.AuditLogPayload;
@@ -30,6 +31,7 @@ import org.springframework.validation.annotation.Validated;
 public class UserService {
 
   private final UserRepository userRepository;
+  private final RefreshTokenRepository refreshTokenRepository;
   private final CryptographyService cryptographyService;
   private final AuditService auditService;
   private final ObjectMapper objectMapper;
@@ -37,10 +39,12 @@ public class UserService {
   @Autowired
   public UserService(
       UserRepository userRepository,
+      RefreshTokenRepository refreshTokenRepository,
       CryptographyService cryptographyService,
       AuditService auditService,
       ObjectMapper objectMapper) {
     this.userRepository = userRepository;
+    this.refreshTokenRepository = refreshTokenRepository;
     this.cryptographyService = cryptographyService;
     this.auditService = auditService;
     this.objectMapper = objectMapper;
@@ -114,6 +118,8 @@ public class UserService {
 
   /**
    * Updates the password for a specified user.
+   * This action also invalidates all active refresh tokens for the user, effectively
+   * performing a global logout.
    *
    * @param payload The {@link UserPasswordUpdatePayload} containing user ID, old and new password.
    * @throws EntityNotFoundException if the user is not found.
@@ -160,7 +166,10 @@ public class UserService {
     // The @PreUpdate annotation will handle the modifiedAt timestamp automatically
     userRepository.save(userEntity);
 
-    // 5. Create audit log entry
+    // 5. Global Logout: Invalidate all existing refresh tokens for this user
+    refreshTokenRepository.deleteByUserId(userEntity.getId());
+
+    // 6. Create audit log entry
     var auditPayload =
         AuditLogPayload.builder()
             .actorUserId(userEntity.getId())
