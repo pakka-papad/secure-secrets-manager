@@ -24,6 +24,7 @@ import java.util.UUID;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -77,71 +78,17 @@ public class AuthenticationService {
    * @throws IllegalStateException if a newly generated token is found to be invalid.
    */
   @Transactional
-  public AuthResponse login(@NotNull @Valid LoginPayload payload) {
+  public AuthResponse login(@NotNull @Valid LoginPayload payload)
+      throws InvalidPasswordException, EntityNotFoundException, IllegalStateException {
+    // 1. Authenticate user via Spring Security's AuthenticationManager
+    Authentication authentication;
     try {
-      // 1. Authenticate user via Spring Security's AuthenticationManager
-      var authentication =
+      authentication =
           authenticationManager.authenticate(
               new UsernamePasswordAuthenticationToken(
                   payload.getUsername(), new String(payload.getPassword())));
-
-      // 2. Extract the User model from the authenticated Principal
-      var userDetails = (AppUserDetails) authentication.getPrincipal();
-      if (userDetails == null) {
-        throw new EntityNotFoundException("User details not found after successful authentication");
-      }
-      final var userId = userDetails.getUser().getId();
-
-      // 3. Generate tokens
-      var accessTokenInfo = jwtTokenService.generateAccessToken(userId, List.of("USER"));
-      var refreshTokenInfo = jwtTokenService.generateRefreshToken(userId);
-
-      // 4. Save refresh token (for revocation) - CONCURRENT SAFE
-      userRepository
-          .findAndLockById(userId)
-          .orElseThrow(() -> new EntityNotFoundException("User not found or deleted during login"));
-
-      // Hash the refresh token before storage for security
-      var hashedToken = cryptographyService.hashBytes(refreshTokenInfo.getToken().getBytes());
-
-      refreshTokenRepository
-          .findAndLockByUserId(userId)
-          .ifPresentOrElse(
-              existingToken -> {
-                existingToken.setTokenHash(hashedToken.getHash());
-                existingToken.setHashAlgo(hashedToken.getAlgorithm());
-                existingToken.setExpiryDate(refreshTokenInfo.getExpiry());
-                refreshTokenRepository.save(existingToken);
-              },
-              () -> {
-                refreshTokenRepository.save(
-                    RefreshToken.builder()
-                        .userId(userId)
-                        .tokenHash(hashedToken.getHash())
-                        .hashAlgo(hashedToken.getAlgorithm())
-                        .expiryDate(refreshTokenInfo.getExpiry())
-                        .build());
-              });
-
-      // 5. Audit successful login
-      auditService.save(
-          AuditLogPayload.builder()
-              .actorUserId(userId)
-              .action(AuditAction.USER_LOGIN_SUCCESS)
-              .targetUserId(userId)
-              .build());
-
-      // 6. Return response with absolute expiry timestamps
-      return AuthResponse.builder()
-          .accessToken(accessTokenInfo.getToken())
-          .accessTokenExpiresAt(accessTokenInfo.getExpiry())
-          .refreshToken(refreshTokenInfo.getToken())
-          .refreshTokenExpiresAt(refreshTokenInfo.getExpiry())
-          .build();
-
-    } catch (AuthenticationException | EntityNotFoundException e) {
+    } catch (AuthenticationException e) {
       UUID targetUserId = (e instanceof DetailedAuthenticationException de) ? de.getUserId() : null;
-
       auditService.save(
           AuditLogPayload.builder()
               .actorUserId(CoreUtils.SYSTEM_USER_ID)
@@ -152,9 +99,82 @@ public class AuthenticationService {
                       "{\"username_attempt\":\"%s\", \"reason\":\"%s\"}",
                       payload.getUsername(), e.getMessage()))
               .build());
-
       throw new InvalidPasswordException("Invalid credentials.", e);
     }
+
+    // 2. Extract the User model from the authenticated Principal
+    var userDetails = (AppUserDetails) authentication.getPrincipal();
+    if (userDetails == null) {
+      auditService.save(
+          AuditLogPayload.builder()
+              .actorUserId(CoreUtils.SYSTEM_USER_ID)
+              .action(AuditAction.USER_LOGIN_FAILED)
+              .details(
+                  String.format(
+                      "{\"username_attempt\":\"%s\", \"reason\":\"User details not found after successful authentication\"}",
+                      payload.getUsername()))
+              .build());
+      throw new EntityNotFoundException("User details not found after successful authentication");
+    }
+    final var userId = userDetails.getUser().getId();
+
+    // 3. Generate tokens
+    var accessTokenInfo = jwtTokenService.generateAccessToken(userId, List.of("USER"));
+    var refreshTokenInfo = jwtTokenService.generateRefreshToken(userId);
+
+    // 4. Save refresh token (for revocation)
+    // Acquire lock on the User first to serialize auth operations for this specific user.
+    userRepository
+        .findAndLockById(userId)
+        .orElseThrow(
+            () -> {
+              auditService.save(
+                  AuditLogPayload.builder()
+                      .actorUserId(CoreUtils.SYSTEM_USER_ID)
+                      .action(AuditAction.USER_LOGIN_FAILED)
+                      .targetUserId(userId)
+                      .details("{\"reason\":\"User not found or deleted during login\"}")
+                      .build());
+              return new EntityNotFoundException("User not found or deleted during login");
+            });
+
+    // Hash the refresh token before storage for security
+    var hashedToken = cryptographyService.hashBytes(refreshTokenInfo.getToken().getBytes());
+
+    refreshTokenRepository
+        .findAndLockByUserId(userId)
+        .ifPresentOrElse(
+            existingToken -> {
+              existingToken.setTokenHash(hashedToken.getHash());
+              existingToken.setHashAlgo(hashedToken.getAlgorithm());
+              existingToken.setExpiryDate(refreshTokenInfo.getExpiry());
+              refreshTokenRepository.save(existingToken);
+            },
+            () -> {
+              refreshTokenRepository.save(
+                  RefreshToken.builder()
+                      .userId(userId)
+                      .tokenHash(hashedToken.getHash())
+                      .hashAlgo(hashedToken.getAlgorithm())
+                      .expiryDate(refreshTokenInfo.getExpiry())
+                      .build());
+            });
+
+    // 5. Audit successful login
+    auditService.save(
+        AuditLogPayload.builder()
+            .actorUserId(userId)
+            .action(AuditAction.USER_LOGIN_SUCCESS)
+            .targetUserId(userId)
+            .build());
+
+    // 6. Return response with absolute expiry timestamps
+    return AuthResponse.builder()
+        .accessToken(accessTokenInfo.getToken())
+        .accessTokenExpiresAt(accessTokenInfo.getExpiry())
+        .refreshToken(refreshTokenInfo.getToken())
+        .refreshTokenExpiresAt(refreshTokenInfo.getExpiry())
+        .build();
   }
 
   /**
@@ -178,79 +198,96 @@ public class AuthenticationService {
    * @throws EntityNotFoundException if the user associated with the token is not found.
    */
   @Transactional
-  public AuthResponse refreshToken(@NotNull @Valid RefreshTokenPayload payload) {
-    UUID userId = null;
-    try {
-      // 1. Validate the JWT itself
-      var claims =
-          jwtTokenService
-              .parseToken(payload.getRefreshToken())
-              .orElseThrow(() -> new InvalidPasswordException("Invalid or expired refresh token."));
+  public AuthResponse refreshToken(@NotNull @Valid RefreshTokenPayload payload)
+      throws InvalidPasswordException, TokenRevokedException, EntityNotFoundException {
+    // 1. Validate the JWT itself
+    var claims =
+        jwtTokenService
+            .parseToken(payload.getRefreshToken())
+            .orElseThrow(
+                () -> {
+                  auditService.save(
+                      AuditLogPayload.builder()
+                          .actorUserId(CoreUtils.SYSTEM_USER_ID)
+                          .action(AuditAction.USER_TOKEN_REFRESH_FAILED)
+                          .details("{\"reason\":\"Invalid or expired refresh token\"}")
+                          .build());
+                  return new InvalidPasswordException("Invalid or expired refresh token.");
+                });
 
-      userId = UUID.fromString(claims.getSubject());
+    final var userId = UUID.fromString(claims.getSubject());
 
-      // 2. Acquire lock on the User to serialize operations
-      userRepository
-          .findAndLockById(userId)
-          .orElseThrow(
-              () -> new EntityNotFoundException("User not found or deleted during refresh"));
+    // 2. Acquire lock on the User to serialize operations
+    userRepository
+        .findAndLockById(userId)
+        .orElseThrow(
+            () -> {
+              auditService.save(
+                  AuditLogPayload.builder()
+                      .actorUserId(CoreUtils.SYSTEM_USER_ID)
+                      .action(AuditAction.USER_TOKEN_REFRESH_FAILED)
+                      .targetUserId(userId)
+                      .details("{\"reason\":\"User not found or deleted during refresh\"}")
+                      .build());
+              return new EntityNotFoundException("User not found or deleted during refresh");
+            });
 
-      // 3. Hash the provided token and check the database
-      var providedTokenHash = cryptographyService.hashBytes(payload.getRefreshToken().getBytes());
+    // 3. Hash the provided token and check the database
+    var providedTokenHash = cryptographyService.hashBytes(payload.getRefreshToken().getBytes());
 
-      var storedToken =
-          refreshTokenRepository
-              .findByUserId(userId)
-              .orElseThrow(
-                  () ->
-                      new TokenRevokedException(
-                          "Refresh token has been revoked or is no longer valid."));
+    var storedToken =
+        refreshTokenRepository
+            .findByUserId(userId)
+            .orElseThrow(
+                () -> {
+                  auditService.save(
+                      AuditLogPayload.builder()
+                          .actorUserId(CoreUtils.SYSTEM_USER_ID)
+                          .action(AuditAction.USER_TOKEN_REFRESH_FAILED)
+                          .targetUserId(userId)
+                          .details("{\"reason\":\"Refresh token has been revoked\"}")
+                          .build());
+                  return new TokenRevokedException(
+                      "Refresh token has been revoked or is no longer valid.");
+                });
 
-      // 4. Verify that the provided token matches the one stored in the DB
-      var storedBinaryHash = new BinaryHash(storedToken.getHashAlgo(), storedToken.getTokenHash());
-      if (!Objects.equals(providedTokenHash, storedBinaryHash)) {
-        throw new TokenRevokedException("Invalid refresh token credentials.");
-      }
-
-      // 5. Rotate tokens: Generate new ones
-      var newAccessTokenInfo = jwtTokenService.generateAccessToken(userId, List.of("USER"));
-      var newRefreshTokenInfo = jwtTokenService.generateRefreshToken(userId);
-
-      // 6. Update the database with the new rotated token hash
-      var newHashedToken = cryptographyService.hashBytes(newRefreshTokenInfo.getToken().getBytes());
-      storedToken.setTokenHash(newHashedToken.getHash());
-      storedToken.setHashAlgo(newHashedToken.getAlgorithm());
-      storedToken.setExpiryDate(newRefreshTokenInfo.getExpiry());
-      refreshTokenRepository.save(storedToken);
-
-      // 7. Audit the successful refresh
-      auditService.save(
-          AuditLogPayload.builder()
-              .actorUserId(userId)
-              .action(AuditAction.USER_TOKEN_REFRESH_SUCCESS)
-              .targetUserId(userId)
-              .build());
-
-      return AuthResponse.builder()
-          .accessToken(newAccessTokenInfo.getToken())
-          .accessTokenExpiresAt(newAccessTokenInfo.getExpiry())
-          .refreshToken(newRefreshTokenInfo.getToken())
-          .refreshTokenExpiresAt(newRefreshTokenInfo.getExpiry())
-          .build();
-
-    } catch (InvalidPasswordException
-        | TokenRevokedException
-        | EntityNotFoundException
-        | IllegalArgumentException e) {
+    // 4. Verify that the provided token matches the one stored in the DB
+    var storedBinaryHash = new BinaryHash(storedToken.getHashAlgo(), storedToken.getTokenHash());
+    if (!Objects.equals(providedTokenHash, storedBinaryHash)) {
       auditService.save(
           AuditLogPayload.builder()
               .actorUserId(CoreUtils.SYSTEM_USER_ID)
               .action(AuditAction.USER_TOKEN_REFRESH_FAILED)
               .targetUserId(userId)
-              .details(String.format("{\"reason\":\"%s\"}", e.getMessage()))
+              .details("{\"reason\":\"Token credentials mismatch\"}")
               .build());
-
-      throw e;
+      throw new TokenRevokedException("Invalid refresh token credentials.");
     }
+
+    // 5. Rotate tokens: Generate new ones
+    var newAccessTokenInfo = jwtTokenService.generateAccessToken(userId, List.of("USER"));
+    var newRefreshTokenInfo = jwtTokenService.generateRefreshToken(userId);
+
+    // 6. Update the database with the new rotated token hash
+    var newHashedToken = cryptographyService.hashBytes(newRefreshTokenInfo.getToken().getBytes());
+    storedToken.setTokenHash(newHashedToken.getHash());
+    storedToken.setHashAlgo(newHashedToken.getAlgorithm());
+    storedToken.setExpiryDate(newRefreshTokenInfo.getExpiry());
+    refreshTokenRepository.save(storedToken);
+
+    // 7. Audit the successful refresh
+    auditService.save(
+        AuditLogPayload.builder()
+            .actorUserId(userId)
+            .action(AuditAction.USER_TOKEN_REFRESH_SUCCESS)
+            .targetUserId(userId)
+            .build());
+
+    return AuthResponse.builder()
+        .accessToken(newAccessTokenInfo.getToken())
+        .accessTokenExpiresAt(newAccessTokenInfo.getExpiry())
+        .refreshToken(newRefreshTokenInfo.getToken())
+        .refreshTokenExpiresAt(newRefreshTokenInfo.getExpiry())
+        .build();
   }
 }
