@@ -82,6 +82,24 @@ ALTER TABLE sm.audit_logs ADD CONSTRAINT audit_logs_target_group_id_fk FOREIGN K
 ALTER TABLE sm.audit_logs ADD CONSTRAINT audit_logs_target_secret_id_fk FOREIGN KEY (target_secret_id) REFERENCES sm.secrets(id);
 ALTER TABLE sm.audit_logs ADD CONSTRAINT audit_logs_target_master_key_version_fk FOREIGN KEY (target_master_key_version) REFERENCES sm.master_keys(version);
 
+CREATE TABLE IF NOT EXISTS sm.security_event_logs(
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    actor_user_id UUID NULL,
+    action VARCHAR(31) NOT NULL,
+    target_user_id UUID NULL,
+    target_group_id UUID NULL,
+    target_secret_id UUID NULL,
+    target_master_key_version INT NULL,
+    details JSONB NULL
+);
+
+ALTER TABLE sm.security_event_logs ADD CONSTRAINT security_event_logs_actor_user_id_fk FOREIGN KEY (actor_user_id) REFERENCES sm.users(id);
+ALTER TABLE sm.security_event_logs ADD CONSTRAINT security_event_logs_target_user_id_fk FOREIGN KEY (target_user_id) REFERENCES sm.users(id);
+ALTER TABLE sm.security_event_logs ADD CONSTRAINT security_event_logs_target_group_id_fk FOREIGN KEY (target_group_id) REFERENCES sm.secret_groups(id);
+ALTER TABLE sm.security_event_logs ADD CONSTRAINT security_event_logs_target_secret_id_fk FOREIGN KEY (target_secret_id) REFERENCES sm.secrets(id);
+ALTER TABLE sm.security_event_logs ADD CONSTRAINT security_event_logs_target_master_key_version_fk FOREIGN KEY (target_master_key_version) REFERENCES sm.master_keys(version);
+
 CREATE TABLE IF NOT EXISTS sm.tasks(
     id UUID PRIMARY KEY DEFAULT uuidv7(),
     parent_task_id UUID,

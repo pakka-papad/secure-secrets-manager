@@ -17,4 +17,5 @@ public final class CoreDataConstants {
   public static final String TABLE_TASKS = "tasks";
   public static final String TABLE_SYSTEM_LOCKS = "system_locks";
   public static final String TABLE_REFRESH_TOKENS = "refresh_tokens";
+  public static final String TABLE_SECURITY_EVENT_LOGS = "security_event_logs";
 }
