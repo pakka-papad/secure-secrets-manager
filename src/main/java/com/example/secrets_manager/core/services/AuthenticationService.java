@@ -8,6 +8,8 @@ import com.example.secrets_manager.core.models.AuditLogPayload;
 import com.example.secrets_manager.core.models.AuthResponse;
 import com.example.secrets_manager.core.models.LoginPayload;
 import com.example.secrets_manager.core.models.RefreshTokenPayload;
+import com.example.secrets_manager.core.models.SecurityEvent;
+import com.example.secrets_manager.core.models.SecurityEventLogPayload;
 import com.example.secrets_manager.core.services.exceptions.InvalidPasswordException;
 import com.example.secrets_manager.core.services.exceptions.TokenRevokedException;
 import com.example.secrets_manager.core.utils.CoreUtils;
@@ -39,6 +41,7 @@ public class AuthenticationService {
   private final JwtTokenService jwtTokenService;
   private final RefreshTokenRepository refreshTokenRepository;
   private final AuditService auditService;
+  private final SecurityEventLogService securityEventLogService;
   private final CryptographyService cryptographyService;
 
   @Autowired
@@ -48,12 +51,14 @@ public class AuthenticationService {
       JwtTokenService jwtTokenService,
       RefreshTokenRepository refreshTokenRepository,
       AuditService auditService,
+      SecurityEventLogService securityEventLogService,
       CryptographyService cryptographyService) {
     this.authenticationManager = authenticationManager;
     this.userRepository = userRepository;
     this.jwtTokenService = jwtTokenService;
     this.refreshTokenRepository = refreshTokenRepository;
     this.auditService = auditService;
+    this.securityEventLogService = securityEventLogService;
     this.cryptographyService = cryptographyService;
   }
 
@@ -89,10 +94,10 @@ public class AuthenticationService {
                   payload.getUsername(), new String(payload.getPassword())));
     } catch (AuthenticationException e) {
       UUID targetUserId = (e instanceof DetailedAuthenticationException de) ? de.getUserId() : null;
-      auditService.save(
-          AuditLogPayload.builder()
+      securityEventLogService.save(
+          SecurityEventLogPayload.builder()
               .actorUserId(CoreUtils.SYSTEM_USER_ID)
-              .action(AuditAction.USER_LOGIN_FAILED)
+              .action(SecurityEvent.LOGIN_FAILED)
               .targetUserId(targetUserId)
               .details(
                   String.format(
@@ -105,10 +110,10 @@ public class AuthenticationService {
     // 2. Extract the User model from the authenticated Principal
     var userDetails = (AppUserDetails) authentication.getPrincipal();
     if (userDetails == null) {
-      auditService.save(
-          AuditLogPayload.builder()
+      securityEventLogService.save(
+          SecurityEventLogPayload.builder()
               .actorUserId(CoreUtils.SYSTEM_USER_ID)
-              .action(AuditAction.USER_LOGIN_FAILED)
+              .action(SecurityEvent.LOGIN_FAILED)
               .details(
                   String.format(
                       "{\"username_attempt\":\"%s\", \"reason\":\"User details not found after successful authentication\"}",
@@ -128,10 +133,10 @@ public class AuthenticationService {
         .findAndLockById(userId)
         .orElseThrow(
             () -> {
-              auditService.save(
-                  AuditLogPayload.builder()
+              securityEventLogService.save(
+                  SecurityEventLogPayload.builder()
                       .actorUserId(CoreUtils.SYSTEM_USER_ID)
-                      .action(AuditAction.USER_LOGIN_FAILED)
+                      .action(SecurityEvent.LOGIN_FAILED)
                       .targetUserId(userId)
                       .details("{\"reason\":\"User not found or deleted during login\"}")
                       .build());
@@ -206,10 +211,10 @@ public class AuthenticationService {
             .parseToken(payload.getRefreshToken())
             .orElseThrow(
                 () -> {
-                  auditService.save(
-                      AuditLogPayload.builder()
+                  securityEventLogService.save(
+                      SecurityEventLogPayload.builder()
                           .actorUserId(CoreUtils.SYSTEM_USER_ID)
-                          .action(AuditAction.USER_TOKEN_REFRESH_FAILED)
+                          .action(SecurityEvent.TOKEN_REFRESH_FAILED)
                           .details("{\"reason\":\"Invalid or expired refresh token\"}")
                           .build());
                   return new InvalidPasswordException("Invalid or expired refresh token.");
@@ -222,10 +227,10 @@ public class AuthenticationService {
         .findAndLockById(userId)
         .orElseThrow(
             () -> {
-              auditService.save(
-                  AuditLogPayload.builder()
+              securityEventLogService.save(
+                  SecurityEventLogPayload.builder()
                       .actorUserId(CoreUtils.SYSTEM_USER_ID)
-                      .action(AuditAction.USER_TOKEN_REFRESH_FAILED)
+                      .action(SecurityEvent.TOKEN_REFRESH_FAILED)
                       .targetUserId(userId)
                       .details("{\"reason\":\"User not found or deleted during refresh\"}")
                       .build());
@@ -240,10 +245,10 @@ public class AuthenticationService {
             .findByUserId(userId)
             .orElseThrow(
                 () -> {
-                  auditService.save(
-                      AuditLogPayload.builder()
+                  securityEventLogService.save(
+                      SecurityEventLogPayload.builder()
                           .actorUserId(CoreUtils.SYSTEM_USER_ID)
-                          .action(AuditAction.USER_TOKEN_REFRESH_FAILED)
+                          .action(SecurityEvent.TOKEN_REFRESH_FAILED)
                           .targetUserId(userId)
                           .details("{\"reason\":\"Refresh token has been revoked\"}")
                           .build());
@@ -254,10 +259,10 @@ public class AuthenticationService {
     // 4. Verify that the provided token matches the one stored in the DB
     var storedBinaryHash = new BinaryHash(storedToken.getHashAlgo(), storedToken.getTokenHash());
     if (!Objects.equals(providedTokenHash, storedBinaryHash)) {
-      auditService.save(
-          AuditLogPayload.builder()
+      securityEventLogService.save(
+          SecurityEventLogPayload.builder()
               .actorUserId(CoreUtils.SYSTEM_USER_ID)
-              .action(AuditAction.USER_TOKEN_REFRESH_FAILED)
+              .action(SecurityEvent.TOKEN_REFRESH_FAILED)
               .targetUserId(userId)
               .details("{\"reason\":\"Token credentials mismatch\"}")
               .build());

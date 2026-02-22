@@ -6,6 +6,8 @@ import com.example.secrets_manager.core.data.repositories.RefreshTokenRepository
 import com.example.secrets_manager.core.data.repositories.UserRepository;
 import com.example.secrets_manager.core.models.AuditAction;
 import com.example.secrets_manager.core.models.AuditLogPayload;
+import com.example.secrets_manager.core.models.SecurityEvent;
+import com.example.secrets_manager.core.models.SecurityEventLogPayload;
 import com.example.secrets_manager.core.models.User;
 import com.example.secrets_manager.core.models.UserCreationPayload;
 import com.example.secrets_manager.core.models.UserPasswordUpdatePayload;
@@ -38,6 +40,7 @@ public class UserService {
   private final RefreshTokenRepository refreshTokenRepository;
   private final CryptographyService cryptographyService;
   private final AuditService auditService;
+  private final SecurityEventLogService securityEventLogService;
   private final ObjectMapper objectMapper;
 
   @Autowired
@@ -46,11 +49,13 @@ public class UserService {
       RefreshTokenRepository refreshTokenRepository,
       CryptographyService cryptographyService,
       AuditService auditService,
+      SecurityEventLogService securityEventLogService,
       ObjectMapper objectMapper) {
     this.userRepository = userRepository;
     this.refreshTokenRepository = refreshTokenRepository;
     this.cryptographyService = cryptographyService;
     this.auditService = auditService;
+    this.securityEventLogService = securityEventLogService;
     this.objectMapper = objectMapper;
   }
 
@@ -149,12 +154,10 @@ public class UserService {
 
     if (!Objects.equals(payload.getUserId(), authenticatedUserId)) {
       // Log the unauthorized attempt
-      // We use null for targetUserId to avoid FK violations with untrusted payload data.
-      // The attempted ID is stored safely in the details JSON.
-      auditService.save(
-          AuditLogPayload.builder()
+      securityEventLogService.save(
+          SecurityEventLogPayload.builder()
               .actorUserId(authenticatedUserId)
-              .action(AuditAction.ACCESS_DENIED)
+              .action(SecurityEvent.ACCESS_DENIED)
               .targetUserId(null)
               .details(
                   String.format(
