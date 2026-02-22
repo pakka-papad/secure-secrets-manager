@@ -10,7 +10,6 @@ import com.example.secrets_manager.crypto.CryptographyService;
 import java.time.Instant;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
@@ -32,13 +31,16 @@ public class AuditService {
 
   /**
    * Persists an audit log event from a payload, handling cryptographic chaining and locking. This
-   * method uses a new transaction to ensure the audit log is persisted even if the calling
-   * service's transaction rolls back (e.g., during a failed login).
+   * method assumes a genesis record already exists and will throw an exception if the audit log is
+   * empty.
+   *
+   * <p>This method should be called from within an existing @Transactional block in a calling
+   * service.
    *
    * @param payload The AuditLogPayload containing the details of the audit event.
    * @return The persisted AuditLog model, complete with its seqId and calculated hashes.
    */
-  @Transactional(propagation = Propagation.REQUIRES_NEW)
+  @Transactional
   public AuditLog save(AuditLogPayload payload) {
     // --- 1. Acquire exclusive lock to serialize chain access ---
     systemLockService.acquireExclusiveLock(SystemLockName.AUDIT_LOG_CHAIN);
