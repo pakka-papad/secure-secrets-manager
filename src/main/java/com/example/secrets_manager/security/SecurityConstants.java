@@ -7,13 +7,14 @@ public final class SecurityConstants {
   }
 
   public static final String AUTH_LOGIN_URL = "/api/v1/auth/login";
+  public static final String AUTH_REFRESH_URL = "/api/v1/auth/refresh";
   public static final String JWT_HEADER = "Authorization";
   public static final String JWT_TOKEN_PREFIX = "Bearer ";
   public static final String JWT_CLAIM_ROLES = "roles";
 
   // Public API endpoints that don't require authentication
   public static final String[] PUBLIC_ENDPOINTS = {
-    AUTH_LOGIN_URL, "/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html"
+    AUTH_LOGIN_URL, AUTH_REFRESH_URL, "/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html"
   };
 
   // Roles

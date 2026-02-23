@@ -71,10 +71,22 @@ public class UserService {
    */
   @Transactional
   public User createUser(@NotNull @Valid UserCreationPayload payload) throws UserServiceException {
-    // 1. Hash the password
+    // 1. Authentication Check: Ensure the caller is authenticated
+    final var auth = SecurityContextHolder.getContext().getAuthentication();
+    if (auth == null || !auth.isAuthenticated()) {
+      throw new AccessDeniedException("User is not authenticated");
+    }
+
+    final var authenticatedUserIdStr = (String) auth.getPrincipal();
+    if (authenticatedUserIdStr == null) {
+      throw new AccessDeniedException("User is not authenticated");
+    }
+    final var authenticatedUserId = UUID.fromString(authenticatedUserIdStr);
+
+    // 2. Hash the password
     var hashedPassword = cryptographyService.hashPassword(payload.getPassword());
 
-    // 2. Convert hash params Map to JSON string
+    // 3. Convert hash params Map to JSON string
     var hashParamsJson = "";
     try {
       hashParamsJson = objectMapper.writeValueAsString(hashedPassword.getParams());
@@ -82,7 +94,7 @@ public class UserService {
       throw new UserServiceException("Failed to serialize password hash parameters.", e);
     }
 
-    // 3. Build the UserEntity
+    // 4. Build the UserEntity
     var userEntity =
         UserEntity.builder()
             .name(payload.getName())
@@ -94,7 +106,7 @@ public class UserService {
             .deletedAt(null)
             .build();
 
-    // 4. Save the user entity, relying on DB unique constraint for duplicate name check
+    // 5. Save the user entity, relying on DB unique constraint for duplicate name check
     UserEntity savedUserEntity;
     try {
       savedUserEntity = userRepository.save(userEntity);
@@ -112,16 +124,17 @@ public class UserService {
           "Failed to create user due to an unexpected error during persistence.", e);
     }
 
-    // 5. Create audit log entry
+    // 6. Create audit log entry (Chained Audit Log)
+    // The actor is the authenticated caller, the target is the new user.
     var auditPayload =
         AuditLogPayload.builder()
-            .actorUserId(savedUserEntity.getId())
+            .actorUserId(authenticatedUserId)
             .action(AuditAction.USER_CREATE)
             .targetUserId(savedUserEntity.getId())
             .build();
     auditService.save(auditPayload);
 
-    // 6. Convert and return the User domain model
+    // 7. Convert and return the User domain model
     return UserEntityConverter.toModel(savedUserEntity);
   }
 
@@ -143,12 +156,12 @@ public class UserService {
           InvalidPasswordException,
           AccessDeniedException {
     // 1. Ownership Check: Ensure the authenticated user is changing their own password
-    var auth = SecurityContextHolder.getContext().getAuthentication();
+    final var auth = SecurityContextHolder.getContext().getAuthentication();
     if (auth == null || !auth.isAuthenticated()) {
       throw new AccessDeniedException("User is not authenticated");
     }
 
-    var authenticatedUserIdStr = (String) auth.getPrincipal();
+    final var authenticatedUserIdStr = (String) auth.getPrincipal();
     final var authenticatedUserId =
         authenticatedUserIdStr != null ? UUID.fromString(authenticatedUserIdStr) : null;
 
