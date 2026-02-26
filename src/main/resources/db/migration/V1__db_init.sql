@@ -9,11 +9,12 @@ CREATE TABLE IF NOT EXISTS sm.users(
     modified_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     hash_algo VARCHAR(31) NOT NULL,
     hash_params JSONB NOT NULL,
+    roles VARCHAR(31)[] NOT NULL DEFAULT '{}',
     deleted_at TIMESTAMPTZ NULL
 );
 
-INSERT INTO sm.users (id, name, pw_salt, pw_digest, hash_algo, hash_params)
-VALUES ('00000000-0000-0000-0000-000000000000', 'system', '\x', '\x', 'NONE', '{}') ON CONFLICT(id) DO NOTHING;
+INSERT INTO sm.users (id, name, pw_salt, pw_digest, hash_algo, hash_params, roles)
+VALUES ('00000000-0000-0000-0000-000000000000', 'system', '\x', '\x', 'NONE', '{}', '{"ADMIN"}') ON CONFLICT(id) DO NOTHING;
 
 CREATE TABLE IF NOT EXISTS sm.master_keys(
     version INT PRIMARY KEY,

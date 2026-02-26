@@ -1,6 +1,7 @@
 package com.example.secrets_manager.core.models;
 
 import java.time.Instant;
+import java.util.EnumSet;
 import java.util.UUID;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -21,5 +22,6 @@ public class User {
   private Instant modifiedAt;
   private String hashAlgo;
   private String hashParams;
+  private EnumSet<UserRole> roles;
   private Instant deletedAt;
 }

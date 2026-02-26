@@ -28,6 +28,7 @@ public class UserEntity {
   public static final String COL_MODIFIED_AT = "modified_at";
   public static final String COL_HASH_ALGO = "hash_algo";
   public static final String COL_HASH_PARAMS = "hash_params";
+  public static final String COL_ROLES = "roles";
   public static final String COL_DELETED_AT = "deleted_at";
 
   @Id
@@ -56,6 +57,9 @@ public class UserEntity {
 
   @Column(name = COL_HASH_PARAMS, nullable = false, columnDefinition = "jsonb")
   private String hashParams;
+
+  @Column(name = COL_ROLES, nullable = false, columnDefinition = "varchar(31)[]")
+  private String[] roles;
 
   @Column(name = COL_DELETED_AT)
   private Instant deletedAt;

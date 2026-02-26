@@ -2,10 +2,8 @@ package com.example.secrets_manager.security;
 
 import com.example.secrets_manager.core.models.User;
 import java.util.Collection;
-import java.util.Collections;
 import lombok.Getter;
 import org.springframework.security.core.GrantedAuthority;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
 /**
@@ -23,7 +21,7 @@ public class AppUserDetails implements UserDetails {
 
   @Override
   public Collection<? extends GrantedAuthority> getAuthorities() {
-    return Collections.singletonList(new SimpleGrantedAuthority(SecurityConstants.ROLE_USER));
+    return SecurityUtils.toAuthorities(user.getRoles());
   }
 
   @Override

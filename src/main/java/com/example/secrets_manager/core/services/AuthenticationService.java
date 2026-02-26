@@ -17,10 +17,10 @@ import com.example.secrets_manager.crypto.CryptographyService;
 import com.example.secrets_manager.crypto.dto.BinaryHash;
 import com.example.secrets_manager.security.AppUserDetails;
 import com.example.secrets_manager.security.DetailedAuthenticationException;
+import com.example.secrets_manager.security.SecurityUtils;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
-import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -122,9 +122,10 @@ public class AuthenticationService {
       throw new EntityNotFoundException("User details not found after successful authentication");
     }
     final var userId = userDetails.getUser().getId();
+    final var roles = SecurityUtils.getAuthoritiesAsStrings(userDetails.getAuthorities());
 
     // 3. Generate tokens
-    var accessTokenInfo = jwtTokenService.generateAccessToken(userId, List.of("USER"));
+    var accessTokenInfo = jwtTokenService.generateAccessToken(userId, roles);
     var refreshTokenInfo = jwtTokenService.generateRefreshToken(userId);
 
     // 4. Save refresh token (for revocation)
@@ -223,19 +224,22 @@ public class AuthenticationService {
     final var userId = UUID.fromString(claims.getSubject());
 
     // 2. Acquire lock on the User to serialize operations
-    userRepository
-        .findAndLockById(userId)
-        .orElseThrow(
-            () -> {
-              securityEventLogService.save(
-                  SecurityEventLogPayload.builder()
-                      .actorUserId(CoreUtils.SYSTEM_USER_ID)
-                      .action(SecurityEvent.TOKEN_REFRESH_FAILED)
-                      .targetUserId(userId)
-                      .details("{\"reason\":\"User not found or deleted during refresh\"}")
-                      .build());
-              return new EntityNotFoundException("User not found or deleted during refresh");
-            });
+    var user =
+        userRepository
+            .findAndLockById(userId)
+            .orElseThrow(
+                () -> {
+                  securityEventLogService.save(
+                      SecurityEventLogPayload.builder()
+                          .actorUserId(CoreUtils.SYSTEM_USER_ID)
+                          .action(SecurityEvent.TOKEN_REFRESH_FAILED)
+                          .targetUserId(userId)
+                          .details("{\"reason\":\"User not found or deleted during refresh\"}")
+                          .build());
+                  return new EntityNotFoundException("User not found or deleted during refresh");
+                });
+
+    final var roles = SecurityUtils.prefixRoles(user.getRoles());
 
     // 3. Hash the provided token and check the database
     var providedTokenHash = cryptographyService.hashBytes(payload.getRefreshToken().getBytes());
@@ -270,7 +274,7 @@ public class AuthenticationService {
     }
 
     // 5. Rotate tokens: Generate new ones
-    var newAccessTokenInfo = jwtTokenService.generateAccessToken(userId, List.of("USER"));
+    var newAccessTokenInfo = jwtTokenService.generateAccessToken(userId, roles);
     var newRefreshTokenInfo = jwtTokenService.generateRefreshToken(userId);
 
     // 6. Update the database with the new rotated token hash
