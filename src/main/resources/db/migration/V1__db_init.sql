@@ -32,7 +32,7 @@ CREATE TABLE IF NOT EXISTS sm.secret_groups(
     deleted_at TIMESTAMPTZ NULL
 );
 
-CREATE TABLE IF NOT EXISTS sm.authorizations(
+CREATE TABLE IF NOT EXISTS sm.secret_group_authorizations(
     user_id UUID NOT NULL,
     group_id UUID NOT NULL,
     p_read BOOLEAN DEFAULT FALSE NOT NULL,
@@ -42,8 +42,8 @@ CREATE TABLE IF NOT EXISTS sm.authorizations(
     PRIMARY KEY(user_id, group_id)
 );
 
-ALTER TABLE sm.authorizations ADD CONSTRAINT authorizations_user_id_fk FOREIGN KEY (user_id) REFERENCES sm.users(id);
-ALTER TABLE sm.authorizations ADD CONSTRAINT authorizations_group_id_fk FOREIGN KEY (group_id) REFERENCES sm.secret_groups(id);
+ALTER TABLE sm.secret_group_authorizations ADD CONSTRAINT secret_group_authorizations_user_id_fk FOREIGN KEY (user_id) REFERENCES sm.users(id);
+ALTER TABLE sm.secret_group_authorizations ADD CONSTRAINT secret_group_authorizations_group_id_fk FOREIGN KEY (group_id) REFERENCES sm.secret_groups(id);
 
 CREATE TABLE IF NOT EXISTS sm.secrets(
     id UUID PRIMARY KEY DEFAULT uuidv7(),

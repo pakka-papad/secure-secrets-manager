@@ -14,7 +14,7 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class AuthorizationId implements Serializable {
+public class SecretGroupAuthorizationId implements Serializable {
 
   public static final String COL_USER_ID = "user_id";
   public static final String COL_GROUP_ID = "group_id";

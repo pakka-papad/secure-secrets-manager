@@ -1,7 +1,12 @@
 package com.example.secrets_manager.core.data.entities;
 
 import com.example.secrets_manager.core.data.CoreDataConstants;
-import jakarta.persistence.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.EmbeddedId;
+import jakarta.persistence.Entity;
+import jakarta.persistence.PrePersist;
+import jakarta.persistence.PreUpdate;
+import jakarta.persistence.Table;
 import java.time.Instant;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -9,19 +14,21 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 @Entity
-@Table(name = CoreDataConstants.TABLE_AUTHORIZATIONS, schema = CoreDataConstants.SCHEMA_NAME)
+@Table(
+    name = CoreDataConstants.TABLE_SECRET_GROUP_AUTHORIZATIONS,
+    schema = CoreDataConstants.SCHEMA_NAME)
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class AuthorizationEntity {
+public class SecretGroupAuthorizationEntity {
 
   public static final String COL_P_READ = "p_read";
   public static final String COL_P_WRITE = "p_write";
   public static final String COL_P_DELETE = "p_delete";
   public static final String COL_MODIFIED_AT = "modified_at";
 
-  @EmbeddedId private AuthorizationId id;
+  @EmbeddedId private SecretGroupAuthorizationId id;
 
   @Column(name = COL_P_READ, nullable = false)
   @Builder.Default

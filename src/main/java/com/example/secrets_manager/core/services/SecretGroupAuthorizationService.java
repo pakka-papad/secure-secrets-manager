@@ -1,29 +1,30 @@
 package com.example.secrets_manager.core.services;
 
-import com.example.secrets_manager.core.data.converters.AuthorizationEntityConverter;
-import com.example.secrets_manager.core.data.entities.AuthorizationEntity;
-import com.example.secrets_manager.core.data.entities.AuthorizationId;
-import com.example.secrets_manager.core.data.repositories.AuthorizationRepository;
+import com.example.secrets_manager.core.data.converters.SecretGroupAuthorizationEntityConverter;
+import com.example.secrets_manager.core.data.entities.SecretGroupAuthorizationEntity;
+import com.example.secrets_manager.core.data.entities.SecretGroupAuthorizationId;
+import com.example.secrets_manager.core.data.repositories.SecretGroupAuthorizationRepository;
 import com.example.secrets_manager.core.models.AuditAction;
 import com.example.secrets_manager.core.models.AuditLogPayload;
-import com.example.secrets_manager.core.models.Authorization;
 import com.example.secrets_manager.core.models.ModifyAuthorizationPayload;
 import com.example.secrets_manager.core.models.PermissionType;
+import com.example.secrets_manager.core.models.SecretGroupAuthorization;
 import java.time.Instant;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+/** Service for managing user authorizations on secret groups. */
 @Service
-public class AuthorizationService {
+public class SecretGroupAuthorizationService {
 
-  private final AuthorizationRepository authorizationRepository;
+  private final SecretGroupAuthorizationRepository authorizationRepository;
   private final AuditService auditService;
 
   @Autowired
-  public AuthorizationService(
-      AuthorizationRepository authorizationRepository, AuditService auditService) {
+  public SecretGroupAuthorizationService(
+      SecretGroupAuthorizationRepository authorizationRepository, AuditService auditService) {
     this.authorizationRepository = authorizationRepository;
     this.auditService = auditService;
   }
@@ -38,15 +39,15 @@ public class AuthorizationService {
   @Transactional
   public void modifyAuthorization(ModifyAuthorizationPayload payload) throws AccessDeniedException {
     // 1. Get and lock the authorization for the user PERFORMING the action (the actor)
-    var actorAuthId =
-        AuthorizationId.builder()
+    final var actorAuthId =
+        SecretGroupAuthorizationId.builder()
             .userId(payload.getActorUserId())
             .groupId(payload.getGroupId())
             .build();
-    var actorAuth =
+    final var actorAuth =
         authorizationRepository
-            .findAndLockById(actorAuthId) // Use the locking method to prevent race conditions
-            .map(AuthorizationEntityConverter::toModel)
+            .findAndLockById(actorAuthId)
+            .map(SecretGroupAuthorizationEntityConverter::toModel)
             .orElse(null); // Actor might have no permissions
 
     // 2. Check if the actor is allowed to perform the action
@@ -69,16 +70,13 @@ public class AuthorizationService {
 
     // 3. Get or create the authorization for the TARGET user
     var targetAuthId =
-        AuthorizationId.builder()
-            .userId(payload.getTargetUserId())
-            .groupId(payload.getGroupId())
-            .build();
+        new SecretGroupAuthorizationId(payload.getTargetUserId(), payload.getGroupId());
     var targetAuthEntity =
         authorizationRepository
             .findById(targetAuthId)
             .orElseGet(
                 () ->
-                    AuthorizationEntity.builder()
+                    SecretGroupAuthorizationEntity.builder()
                         .id(targetAuthId)
                         .pRead(false)
                         .pWrite(false)
@@ -112,12 +110,8 @@ public class AuthorizationService {
 
   /**
    * Checks if a user has the required permissions to grant a specific permission to another user.
-   *
-   * @param actorAuth The Authorization object of the user performing the grant.
-   * @param permissionToGrant The permission being granted.
-   * @return true if the grant is allowed, false otherwise.
    */
-  private boolean canGrant(Authorization actorAuth, PermissionType permissionToGrant) {
+  private boolean canGrant(SecretGroupAuthorization actorAuth, PermissionType permissionToGrant) {
     if (actorAuth == null) {
       return false;
     }
@@ -136,13 +130,8 @@ public class AuthorizationService {
   /**
    * Checks if a user has the required permissions to revoke a specific permission from another
    * user.
-   *
-   * @param actorAuth The Authorization object of the user performing the revocation.
-   * @param permissionToRevoke The permission being revoked.
-   * @return true if the revocation is allowed, false otherwise.
    */
-  private boolean canRevoke(Authorization actorAuth, PermissionType permissionToRevoke) {
-    // For this design, the logic to revoke is the same as the logic to grant.
+  private boolean canRevoke(SecretGroupAuthorization actorAuth, PermissionType permissionToRevoke) {
     return canGrant(actorAuth, permissionToRevoke);
   }
 }

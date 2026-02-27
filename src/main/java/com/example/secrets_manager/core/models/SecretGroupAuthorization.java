@@ -11,7 +11,7 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class Authorization {
+public class SecretGroupAuthorization {
   private UUID userId;
   private UUID groupId;
   private boolean pRead;
