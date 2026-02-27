@@ -5,6 +5,7 @@ import jakarta.persistence.EntityNotFoundException;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.Instant;
 import java.util.List;
+import org.springframework.dao.PessimisticLockingFailureException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
@@ -41,6 +42,22 @@ public class AppExceptionHandler {
             .path(request.getRequestURI())
             .build();
     return new ResponseEntity<>(errorResponse, HttpStatus.FORBIDDEN);
+  }
+
+  @ExceptionHandler(PessimisticLockingFailureException.class)
+  public ResponseEntity<ErrorResponse> handlePessimisticLockingFailureException(
+      PessimisticLockingFailureException ex, HttpServletRequest request) {
+    var errorResponse =
+        ErrorResponse.builder()
+            .timestamp(Instant.now())
+            .status(HttpStatus.SERVICE_UNAVAILABLE.value()) // 503
+            .error(HttpStatus.SERVICE_UNAVAILABLE.getReasonPhrase())
+            .messages(
+                List.of(
+                    "The system is currently busy processing other requests for this resource. Please try again in a few moments."))
+            .path(request.getRequestURI())
+            .build();
+    return new ResponseEntity<>(errorResponse, HttpStatus.SERVICE_UNAVAILABLE);
   }
 
   @ExceptionHandler(MethodArgumentNotValidException.class)
