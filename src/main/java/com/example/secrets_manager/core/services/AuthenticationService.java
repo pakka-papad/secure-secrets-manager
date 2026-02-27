@@ -24,6 +24,7 @@ import jakarta.validation.constraints.NotNull;
 import java.util.Objects;
 import java.util.UUID;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -301,10 +302,11 @@ public class AuthenticationService {
   }
 
   /**
-   * Invalidates the current user's session by deleting their refresh token.
-   * This effectively logs the user out of the system.
+   * Invalidates the current user's session by deleting their refresh token. This effectively logs
+   * the user out of the system.
    */
   @Transactional
+  @PreAuthorize("isAuthenticated()")
   public void logout() {
     // 1. Identify the authenticated user
     final var userId = SecurityUtils.getAuthenticatedUserId();

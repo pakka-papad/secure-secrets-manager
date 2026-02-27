@@ -8,11 +8,13 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -60,6 +62,8 @@ public class AuthenticationController {
   @ApiResponse(responseCode = "204", description = "Successfully logged out")
   @ApiResponse(responseCode = "401", description = "Unauthorized: Authentication required")
   @ApiResponse(responseCode = "500", description = "Internal server error")
+  @SecurityRequirement(name = "bearerAuth")
+  @PreAuthorize("isAuthenticated()")
   @PostMapping("/logout")
   public ResponseEntity<Void> logout() {
     authenticationService.logout();

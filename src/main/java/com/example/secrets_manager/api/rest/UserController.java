@@ -8,12 +8,14 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -23,6 +25,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping(value = "/api/v1/users", produces = MediaType.APPLICATION_JSON_VALUE)
 @Tag(name = "Users", description = "User management APIs")
+@SecurityRequirement(name = "bearerAuth")
 public class UserController {
 
   private final UserService userService;
@@ -41,8 +44,10 @@ public class UserController {
   @ApiResponse(
       responseCode = "401",
       description = "Unauthorized: Only authenticated users can create new users")
+  @ApiResponse(responseCode = "403", description = "Forbidden: Admin role required")
   @ApiResponse(responseCode = "409", description = "User with given name already exists")
   @ApiResponse(responseCode = "500", description = "Internal server error")
+  @PreAuthorize("hasRole('ADMIN')")
   @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
   public ResponseEntity<UserResponse> createUser(@Valid @RequestBody UserCreationPayload payload) {
     var user = userService.createUser(payload);
@@ -59,11 +64,11 @@ public class UserController {
   @Operation(summary = "Update user password")
   @ApiResponse(responseCode = "204", description = "Password updated successfully")
   @ApiResponse(responseCode = "400", description = "Invalid input")
-  @ApiResponse(
-      responseCode = "403",
-      description = "Forbidden: Unauthorized attempt or incorrect old password")
+  @ApiResponse(responseCode = "401", description = "Unauthorized: Authentication required")
+  @ApiResponse(responseCode = "403", description = "Forbidden: Incorrect old password")
   @ApiResponse(responseCode = "404", description = "User not found")
   @ApiResponse(responseCode = "500", description = "Internal server error")
+  @PreAuthorize("isAuthenticated()")
   @PutMapping(value = "/password", consumes = MediaType.APPLICATION_JSON_VALUE)
   public ResponseEntity<Void> updatePassword(
       @Valid @RequestBody UserPasswordUpdatePayload payload) {

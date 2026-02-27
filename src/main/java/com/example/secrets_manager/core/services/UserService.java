@@ -131,6 +131,7 @@ public class UserService {
    * @throws UserServiceException for internal errors like JSON serialization.
    */
   @Transactional
+  @PreAuthorize("isAuthenticated()")
   public void updatePassword(@NotNull @Valid UserPasswordUpdatePayload payload)
       throws UserServiceException, EntityNotFoundException, InvalidPasswordException {
     // 1. Identify the authenticated user
