@@ -4,30 +4,23 @@ import com.example.secrets_manager.core.data.converters.UserEntityConverter;
 import com.example.secrets_manager.core.data.entities.UserEntity;
 import com.example.secrets_manager.core.data.repositories.RefreshTokenRepository;
 import com.example.secrets_manager.core.data.repositories.UserRepository;
-import com.example.secrets_manager.core.models.AuditAction;
-import com.example.secrets_manager.core.models.AuditLogPayload;
-import com.example.secrets_manager.core.models.SecurityEvent;
-import com.example.secrets_manager.core.models.SecurityEventLogPayload;
-import com.example.secrets_manager.core.models.User;
-import com.example.secrets_manager.core.models.UserCreationPayload;
-import com.example.secrets_manager.core.models.UserPasswordUpdatePayload;
+import com.example.secrets_manager.core.models.*;
 import com.example.secrets_manager.core.services.exceptions.InvalidPasswordException;
 import com.example.secrets_manager.core.services.exceptions.UserAlreadyExistsException;
 import com.example.secrets_manager.core.services.exceptions.UserServiceException;
 import com.example.secrets_manager.core.utils.CoreUtils;
 import com.example.secrets_manager.crypto.CryptographyService;
 import com.example.secrets_manager.crypto.dto.HashedPassword;
+import com.example.secrets_manager.security.SecurityUtils;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
-import java.util.Objects;
-import java.util.UUID;
+import java.util.EnumSet;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.security.access.AccessDeniedException;
-import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.validation.annotation.Validated;
@@ -40,7 +33,6 @@ public class UserService {
   private final RefreshTokenRepository refreshTokenRepository;
   private final CryptographyService cryptographyService;
   private final AuditService auditService;
-  private final SecurityEventLogService securityEventLogService;
   private final ObjectMapper objectMapper;
 
   @Autowired
@@ -49,13 +41,11 @@ public class UserService {
       RefreshTokenRepository refreshTokenRepository,
       CryptographyService cryptographyService,
       AuditService auditService,
-      SecurityEventLogService securityEventLogService,
       ObjectMapper objectMapper) {
     this.userRepository = userRepository;
     this.refreshTokenRepository = refreshTokenRepository;
     this.cryptographyService = cryptographyService;
     this.auditService = auditService;
-    this.securityEventLogService = securityEventLogService;
     this.objectMapper = objectMapper;
   }
 
@@ -70,23 +60,21 @@ public class UserService {
    *     unexpected service errors occur.
    */
   @Transactional
+  @PreAuthorize("hasRole('ADMIN')")
   public User createUser(@NotNull @Valid UserCreationPayload payload) throws UserServiceException {
-    // 1. Authentication Check: Ensure the caller is authenticated
-    final var auth = SecurityContextHolder.getContext().getAuthentication();
-    if (auth == null || !auth.isAuthenticated()) {
-      throw new AccessDeniedException("User is not authenticated");
-    }
+    // 1. Identify the Actor (Admin) from Security Context
+    final var authenticatedUserId = SecurityUtils.getAuthenticatedUserId();
 
-    final var authenticatedUserIdStr = (String) auth.getPrincipal();
-    if (authenticatedUserIdStr == null) {
-      throw new AccessDeniedException("User is not authenticated");
-    }
-    final var authenticatedUserId = UUID.fromString(authenticatedUserIdStr);
+    // 2. Default Role Assignment: Ensure new user has at least the USER role
+    var assignedRoles =
+        (payload.getRoles() == null || payload.getRoles().isEmpty())
+            ? EnumSet.of(UserRole.USER)
+            : payload.getRoles();
 
-    // 2. Hash the password
+    // 3. Hash the password
     var hashedPassword = cryptographyService.hashPassword(payload.getPassword());
 
-    // 3. Convert hash params Map to JSON string
+    // 4. Convert hash params Map to JSON string
     var hashParamsJson = "";
     try {
       hashParamsJson = objectMapper.writeValueAsString(hashedPassword.getParams());
@@ -94,7 +82,9 @@ public class UserService {
       throw new UserServiceException("Failed to serialize password hash parameters.", e);
     }
 
-    // 4. Build the UserEntity
+    // 5. Build the UserEntity
+    var rolesArray = assignedRoles.stream().map(Enum::name).toArray(String[]::new);
+
     var userEntity =
         UserEntity.builder()
             .name(payload.getName())
@@ -102,39 +92,32 @@ public class UserService {
             .pwDigest(hashedPassword.getDigest())
             .hashAlgo(hashedPassword.getAlgorithm())
             .hashParams(hashParamsJson)
-            // createdAt and modifiedAt are set by @PrePersist
+            .roles(rolesArray)
             .deletedAt(null)
             .build();
 
-    // 5. Save the user entity, relying on DB unique constraint for duplicate name check
+    // 6. Save the user entity
     UserEntity savedUserEntity;
     try {
       savedUserEntity = userRepository.save(userEntity);
     } catch (DataIntegrityViolationException e) {
-      // Check if the cause is a unique constraint violation on the name column
-      if (e.getMessage() != null
-          && e.getMessage()
-              .contains("uq_sm_users_name")) { // Example for PostgreSQL unique constraint name
+      if (e.getMessage() != null && e.getMessage().contains("uq_sm_users_name")) {
         throw new UserAlreadyExistsException(
             String.format("User with name '%s' already exists.", payload.getName()), e);
       }
       throw new UserServiceException("Failed to create user due to data integrity violation.", e);
     } catch (Exception e) {
-      throw new UserServiceException(
-          "Failed to create user due to an unexpected error during persistence.", e);
+      throw new UserServiceException("Failed to create user due to an unexpected error.", e);
     }
 
-    // 6. Create audit log entry (Chained Audit Log)
-    // The actor is the authenticated caller, the target is the new user.
-    var auditPayload =
+    // 7. Create audit log entry
+    auditService.save(
         AuditLogPayload.builder()
             .actorUserId(authenticatedUserId)
             .action(AuditAction.USER_CREATE)
             .targetUserId(savedUserEntity.getId())
-            .build();
-    auditService.save(auditPayload);
+            .build());
 
-    // 7. Convert and return the User domain model
     return UserEntityConverter.toModel(savedUserEntity);
   }
 
@@ -145,50 +128,22 @@ public class UserService {
    * @param payload The {@link UserPasswordUpdatePayload} containing user ID, old and new password.
    * @throws EntityNotFoundException if the user is not found.
    * @throws InvalidPasswordException if the provided old password does not match the current one.
-   * @throws AccessDeniedException if the authenticated user is not authorized to change this
-   *     password.
    * @throws UserServiceException for internal errors like JSON serialization.
    */
   @Transactional
   public void updatePassword(@NotNull @Valid UserPasswordUpdatePayload payload)
-      throws UserServiceException,
-          EntityNotFoundException,
-          InvalidPasswordException,
-          AccessDeniedException {
-    // 1. Ownership Check: Ensure the authenticated user is changing their own password
-    final var auth = SecurityContextHolder.getContext().getAuthentication();
-    if (auth == null || !auth.isAuthenticated()) {
-      throw new AccessDeniedException("User is not authenticated");
-    }
-
-    final var authenticatedUserIdStr = (String) auth.getPrincipal();
-    final var authenticatedUserId =
-        authenticatedUserIdStr != null ? UUID.fromString(authenticatedUserIdStr) : null;
-
-    if (!Objects.equals(payload.getUserId(), authenticatedUserId)) {
-      // Log the unauthorized attempt
-      securityEventLogService.save(
-          SecurityEventLogPayload.builder()
-              .actorUserId(authenticatedUserId)
-              .action(SecurityEvent.ACCESS_DENIED)
-              .targetUserId(null)
-              .details(
-                  String.format(
-                      "{\"action\":\"password_update_attempt_on_other_user\", \"attempted_target_id\":\"%s\"}",
-                      payload.getUserId()))
-              .build());
-      throw new AccessDeniedException(
-          "You are not authorized to change the password for this user");
-    }
+      throws UserServiceException, EntityNotFoundException, InvalidPasswordException {
+    // 1. Identify the authenticated user
+    final var authenticatedUserId = SecurityUtils.getAuthenticatedUserId();
 
     // 2. Find the active user
     var userEntity =
         userRepository
-            .findByIdAndDeletedAtIsNull(payload.getUserId())
+            .findByIdAndDeletedAtIsNull(authenticatedUserId)
             .orElseThrow(
                 () ->
                     new EntityNotFoundException(
-                        String.format("User not found with ID: %s", payload.getUserId())));
+                        String.format("User not found with ID: %s", authenticatedUserId)));
 
     // 3. Verify the old password
     var storedHash =
@@ -197,16 +152,13 @@ public class UserService {
             userEntity.getPwSalt(),
             userEntity.getHashAlgo(),
             CoreUtils.jsonStringToObjectMap(objectMapper, userEntity.getHashParams()));
-    boolean passwordMatches =
-        cryptographyService.verifyPassword(payload.getOldPassword(), storedHash);
-    if (!passwordMatches) {
+
+    if (!cryptographyService.verifyPassword(payload.getOldPassword(), storedHash)) {
       throw new InvalidPasswordException("The provided old password does not match.");
     }
 
-    // 4. Hash the new password
+    // 4. Hash the new password and update
     var newHashedPassword = cryptographyService.hashPassword(payload.getNewPassword());
-
-    // 5. Update the user entity with the new password details
     userEntity.setPwSalt(newHashedPassword.getSalt());
     userEntity.setPwDigest(newHashedPassword.getDigest());
     userEntity.setHashAlgo(newHashedPassword.getAlgorithm());
@@ -215,19 +167,17 @@ public class UserService {
     } catch (JsonProcessingException e) {
       throw new UserServiceException("Failed to serialize new password hash parameters.", e);
     }
-    // The @PreUpdate annotation will handle the modifiedAt timestamp automatically
     userRepository.save(userEntity);
 
-    // 6. Global Logout: Invalidate all existing refresh tokens for this user
+    // 5. Global Logout
     refreshTokenRepository.deleteByUserId(userEntity.getId());
 
-    // 7. Create audit log entry
-    var auditPayload =
+    // 6. Create audit log entry
+    auditService.save(
         AuditLogPayload.builder()
             .actorUserId(userEntity.getId())
             .action(AuditAction.USER_PASSWORD_UPDATE)
             .targetUserId(userEntity.getId())
-            .build();
-    auditService.save(auditPayload);
+            .build());
   }
 }

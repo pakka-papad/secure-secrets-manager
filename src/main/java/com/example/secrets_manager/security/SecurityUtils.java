@@ -4,9 +4,13 @@ import com.example.secrets_manager.core.models.UserRole;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
+import java.util.Objects;
+import java.util.UUID;
 import java.util.stream.Collectors;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
 
 /**
  * Utility class for security-related conversions, specifically for handling role-to-authority
@@ -18,6 +22,14 @@ public final class SecurityUtils {
 
   private SecurityUtils() {
     // Prevent instantiation
+  }
+
+  /** Retrieves the authenticated user's ID from the current security context. */
+  public static UUID getAuthenticatedUserId() {
+    Authentication auth =
+        Objects.requireNonNull(
+            SecurityContextHolder.getContext().getAuthentication(), "User is not authenticated");
+    return UUID.fromString((String) Objects.requireNonNull(auth.getPrincipal()));
   }
 
   /** Prefixes a raw role name with the standard Spring Security "ROLE_" prefix. */
