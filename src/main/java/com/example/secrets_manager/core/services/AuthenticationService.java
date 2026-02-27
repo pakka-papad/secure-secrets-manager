@@ -299,4 +299,30 @@ public class AuthenticationService {
         .refreshTokenExpiresAt(newRefreshTokenInfo.getExpiry())
         .build();
   }
+
+  /**
+   * Invalidates the current user's session by deleting their refresh token.
+   * This effectively logs the user out of the system.
+   */
+  @Transactional
+  public void logout() {
+    // 1. Identify the authenticated user
+    final var userId = SecurityUtils.getAuthenticatedUserId();
+
+    // 2. Acquire lock on the User to serialize operations
+    userRepository
+        .findAndLockById(userId)
+        .orElseThrow(() -> new EntityNotFoundException("User not found or deleted during logout"));
+
+    // 3. Delete the refresh token to invalidate the session
+    refreshTokenRepository.deleteByUserId(userId);
+
+    // 4. Audit the logout
+    auditService.save(
+        AuditLogPayload.builder()
+            .actorUserId(userId)
+            .action(AuditAction.USER_LOGOUT)
+            .targetUserId(userId)
+            .build());
+  }
 }

@@ -55,4 +55,14 @@ public class AuthenticationController {
     AuthResponse response = authenticationService.refreshToken(payload);
     return ResponseEntity.ok(response);
   }
+
+  @Operation(summary = "Log out the current user and invalidate the session")
+  @ApiResponse(responseCode = "204", description = "Successfully logged out")
+  @ApiResponse(responseCode = "401", description = "Unauthorized: Authentication required")
+  @ApiResponse(responseCode = "500", description = "Internal server error")
+  @PostMapping("/logout")
+  public ResponseEntity<Void> logout() {
+    authenticationService.logout();
+    return ResponseEntity.noContent().build();
+  }
 }
