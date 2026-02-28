@@ -1,13 +1,20 @@
 package com.example.secrets_manager.core.data.entities;
 
 import com.example.secrets_manager.core.data.CoreDataConstants;
-import jakarta.persistence.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
 import java.time.Instant;
 import java.util.UUID;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 @Entity
 @Table(name = CoreDataConstants.TABLE_AUDIT_LOGS, schema = CoreDataConstants.SCHEMA_NAME)
@@ -60,6 +67,7 @@ public class AuditLogEntity {
   private Integer targetMasterKeyVersion;
 
   @Column(name = COL_DETAILS, columnDefinition = "jsonb")
+  @JdbcTypeCode(SqlTypes.JSON)
   private String details;
 
   @Column(name = COL_PREV_HASH, nullable = false)
