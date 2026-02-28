@@ -37,6 +37,7 @@ public class SecretEntity {
   public static final String COL_DELETED_AT = "deleted_at";
 
   @Id
+  @GeneratedValue(strategy = GenerationType.UUID)
   @Column(name = COL_ID)
   private UUID id;
 

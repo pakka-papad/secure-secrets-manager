@@ -1,13 +1,21 @@
 package com.example.secrets_manager.core.data.entities;
 
 import com.example.secrets_manager.core.data.CoreDataConstants;
-import jakarta.persistence.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.PrePersist;
+import jakarta.persistence.Table;
 import java.time.Instant;
 import java.util.UUID;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 @Entity
 @Table(name = CoreDataConstants.TABLE_TASKS, schema = CoreDataConstants.SCHEMA_NAME)
@@ -32,6 +40,7 @@ public class TaskEntity {
   public static final String COL_METADATA = "metadata";
 
   @Id
+  @GeneratedValue(strategy = GenerationType.UUID)
   @Column(name = COL_ID)
   private UUID id;
 
@@ -57,18 +66,22 @@ public class TaskEntity {
   private String type;
 
   @Column(name = COL_TASK_INPUT, columnDefinition = "jsonb")
+  @JdbcTypeCode(SqlTypes.JSON)
   private String taskInput;
 
   @Column(name = COL_STATE, nullable = false, length = 31)
   private String state;
 
   @Column(name = COL_STATE_EXTRA_INFO, columnDefinition = "jsonb")
+  @JdbcTypeCode(SqlTypes.JSON)
   private String stateExtraInfo;
 
   @Column(name = COL_TASK_OUTPUT, columnDefinition = "jsonb")
+  @JdbcTypeCode(SqlTypes.JSON)
   private String taskOutput;
 
   @Column(name = COL_METADATA, columnDefinition = "jsonb")
+  @JdbcTypeCode(SqlTypes.JSON)
   private String metadata;
 
   @PrePersist

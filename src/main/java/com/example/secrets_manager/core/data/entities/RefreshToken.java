@@ -1,10 +1,7 @@
 package com.example.secrets_manager.core.data.entities;
 
 import com.example.secrets_manager.core.data.CoreDataConstants;
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
 import java.time.Instant;
 import java.util.UUID;
 import lombok.AllArgsConstructor;
@@ -26,6 +23,7 @@ public class RefreshToken {
   public static final String COL_EXPIRY_DATE = "expiry_date";
 
   @Id
+  @GeneratedValue(strategy = GenerationType.UUID)
   @Column(name = COL_ID)
   private UUID id;
 

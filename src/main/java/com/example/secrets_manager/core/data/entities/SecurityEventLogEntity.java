@@ -3,6 +3,8 @@ package com.example.secrets_manager.core.data.entities;
 import com.example.secrets_manager.core.data.CoreDataConstants;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
@@ -12,6 +14,8 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 @Entity
 @Table(name = CoreDataConstants.TABLE_SECURITY_EVENT_LOGS, schema = CoreDataConstants.SCHEMA_NAME)
@@ -32,6 +36,7 @@ public class SecurityEventLogEntity {
   public static final String COL_DETAILS = "details";
 
   @Id
+  @GeneratedValue(strategy = GenerationType.UUID)
   @Column(name = COL_ID)
   private UUID id;
 
@@ -57,6 +62,7 @@ public class SecurityEventLogEntity {
   private Integer targetMasterKeyVersion;
 
   @Column(name = COL_DETAILS, columnDefinition = "jsonb")
+  @JdbcTypeCode(SqlTypes.JSON)
   private String details;
 
   @PrePersist
