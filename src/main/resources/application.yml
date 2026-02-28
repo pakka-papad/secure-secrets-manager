@@ -10,4 +10,19 @@ spring:
       ddl-auto: none # Flyway handles schema management
   flyway:
     enabled: true
-    locations: classpath:db/migration
+    locations:
+      - classpath:db/migration
+      - classpath:com/example/secrets_manager/db/migration
+
+jwt:
+  secret-key:
+    public: ${JWT_PUBLIC_KEY}
+    private: ${JWT_PRIVATE_KEY}
+  expiration:
+    access: 300000
+    refresh: 2592000000
+
+bootstrap:
+  admin:
+    username: ${BOOTSTRAP_USERNAME}
+    password: ${BOOTSTRAP_PASSWORD}

@@ -23,4 +23,14 @@ public interface UserRepository extends JpaRepository<UserEntity, UUID> {
   @QueryHints({@QueryHint(name = "jakarta.persistence.lock.timeout", value = "5000")})
   @Query("SELECT u FROM UserEntity u WHERE u.id = :id AND u.deletedAt IS NULL")
   Optional<UserEntity> findAndLockById(UUID id);
+
+  /**
+   * Checks if any active (non-deleted) human administrator exists. This excludes the internal
+   * 'system' user.
+   */
+  @Query(
+      value =
+          "SELECT EXISTS (SELECT 1 FROM sm.users WHERE 'ADMIN' = ANY(roles) AND id != '00000000-0000-0000-0000-000000000000' AND deleted_at IS NULL)",
+      nativeQuery = true)
+  boolean existsByRoleAdmin();
 }

@@ -4,50 +4,74 @@ import jakarta.annotation.PostConstruct;
 import java.util.Base64;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Component;
 
+/**
+ * High-privilege component responsible for loading Master Keys from the operating system
+ * environment. Strictly enforces OS Environment Variables as the single source of truth for
+ * cryptographic root keys.
+ */
 @Component
 @Slf4j
 public class MasterKeyProvider {
 
   private final Map<Integer, byte[]> masterKeys = new ConcurrentHashMap<>();
 
-  // Pattern to match environment variables like "master_key__v1", "master_key__v2", etc.
-  private static final Pattern MASTER_KEY_ENV_PATTERN = Pattern.compile("master_key__v(\\d+)");
+  // Case-insensitive pattern to match environment variables like "master_key__v1"
+  private static final Pattern MASTER_KEY_PATTERN = Pattern.compile("(?i)master_key__v(\\d+)");
 
   @PostConstruct
   public void init() {
+    // Strictly iterate only the OS Environment Variables
     System.getenv().forEach(this::processEnvVar);
 
     if (masterKeys.isEmpty()) {
       throw new IllegalStateException(
-          "FATAL: No master keys were found in environment variables (expected format: 'master_key__v1', 'master_key__v2', etc.). Application cannot start.");
+          "FATAL: No master keys were found in OS environment variables (expected format: 'master_key__v1', 'master_key__v2', etc.). "
+              + "Ensure keys are exported to the process environment.");
     }
+
+    log.info("MasterKeyProvider initialized with {} keys from the environment.", masterKeys.size());
   }
 
-  private void processEnvVar(String envKey, String envValue) {
-    Matcher matcher = MASTER_KEY_ENV_PATTERN.matcher(envKey);
+  private void processEnvVar(String key, String value) {
+    if (StringUtils.isBlank(value)) {
+      return;
+    }
+
+    final var matcher = MASTER_KEY_PATTERN.matcher(key);
     if (!matcher.matches()) {
       return;
     }
-    try {
-      int version = Integer.parseInt(matcher.group(1)); // Extract version number
-      byte[] masterKey = Base64.getDecoder().decode(envValue); // Decode Base64 value
 
-      // Validate key length (e.g., for AES-256, it should be 32 bytes)
+    try {
+      int version = Integer.parseInt(matcher.group(1));
+
+      // Trim to handle accidental whitespace from environment injection/scripts
+      byte[] masterKey = Base64.getDecoder().decode(value.trim());
+
+      // Validate key length (AES-256 requires 32 bytes)
       if (masterKey.length != 32) {
+        log.error(
+            "Invalid master key length for '{}'. Expected 32 bytes, got {}.",
+            key,
+            masterKey.length);
         throw new IllegalStateException(
-            String.format("Master key '%s' must be 32 bytes (256 bits) for AES-256.", envKey));
+            String.format("Master key '%s' must be 32 bytes (256 bits) for AES-256.", key));
       }
+
       masterKeys.put(version, masterKey);
-      log.info("Loaded Master Key Version: {}", version);
+      log.info(
+          "Successfully loaded Master Key Version: {} from environment variable: {}", version, key);
+
     } catch (NumberFormatException e) {
-      log.error("Warning: Invalid version number in environment variable: {}. Skipping.", envKey);
+      log.warn("Invalid version number in environment variable key: {}. Skipping.", key);
     } catch (IllegalArgumentException e) {
-      log.error("Warning: Invalid Base64 encoding for master key '{}'. Skipping.", envKey);
+      log.warn(
+          "Invalid Base64 encoding for master key in environment variable '{}'. Skipping.", key);
     }
   }
 

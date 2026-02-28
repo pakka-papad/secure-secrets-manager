@@ -46,10 +46,11 @@ public class JwtTokenService {
     try {
       var kf = KeyFactory.getInstance("EC");
 
-      var pkcs8Spec = new PKCS8EncodedKeySpec(Decoders.BASE64.decode(jwtPrivateKeyBase64));
+      // Trim strings to handle accidental whitespace/newlines from config/copy-paste
+      var pkcs8Spec = new PKCS8EncodedKeySpec(Decoders.BASE64.decode(jwtPrivateKeyBase64.trim()));
       privateKey = kf.generatePrivate(pkcs8Spec);
 
-      var x509Spec = new X509EncodedKeySpec(Decoders.BASE64.decode(jwtPublicKeyBase64));
+      var x509Spec = new X509EncodedKeySpec(Decoders.BASE64.decode(jwtPublicKeyBase64.trim()));
       publicKey = kf.generatePublic(x509Spec);
 
       log.info("JWT EC keys loaded from application properties.");

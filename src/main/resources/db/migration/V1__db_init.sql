@@ -13,6 +13,8 @@ CREATE TABLE IF NOT EXISTS sm.users(
     deleted_at TIMESTAMPTZ NULL
 );
 
+CREATE INDEX IF NOT EXISTS idx_users_roles ON sm.users USING GIN (roles);
+
 INSERT INTO sm.users (id, name, pw_salt, pw_digest, hash_algo, hash_params, roles)
 VALUES ('00000000-0000-0000-0000-000000000000', 'system', '\x', '\x', 'NONE', '{}', '{"ADMIN"}') ON CONFLICT(id) DO NOTHING;
 
