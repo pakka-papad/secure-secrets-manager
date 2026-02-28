@@ -1,8 +1,10 @@
 package com.example.secrets_manager.api.rest;
 
+import com.example.secrets_manager.api.rest.converters.UserCreationRequestConverter;
+import com.example.secrets_manager.api.rest.converters.UserPasswordUpdateRequestConverter;
+import com.example.secrets_manager.api.rest.dto.UserCreationRequest;
+import com.example.secrets_manager.api.rest.dto.UserPasswordUpdateRequest;
 import com.example.secrets_manager.api.rest.dto.UserResponse;
-import com.example.secrets_manager.core.models.UserCreationPayload;
-import com.example.secrets_manager.core.models.UserPasswordUpdatePayload;
 import com.example.secrets_manager.core.services.UserService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -49,8 +51,8 @@ public class UserController {
   @ApiResponse(responseCode = "500", description = "Internal server error")
   @PreAuthorize("hasRole('ADMIN')")
   @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
-  public ResponseEntity<UserResponse> createUser(@Valid @RequestBody UserCreationPayload payload) {
-    var user = userService.createUser(payload);
+  public ResponseEntity<UserResponse> createUser(@Valid @RequestBody UserCreationRequest request) {
+    var user = userService.createUser(UserCreationRequestConverter.toModel(request));
     var userResponse =
         UserResponse.builder()
             .id(user.getId())
@@ -71,8 +73,8 @@ public class UserController {
   @PreAuthorize("isAuthenticated()")
   @PutMapping(value = "/password", consumes = MediaType.APPLICATION_JSON_VALUE)
   public ResponseEntity<Void> updatePassword(
-      @Valid @RequestBody UserPasswordUpdatePayload payload) {
-    userService.updatePassword(payload);
+      @Valid @RequestBody UserPasswordUpdateRequest request) {
+    userService.updatePassword(UserPasswordUpdateRequestConverter.toModel(request));
     return ResponseEntity.noContent().build();
   }
 }

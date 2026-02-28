@@ -1,7 +1,8 @@
 package com.example.secrets_manager.api.rest;
 
+import com.example.secrets_manager.api.rest.converters.LoginRequestConverter;
+import com.example.secrets_manager.api.rest.dto.LoginRequest;
 import com.example.secrets_manager.core.models.AuthResponse;
-import com.example.secrets_manager.core.models.LoginPayload;
 import com.example.secrets_manager.core.models.RefreshTokenPayload;
 import com.example.secrets_manager.core.services.AuthenticationService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -40,8 +41,8 @@ public class AuthenticationController {
   @ApiResponse(responseCode = "403", description = "Invalid credentials")
   @ApiResponse(responseCode = "500", description = "Internal server error")
   @PostMapping(value = "/login", consumes = MediaType.APPLICATION_JSON_VALUE)
-  public ResponseEntity<AuthResponse> login(@Valid @RequestBody LoginPayload payload) {
-    AuthResponse response = authenticationService.login(payload);
+  public ResponseEntity<AuthResponse> login(@Valid @RequestBody LoginRequest request) {
+    AuthResponse response = authenticationService.login(LoginRequestConverter.toModel(request));
     return ResponseEntity.ok(response);
   }
 
