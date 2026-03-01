@@ -6,15 +6,21 @@ import jakarta.servlet.http.HttpServletRequest;
 import java.time.Instant;
 import java.util.List;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.core.Ordered;
+import org.springframework.core.annotation.Order;
 import org.springframework.dao.PessimisticLockingFailureException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
-import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+/**
+ * Global exception handler for business and persistence exceptions.
+ * Has the lowest precedence to allow specialized handlers to intercept exceptions first.
+ */
 @RestControllerAdvice
+@Order(Ordered.LOWEST_PRECEDENCE)
 @Slf4j
 public class AppExceptionHandler {
 
@@ -62,31 +68,10 @@ public class AppExceptionHandler {
     return new ResponseEntity<>(errorResponse, HttpStatus.SERVICE_UNAVAILABLE);
   }
 
-  @ExceptionHandler(MethodArgumentNotValidException.class)
-  public ResponseEntity<ErrorResponse> handleValidationExceptions(
-      MethodArgumentNotValidException ex, HttpServletRequest request) {
-    // Collect all validation error messages into a list
-    List<String> errorMessages =
-        ex.getBindingResult().getFieldErrors().stream()
-            .map(error -> error.getField() + ": " + error.getDefaultMessage())
-            .collect(java.util.stream.Collectors.toList());
-
-    var errorResponse =
-        ErrorResponse.builder()
-            .timestamp(Instant.now())
-            .status(HttpStatus.BAD_REQUEST.value()) // 400
-            .error(HttpStatus.BAD_REQUEST.getReasonPhrase())
-            .messages(errorMessages)
-            .path(request.getRequestURI())
-            .build();
-    return new ResponseEntity<>(errorResponse, HttpStatus.BAD_REQUEST);
-  }
-
-  // Generic exception handler for any other unhandled exceptions
   @ExceptionHandler(Exception.class)
   public ResponseEntity<ErrorResponse> handleAllExceptions(
       Exception ex, HttpServletRequest request) {
-    log.error("Unexpected error", ex);
+    log.error("Unexpected error occurred at path: {}", request.getRequestURI(), ex);
     var errorResponse =
         ErrorResponse.builder()
             .timestamp(Instant.now())
