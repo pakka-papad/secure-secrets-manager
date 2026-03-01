@@ -40,8 +40,10 @@ public class AuthenticationController {
       content = @Content(schema = @Schema(implementation = AuthResponse.class)))
   @ApiResponse(responseCode = "403", description = "Invalid credentials")
   @ApiResponse(responseCode = "500", description = "Internal server error")
-  @PostMapping(value = "/login", consumes = MediaType.APPLICATION_JSON_VALUE)
-  public ResponseEntity<AuthResponse> login(@Valid @RequestBody LoginRequest request) {
+  @PostMapping(
+      value = "/login",
+      consumes = {MediaType.APPLICATION_JSON_VALUE, MediaType.APPLICATION_FORM_URLENCODED_VALUE})
+  public ResponseEntity<AuthResponse> login(@Valid LoginRequest request) {
     AuthResponse response = authenticationService.login(LoginRequestConverter.toModel(request));
     return ResponseEntity.ok(response);
   }
