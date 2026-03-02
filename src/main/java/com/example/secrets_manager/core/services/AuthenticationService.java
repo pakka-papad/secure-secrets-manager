@@ -11,6 +11,7 @@ import com.example.secrets_manager.core.models.RefreshTokenPayload;
 import com.example.secrets_manager.core.models.SecurityEvent;
 import com.example.secrets_manager.core.models.SecurityEventLogPayload;
 import com.example.secrets_manager.core.services.exceptions.InvalidPasswordException;
+import com.example.secrets_manager.core.services.exceptions.InvalidTokenException;
 import com.example.secrets_manager.core.services.exceptions.TokenRevokedException;
 import com.example.secrets_manager.core.utils.CoreUtils;
 import com.example.secrets_manager.crypto.CryptographyService;
@@ -200,13 +201,13 @@ public class AuthenticationService {
    *
    * @param payload The payload containing the raw refresh token string.
    * @return An {@link AuthResponse} containing the new JWT access and refresh tokens.
-   * @throws InvalidPasswordException if the provided token is cryptographically invalid or expired.
+   * @throws InvalidTokenException if the provided token is cryptographically invalid or expired.
    * @throws TokenRevokedException if the token is valid but has been revoked (not found in DB).
    * @throws EntityNotFoundException if the user associated with the token is not found.
    */
   @Transactional
   public AuthResponse refreshToken(@NotNull @Valid RefreshTokenPayload payload)
-      throws InvalidPasswordException, TokenRevokedException, EntityNotFoundException {
+      throws InvalidTokenException, TokenRevokedException, EntityNotFoundException {
     // 1. Validate the JWT itself
     var claims =
         jwtTokenService
@@ -219,7 +220,7 @@ public class AuthenticationService {
                           .action(SecurityEvent.TOKEN_REFRESH_FAILED)
                           .details("{\"reason\":\"Invalid or expired refresh token\"}")
                           .build());
-                  return new InvalidPasswordException("Invalid or expired refresh token.");
+                  return new InvalidTokenException("Invalid or expired refresh token.");
                 });
 
     final var userId = UUID.fromString(claims.getSubject());

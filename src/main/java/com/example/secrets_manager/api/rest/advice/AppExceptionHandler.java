@@ -1,6 +1,7 @@
 package com.example.secrets_manager.api.rest.advice;
 
 import com.example.secrets_manager.api.rest.dto.ErrorResponse;
+import com.example.secrets_manager.core.services.exceptions.InvalidTokenException;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.Instant;
@@ -12,12 +13,13 @@ import org.springframework.dao.PessimisticLockingFailureException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 /**
- * Global exception handler for business and persistence exceptions.
- * Has the lowest precedence to allow specialized handlers to intercept exceptions first.
+ * Global exception handler for business and persistence exceptions. Has the lowest precedence to
+ * allow specialized handlers to intercept exceptions first.
  */
 @RestControllerAdvice
 @Order(Ordered.LOWEST_PRECEDENCE)
@@ -36,6 +38,34 @@ public class AppExceptionHandler {
             .path(request.getRequestURI())
             .build();
     return new ResponseEntity<>(errorResponse, HttpStatus.NOT_FOUND);
+  }
+
+  @ExceptionHandler(InvalidTokenException.class)
+  public ResponseEntity<ErrorResponse> handleInvalidTokenException(
+      InvalidTokenException ex, HttpServletRequest request) {
+    var errorResponse =
+        ErrorResponse.builder()
+            .timestamp(Instant.now())
+            .status(HttpStatus.UNAUTHORIZED.value()) // 401
+            .error(HttpStatus.UNAUTHORIZED.getReasonPhrase())
+            .messages(List.of(ex.getMessage()))
+            .path(request.getRequestURI())
+            .build();
+    return new ResponseEntity<>(errorResponse, HttpStatus.UNAUTHORIZED);
+  }
+
+  @ExceptionHandler(BadCredentialsException.class)
+  public ResponseEntity<ErrorResponse> handleBadCredentialsException(
+      BadCredentialsException ex, HttpServletRequest request) {
+    var errorResponse =
+        ErrorResponse.builder()
+            .timestamp(Instant.now())
+            .status(HttpStatus.UNAUTHORIZED.value()) // 401
+            .error(HttpStatus.UNAUTHORIZED.getReasonPhrase())
+            .messages(List.of(ex.getMessage()))
+            .path(request.getRequestURI())
+            .build();
+    return new ResponseEntity<>(errorResponse, HttpStatus.UNAUTHORIZED);
   }
 
   @ExceptionHandler(AccessDeniedException.class)

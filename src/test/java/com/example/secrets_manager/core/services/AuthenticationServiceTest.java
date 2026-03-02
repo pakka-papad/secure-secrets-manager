@@ -1,6 +1,7 @@
 package com.example.secrets_manager.core.services;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
@@ -13,6 +14,7 @@ import com.example.secrets_manager.core.models.LoginPayload;
 import com.example.secrets_manager.core.models.RefreshTokenPayload;
 import com.example.secrets_manager.core.models.TokenWithExpiry;
 import com.example.secrets_manager.core.models.User;
+import com.example.secrets_manager.core.services.exceptions.InvalidTokenException;
 import com.example.secrets_manager.crypto.CryptographyService;
 import com.example.secrets_manager.crypto.dto.BinaryHash;
 import com.example.secrets_manager.security.AppUserDetails;
@@ -116,6 +118,17 @@ class AuthenticationServiceTest {
     assertThat(response.getAccessToken()).isEqualTo("new-access");
     assertThat(response.getRefreshToken()).isEqualTo("new-refresh");
     verify(refreshTokenRepository).save(storedToken);
+  }
+
+  @Test
+  void refreshToken_ShouldThrowInvalidTokenException_WhenTokenInvalid() {
+    // Given
+    RefreshTokenPayload payload = new RefreshTokenPayload("invalid-token");
+    when(jwtTokenService.parseToken(any())).thenReturn(Optional.empty());
+
+    // When & Then
+    assertThatThrownBy(() -> authenticationService.refreshToken(payload))
+        .isInstanceOf(InvalidTokenException.class);
   }
 
   @Test
