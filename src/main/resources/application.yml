@@ -1,6 +1,12 @@
 spring:
   application:
     name: secrets-manager
+  cache:
+    type: caffeine
+    cache-names:
+      - buckets
+    caffeine:
+      spec: maximumSize=10000,expireAfterAccess=600s
   datasource:
     url: jdbc:postgresql://localhost:5433/${POSTGRES_DB}
     username: ${POSTGRES_USER}
@@ -26,3 +32,17 @@ bootstrap:
   admin:
     username: ${BOOTSTRAP_USERNAME}
     password: ${BOOTSTRAP_PASSWORD}
+
+bucket4j:
+  enabled: true
+  filters:
+    - cache-name: buckets
+      url: /api/v1/auth/.*
+      strategy: first
+      http-response-body: "{ \"timestamp\": \"${current_time}\", \"status\": 429, \"error\": \"Too Many Requests\", \"messages\": [\"You have exceeded the rate limit for authentication. Please try again later.\"], \"path\": \"${path}\" }"
+      rate-limits:
+        - cache-key: "getRemoteAddr()"
+          bandwidths:
+            - capacity: 5
+              time: 1
+              unit: minutes

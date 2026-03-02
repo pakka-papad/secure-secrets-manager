@@ -41,6 +41,11 @@ dependencies {
 
 	implementation 'org.apache.commons:commons-lang3'
 
+	implementation 'com.giffing.bucket4j.spring.boot.starter:bucket4j-spring-boot-starter:0.13.0'
+	implementation 'javax.cache:cache-api'
+	implementation 'com.github.ben-manes.caffeine:caffeine'
+	implementation 'com.github.ben-manes.caffeine:jcache'
+
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
 	testImplementation 'org.springframework.boot:spring-boot-starter-webmvc-test'
 	testImplementation 'org.springframework.security:spring-security-test'
