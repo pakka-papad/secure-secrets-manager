@@ -8,7 +8,6 @@ import com.example.secrets_manager.core.services.exceptions.UserServiceException
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.Instant;
 import java.util.List;
-
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpStatus;
@@ -40,12 +39,12 @@ public class UserExceptionHandler {
     var errorResponse =
         ErrorResponse.builder()
             .timestamp(Instant.now())
-            .status(HttpStatus.FORBIDDEN.value()) // 403
-            .error(HttpStatus.FORBIDDEN.getReasonPhrase())
+            .status(HttpStatus.UNAUTHORIZED.value()) // 401
+            .error(HttpStatus.UNAUTHORIZED.getReasonPhrase())
             .messages(List.of(ex.getMessage()))
             .path(request.getRequestURI())
             .build();
-    return new ResponseEntity<>(errorResponse, HttpStatus.FORBIDDEN);
+    return new ResponseEntity<>(errorResponse, HttpStatus.UNAUTHORIZED);
   }
 
   @ExceptionHandler(TokenRevokedException.class)
