@@ -126,13 +126,14 @@ public class UserService {
    * tokens for the user, effectively performing a global logout.
    *
    * @param payload The {@link UserPasswordUpdatePayload} containing user ID, old and new password.
+   * @return The updated {@link User} domain model.
    * @throws EntityNotFoundException if the user is not found.
    * @throws InvalidPasswordException if the provided old password does not match the current one.
    * @throws UserServiceException for internal errors like JSON serialization.
    */
   @Transactional
   @PreAuthorize("isAuthenticated()")
-  public void updatePassword(@NotNull @Valid UserPasswordUpdatePayload payload)
+  public User updatePassword(@NotNull @Valid UserPasswordUpdatePayload payload)
       throws UserServiceException, EntityNotFoundException, InvalidPasswordException {
     // 1. Identify the authenticated user
     final var authenticatedUserId = SecurityUtils.getAuthenticatedUserId();
@@ -168,7 +169,7 @@ public class UserService {
     } catch (JsonProcessingException e) {
       throw new UserServiceException("Failed to serialize new password hash parameters.", e);
     }
-    userRepository.save(userEntity);
+    var savedUser = userRepository.save(userEntity);
 
     // 5. Global Logout
     refreshTokenRepository.deleteByUserId(userEntity.getId());
@@ -180,5 +181,7 @@ public class UserService {
             .action(AuditAction.USER_PASSWORD_UPDATE)
             .targetUserId(userEntity.getId())
             .build());
+
+    return UserEntityConverter.toModel(savedUser);
   }
 }

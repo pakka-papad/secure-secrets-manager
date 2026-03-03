@@ -2,6 +2,7 @@ package com.example.secrets_manager.api.rest;
 
 import com.example.secrets_manager.api.rest.converters.UserCreationRequestConverter;
 import com.example.secrets_manager.api.rest.converters.UserPasswordUpdateRequestConverter;
+import com.example.secrets_manager.api.rest.converters.UserResponseConverter;
 import com.example.secrets_manager.api.rest.dto.UserCreationRequest;
 import com.example.secrets_manager.api.rest.dto.UserPasswordUpdateRequest;
 import com.example.secrets_manager.api.rest.dto.UserResponse;
@@ -53,18 +54,14 @@ public class UserController {
   @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
   public ResponseEntity<UserResponse> createUser(@Valid @RequestBody UserCreationRequest request) {
     var user = userService.createUser(UserCreationRequestConverter.toModel(request));
-    var userResponse =
-        UserResponse.builder()
-            .id(user.getId())
-            .name(user.getName())
-            .createdAt(user.getCreatedAt())
-            .modifiedAt(user.getModifiedAt())
-            .build();
-    return new ResponseEntity<>(userResponse, HttpStatus.CREATED);
+    return new ResponseEntity<>(UserResponseConverter.fromModel(user), HttpStatus.CREATED);
   }
 
   @Operation(summary = "Update user password")
-  @ApiResponse(responseCode = "204", description = "Password updated successfully")
+  @ApiResponse(
+      responseCode = "200",
+      description = "Password updated successfully",
+      content = @Content(schema = @Schema(implementation = UserResponse.class)))
   @ApiResponse(responseCode = "400", description = "Invalid input")
   @ApiResponse(responseCode = "401", description = "Unauthorized: Authentication required")
   @ApiResponse(responseCode = "403", description = "Forbidden: Incorrect old password")
@@ -72,9 +69,9 @@ public class UserController {
   @ApiResponse(responseCode = "500", description = "Internal server error")
   @PreAuthorize("isAuthenticated()")
   @PutMapping(value = "/password", consumes = MediaType.APPLICATION_JSON_VALUE)
-  public ResponseEntity<Void> updatePassword(
+  public ResponseEntity<UserResponse> updatePassword(
       @Valid @RequestBody UserPasswordUpdateRequest request) {
-    userService.updatePassword(UserPasswordUpdateRequestConverter.toModel(request));
-    return ResponseEntity.noContent().build();
+    var user = userService.updatePassword(UserPasswordUpdateRequestConverter.toModel(request));
+    return ResponseEntity.ok(UserResponseConverter.fromModel(user));
   }
 }

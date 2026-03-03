@@ -107,6 +107,40 @@ class UserServiceTest {
   }
 
   @Test
+  void createUser_shouldCreateAdminUser_whenRolesIncludeAdmin() throws Exception {
+    // Given
+    mockedSecurityUtils.when(SecurityUtils::getAuthenticatedUserId).thenReturn(adminId);
+    var payload =
+        UserCreationPayload.builder()
+            .name("newAdmin")
+            .password("password".getBytes())
+            .roles(EnumSet.of(UserRole.ADMIN, UserRole.USER))
+            .build();
+
+    UserEntity adminEntity =
+        UserEntity.builder()
+            .id(UUID.randomUUID())
+            .name("newAdmin")
+            .roles(new String[] {"ADMIN", "USER"})
+            .build();
+
+    when(cryptographyService.hashPassword(any())).thenReturn(mockHashedPassword);
+    when(objectMapper.writeValueAsString(any())).thenReturn("{}");
+    when(userRepository.save(any(UserEntity.class))).thenReturn(adminEntity);
+
+    // When
+    User result = userService.createUser(payload);
+
+    // Then
+    assertThat(result).isNotNull();
+    assertThat(result.getRoles()).containsExactlyInAnyOrder(UserRole.ADMIN, UserRole.USER);
+
+    ArgumentCaptor<UserEntity> entityCaptor = ArgumentCaptor.forClass(UserEntity.class);
+    verify(userRepository).save(entityCaptor.capture());
+    assertThat(entityCaptor.getValue().getRoles()).containsExactlyInAnyOrder("ADMIN", "USER");
+  }
+
+  @Test
   void updatePassword_shouldUpdatePasswordAndGlobalLogout() throws Exception {
     // Given
     mockedSecurityUtils.when(SecurityUtils::getAuthenticatedUserId).thenReturn(userId);
@@ -120,11 +154,14 @@ class UserServiceTest {
     when(cryptographyService.verifyPassword(any(), any())).thenReturn(true);
     when(cryptographyService.hashPassword(payload.getNewPassword())).thenReturn(mockHashedPassword);
     when(objectMapper.writeValueAsString(any())).thenReturn("{}");
+    when(userRepository.save(any())).thenReturn(mockUserEntity);
 
     // When
-    userService.updatePassword(payload);
+    User result = userService.updatePassword(payload);
 
     // Then
+    assertThat(result).isNotNull();
+    assertThat(result.getName()).isEqualTo(mockUserEntity.getName());
     verify(userRepository).save(mockUserEntity);
     verify(refreshTokenRepository).deleteByUserId(userId);
 
