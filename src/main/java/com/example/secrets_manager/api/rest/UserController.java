@@ -68,7 +68,7 @@ public class UserController {
   @ApiResponse(responseCode = "404", description = "User not found")
   @ApiResponse(responseCode = "500", description = "Internal server error")
   @PreAuthorize("isAuthenticated()")
-  @PutMapping(value = "/password", consumes = MediaType.APPLICATION_JSON_VALUE)
+  @PutMapping(value = "/me/password", consumes = MediaType.APPLICATION_JSON_VALUE)
   public ResponseEntity<UserResponse> updatePassword(
       @Valid @RequestBody UserPasswordUpdateRequest request) {
     var user = userService.updatePassword(UserPasswordUpdateRequestConverter.toModel(request));

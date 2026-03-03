@@ -157,7 +157,7 @@ class UserControllerTest {
     // When
     mockMvc
         .perform(
-            put("/api/v1/users/password")
+            put("/api/v1/users/me/password")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
         // Then
@@ -179,7 +179,7 @@ class UserControllerTest {
     // When
     mockMvc
         .perform(
-            put("/api/v1/users/password")
+            put("/api/v1/users/me/password")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
         // Then
