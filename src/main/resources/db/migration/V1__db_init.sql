@@ -129,6 +129,7 @@ CREATE TABLE IF NOT EXISTS sm.system_locks (
 );
 
 INSERT INTO sm.system_locks (lock_name, description) VALUES ('AUDIT_LOG_CHAIN', 'Serializes access to the audit log chain.') ON CONFLICT (lock_name) DO NOTHING;
+INSERT INTO sm.system_locks (lock_name, description) VALUES ('USER_ROLE_MANAGEMENT', 'Serializes user role management operations.') ON CONFLICT (lock_name) DO NOTHING;
 
 CREATE TABLE IF NOT EXISTS sm.refresh_tokens (
     id UUID PRIMARY KEY DEFAULT uuidv7(),

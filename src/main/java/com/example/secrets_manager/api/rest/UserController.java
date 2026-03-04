@@ -85,8 +85,11 @@ public class UserController {
       content = @Content(schema = @Schema(implementation = UserResponse.class)))
   @ApiResponse(responseCode = "400", description = "Invalid input or system deadlock prevented")
   @ApiResponse(responseCode = "401", description = "Unauthorized")
-  @ApiResponse(responseCode = "403", description = "Forbidden: Admin role required")
+  @ApiResponse(
+      responseCode = "403",
+      description = "Forbidden: Admin role required or self-demotion attempted")
   @ApiResponse(responseCode = "404", description = "User not found")
+  @ApiResponse(responseCode = "409", description = "Conflict: Demotion of last admin attempted")
   @ApiResponse(responseCode = "500", description = "Internal server error")
   @PreAuthorize("hasRole('ADMIN')")
   @PutMapping(value = "/{userId}/roles", consumes = MediaType.APPLICATION_JSON_VALUE)

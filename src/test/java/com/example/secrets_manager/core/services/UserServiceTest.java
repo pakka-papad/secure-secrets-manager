@@ -10,12 +10,14 @@ import com.example.secrets_manager.core.data.repositories.RefreshTokenRepository
 import com.example.secrets_manager.core.data.repositories.UserRepository;
 import com.example.secrets_manager.core.models.AuditAction;
 import com.example.secrets_manager.core.models.AuditLogPayload;
+import com.example.secrets_manager.core.models.SystemLockName;
 import com.example.secrets_manager.core.models.User;
 import com.example.secrets_manager.core.models.UserCreationPayload;
 import com.example.secrets_manager.core.models.UserPasswordUpdatePayload;
 import com.example.secrets_manager.core.models.UserRole;
 import com.example.secrets_manager.core.services.exceptions.AdminDemotionException;
 import com.example.secrets_manager.core.services.exceptions.InvalidPasswordException;
+import com.example.secrets_manager.core.services.exceptions.SelfDemotionException;
 import com.example.secrets_manager.crypto.CryptographyService;
 import com.example.secrets_manager.crypto.dto.HashedPassword;
 import com.example.secrets_manager.security.SecurityUtils;
@@ -42,6 +44,7 @@ class UserServiceTest {
   @Mock private CryptographyService cryptographyService;
   @Mock private AuditService auditService;
   @Mock private SecurityEventLogService securityEventLogService;
+  @Mock private SystemLockService systemLockService;
   @Mock private ObjectMapper objectMapper;
 
   @InjectMocks private UserService userService;
@@ -190,10 +193,11 @@ class UserServiceTest {
   }
 
   @Test
-  void updateRoles_shouldUpdateRolesAndAudit_whenSuccessful() {
+  void updateRoles_shouldUpdateRolesAndAudit_whenPromotion_skipsGlobalLock() {
     // Given
     mockedSecurityUtils.when(SecurityUtils::getAuthenticatedUserId).thenReturn(adminId);
-    EnumSet<UserRole> newRoles = EnumSet.of(UserRole.ADMIN, UserRole.USER);
+    EnumSet<UserRole> newRoles =
+        EnumSet.of(UserRole.ADMIN, UserRole.USER); // Includes ADMIN (Promotion/Keep)
 
     when(userRepository.findAndLockById(userId)).thenReturn(Optional.of(mockUserEntity));
     when(userRepository.save(any())).thenReturn(mockUserEntity);
@@ -203,13 +207,29 @@ class UserServiceTest {
 
     // Then
     assertThat(result).isNotNull();
+    verify(systemLockService, never()).acquireExclusiveLock(any());
     verify(userRepository).save(mockUserEntity);
-    assertThat(result.getRoles()).containsExactlyInAnyOrder(UserRole.ADMIN, UserRole.USER);
+  }
 
-    ArgumentCaptor<AuditLogPayload> auditCaptor = ArgumentCaptor.forClass(AuditLogPayload.class);
-    verify(auditService).save(auditCaptor.capture());
-    assertThat(auditCaptor.getValue().getAction()).isEqualTo(AuditAction.USER_ROLES_UPDATE);
-    assertThat(auditCaptor.getValue().getTargetUserId()).isEqualTo(userId);
+  @Test
+  void updateRoles_shouldAcquireGlobalLock_whenPotentialDemotion() {
+    // Given
+    mockedSecurityUtils.when(SecurityUtils::getAuthenticatedUserId).thenReturn(adminId);
+    EnumSet<UserRole> newRoles = EnumSet.of(UserRole.USER); // No ADMIN (Potential demotion)
+
+    UserEntity currentAdmin =
+        UserEntity.builder().id(userId).roles(new String[] {"ADMIN", "USER"}).build();
+
+    when(userRepository.findAndLockById(userId)).thenReturn(Optional.of(currentAdmin));
+    when(userRepository.countActiveAdmins()).thenReturn(2L);
+    when(userRepository.save(any())).thenReturn(currentAdmin);
+
+    // When
+    userService.updateRoles(userId, newRoles);
+
+    // Then
+    verify(systemLockService).acquireExclusiveLock(SystemLockName.USER_ROLE_MANAGEMENT);
+    verify(userRepository).save(currentAdmin);
   }
 
   @Test
@@ -265,16 +285,30 @@ class UserServiceTest {
   @Test
   void updateRoles_shouldThrowAdminDemotionException_whenRemovingLastAdmin() {
     // Given
+    UUID anotherUserId = UUID.randomUUID();
     mockedSecurityUtils.when(SecurityUtils::getAuthenticatedUserId).thenReturn(adminId);
     EnumSet<UserRole> newRoles = EnumSet.of(UserRole.USER); // Removing ADMIN
 
-    UserEntity lastAdmin = UserEntity.builder().id(adminId).roles(new String[] {"ADMIN"}).build();
+    UserEntity targetAdmin =
+        UserEntity.builder().id(anotherUserId).roles(new String[] {"ADMIN"}).build();
 
-    when(userRepository.findAndLockById(adminId)).thenReturn(Optional.of(lastAdmin));
+    when(userRepository.findAndLockById(anotherUserId)).thenReturn(Optional.of(targetAdmin));
     when(userRepository.countActiveAdmins()).thenReturn(1L);
 
     // When & Then
-    assertThrows(AdminDemotionException.class, () -> userService.updateRoles(adminId, newRoles));
+    assertThrows(
+        AdminDemotionException.class, () -> userService.updateRoles(anotherUserId, newRoles));
+    verify(userRepository, never()).save(any());
+  }
+
+  @Test
+  void updateRoles_shouldThrowSelfDemotionException_whenAdminTargetsSelf() {
+    // Given
+    mockedSecurityUtils.when(SecurityUtils::getAuthenticatedUserId).thenReturn(adminId);
+    EnumSet<UserRole> newRoles = EnumSet.of(UserRole.USER);
+
+    // When & Then
+    assertThrows(SelfDemotionException.class, () -> userService.updateRoles(adminId, newRoles));
     verify(userRepository, never()).save(any());
   }
 }

@@ -18,6 +18,7 @@ import com.example.secrets_manager.core.services.JwtTokenService;
 import com.example.secrets_manager.core.services.UserService;
 import com.example.secrets_manager.core.services.exceptions.AdminDemotionException;
 import com.example.secrets_manager.core.services.exceptions.InvalidPasswordException;
+import com.example.secrets_manager.core.services.exceptions.SelfDemotionException;
 import com.example.secrets_manager.core.services.exceptions.UserAlreadyExistsException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.EnumSet;
@@ -255,5 +256,27 @@ class UserControllerTest {
                 .content(objectMapper.writeValueAsString(request)))
         // Then
         .andExpect(status().isConflict());
+  }
+
+  @Test
+  @WithMockUser(roles = "ADMIN")
+  void updateRoles_WhenAdminTargetsSelf_ShouldReturn403() throws Exception {
+    // Given
+    UUID adminId = UUID.randomUUID();
+    UserRolesUpdateRequest request =
+        UserRolesUpdateRequest.builder().roles(EnumSet.of(UserRole.USER)).build();
+
+    doThrow(new SelfDemotionException("Cannot modify self"))
+        .when(userService)
+        .updateRoles(any(), any());
+
+    // When
+    mockMvc
+        .perform(
+            put("/api/v1/users/" + adminId + "/roles")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+        // Then
+        .andExpect(status().isForbidden());
   }
 }

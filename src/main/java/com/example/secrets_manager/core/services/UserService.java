@@ -7,6 +7,7 @@ import com.example.secrets_manager.core.data.repositories.UserRepository;
 import com.example.secrets_manager.core.models.*;
 import com.example.secrets_manager.core.services.exceptions.AdminDemotionException;
 import com.example.secrets_manager.core.services.exceptions.InvalidPasswordException;
+import com.example.secrets_manager.core.services.exceptions.SelfDemotionException;
 import com.example.secrets_manager.core.services.exceptions.UserAlreadyExistsException;
 import com.example.secrets_manager.core.services.exceptions.UserServiceException;
 import com.example.secrets_manager.core.utils.CoreUtils;
@@ -36,6 +37,7 @@ public class UserService {
   private final RefreshTokenRepository refreshTokenRepository;
   private final CryptographyService cryptographyService;
   private final AuditService auditService;
+  private final SystemLockService systemLockService;
   private final ObjectMapper objectMapper;
 
   @Autowired
@@ -44,11 +46,13 @@ public class UserService {
       RefreshTokenRepository refreshTokenRepository,
       CryptographyService cryptographyService,
       AuditService auditService,
+      SystemLockService systemLockService,
       ObjectMapper objectMapper) {
     this.userRepository = userRepository;
     this.refreshTokenRepository = refreshTokenRepository;
     this.cryptographyService = cryptographyService;
     this.auditService = auditService;
+    this.systemLockService = systemLockService;
     this.objectMapper = objectMapper;
   }
 
@@ -189,23 +193,38 @@ public class UserService {
 
   /**
    * Updates the roles for a specified user. This operation is restricted to administrators.
-   * Includes a safety check to prevent the demotion of the last human administrator.
+   * Includes safety checks to prevent self-modification and the demotion of the last human
+   * administrator.
    *
    * @param userId The UUID of the user to update.
    * @param roles The new set of roles to assign.
    * @return The updated {@link User} domain model.
    * @throws EntityNotFoundException if the user is not found.
    * @throws AdminDemotionException if the update would leave the system without an administrator.
+   * @throws SelfDemotionException if an administrator attempts to modify their own roles.
    * @throws UserServiceException for other internal errors.
    */
   @Transactional
   @PreAuthorize("hasRole('ADMIN')")
   public User updateRoles(UUID userId, EnumSet<UserRole> roles)
-      throws UserServiceException, EntityNotFoundException, AdminDemotionException {
+      throws UserServiceException,
+          EntityNotFoundException,
+          AdminDemotionException,
+          SelfDemotionException {
     // 1. Identify the Actor (Admin) from Security Context
     final var authenticatedUserId = SecurityUtils.getAuthenticatedUserId();
 
-    // 2. Find and Lock the user
+    // 2. Fast Path: Prevent self-modification immediately
+    if (authenticatedUserId.equals(userId)) {
+      throw new SelfDemotionException("Administrators cannot modify their own roles.");
+    }
+
+    // 3. Conditional Global Locking: Only serialize if ADMIN role is being potentially removed
+    if (!roles.contains(UserRole.ADMIN)) {
+      systemLockService.acquireExclusiveLock(SystemLockName.USER_ROLE_MANAGEMENT);
+    }
+
+    // 4. Find and Lock the user
     var userEntity =
         userRepository
             .findAndLockById(userId)
@@ -214,7 +233,7 @@ public class UserService {
                     new EntityNotFoundException(
                         String.format("User not found with ID: %s", userId)));
 
-    // 3. Safety Check: Prevent removing the last admin
+    // 5. Invariant Safety Check: Prevent removing the last admin
     boolean isTargetCurrentlyAdmin =
         Arrays.asList(userEntity.getRoles()).contains(UserRole.ADMIN.name());
     boolean willBeAdmin = roles.contains(UserRole.ADMIN);
@@ -227,13 +246,13 @@ public class UserService {
       }
     }
 
-    // 4. Update roles: Ensure USER role is always present
+    // 6. Apply role update: Ensure USER role is always present
     final var newRoles = EnumSet.copyOf(roles);
     newRoles.add(UserRole.USER);
     userEntity.setRoles(newRoles.stream().map(Enum::name).toArray(String[]::new));
     var savedUser = userRepository.save(userEntity);
 
-    // 5. Create audit log entry
+    // 7. Create audit log entry
     auditService.save(
         AuditLogPayload.builder()
             .actorUserId(authenticatedUserId)

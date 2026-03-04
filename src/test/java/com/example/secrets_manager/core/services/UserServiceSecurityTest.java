@@ -31,6 +31,7 @@ class UserServiceSecurityTest {
   @MockitoBean private CryptographyService cryptographyService;
   @MockitoBean private AuditService auditService;
   @MockitoBean private SecurityEventLogService securityEventLogService;
+  @MockitoBean private SystemLockService systemLockService;
   @MockitoBean private ObjectMapper objectMapper;
 
   @EnableMethodSecurity
