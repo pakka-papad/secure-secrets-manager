@@ -14,6 +14,7 @@ import com.example.secrets_manager.core.models.User;
 import com.example.secrets_manager.core.models.UserCreationPayload;
 import com.example.secrets_manager.core.models.UserPasswordUpdatePayload;
 import com.example.secrets_manager.core.models.UserRole;
+import com.example.secrets_manager.core.services.exceptions.AdminDemotionException;
 import com.example.secrets_manager.core.services.exceptions.InvalidPasswordException;
 import com.example.secrets_manager.crypto.CryptographyService;
 import com.example.secrets_manager.crypto.dto.HashedPassword;
@@ -186,5 +187,94 @@ class UserServiceTest {
     // When & Then
     assertThrows(InvalidPasswordException.class, () -> userService.updatePassword(payload));
     verify(refreshTokenRepository, never()).deleteByUserId(any());
+  }
+
+  @Test
+  void updateRoles_shouldUpdateRolesAndAudit_whenSuccessful() {
+    // Given
+    mockedSecurityUtils.when(SecurityUtils::getAuthenticatedUserId).thenReturn(adminId);
+    EnumSet<UserRole> newRoles = EnumSet.of(UserRole.ADMIN, UserRole.USER);
+
+    when(userRepository.findAndLockById(userId)).thenReturn(Optional.of(mockUserEntity));
+    when(userRepository.save(any())).thenReturn(mockUserEntity);
+
+    // When
+    User result = userService.updateRoles(userId, newRoles);
+
+    // Then
+    assertThat(result).isNotNull();
+    verify(userRepository).save(mockUserEntity);
+    assertThat(result.getRoles()).containsExactlyInAnyOrder(UserRole.ADMIN, UserRole.USER);
+
+    ArgumentCaptor<AuditLogPayload> auditCaptor = ArgumentCaptor.forClass(AuditLogPayload.class);
+    verify(auditService).save(auditCaptor.capture());
+    assertThat(auditCaptor.getValue().getAction()).isEqualTo(AuditAction.USER_ROLES_UPDATE);
+    assertThat(auditCaptor.getValue().getTargetUserId()).isEqualTo(userId);
+  }
+
+  @Test
+  void createUser_shouldAlwaysIncludeUserRole() throws Exception {
+    // Given
+    mockedSecurityUtils.when(SecurityUtils::getAuthenticatedUserId).thenReturn(adminId);
+    var payload =
+        UserCreationPayload.builder()
+            .name("testuser") // same as the mockUserEntity
+            .password("password".getBytes())
+            .roles(EnumSet.noneOf(UserRole.class)) // Empty roles
+            .build();
+
+    when(cryptographyService.hashPassword(any())).thenReturn(mockHashedPassword);
+    when(objectMapper.writeValueAsString(any())).thenReturn("{}");
+    when(userRepository.save(any())).thenReturn(mockUserEntity);
+
+    // When
+    final var result = userService.createUser(payload);
+
+    // Then
+    assertThat(result).isNotNull();
+    assertThat(result.getName()).isEqualTo("testuser");
+    assertThat(result.getRoles()).containsExactlyInAnyOrder(UserRole.USER);
+
+    ArgumentCaptor<UserEntity> entityCaptor = ArgumentCaptor.forClass(UserEntity.class);
+    verify(userRepository).save(entityCaptor.capture());
+    assertThat(entityCaptor.getValue().getRoles()).contains("USER");
+  }
+
+  @Test
+  void updateRoles_shouldAlwaysIncludeUserRole() {
+    // Given
+    mockedSecurityUtils.when(SecurityUtils::getAuthenticatedUserId).thenReturn(adminId);
+    EnumSet<UserRole> onlyAdmin = EnumSet.of(UserRole.ADMIN); // USER omitted
+
+    when(userRepository.findAndLockById(userId)).thenReturn(Optional.of(mockUserEntity));
+    when(userRepository.save(any())).thenReturn(mockUserEntity);
+
+    // When
+    final var result = userService.updateRoles(userId, onlyAdmin);
+
+    // Then
+    assertThat(result).isNotNull();
+    assertThat(result.getName()).isEqualTo(mockUserEntity.getName());
+    assertThat(result.getRoles()).containsExactlyInAnyOrder(UserRole.ADMIN, UserRole.USER);
+
+    ArgumentCaptor<UserEntity> entityCaptor = ArgumentCaptor.forClass(UserEntity.class);
+    verify(userRepository).save(entityCaptor.capture());
+    assertThat(entityCaptor.getValue().getRoles()).contains("USER", "ADMIN");
+  }
+
+  @Test
+  void updateRoles_shouldThrowAdminDemotionException_whenRemovingLastAdmin() {
+    // Given
+    mockedSecurityUtils.when(SecurityUtils::getAuthenticatedUserId).thenReturn(adminId);
+    EnumSet<UserRole> newRoles = EnumSet.of(UserRole.USER); // Removing ADMIN
+
+    UserEntity lastAdmin = UserEntity.builder().id(adminId).roles(new String[] {"ADMIN"}).build();
+
+    when(userRepository.findAndLockById(adminId)).thenReturn(Optional.of(lastAdmin));
+    when(userRepository.countActiveAdmins()).thenReturn(1L);
+
+    // When & Then
+    assertThrows(AdminDemotionException.class, () -> userService.updateRoles(adminId, newRoles));
+    verify(userRepository, never()).save(any());
   }
 }

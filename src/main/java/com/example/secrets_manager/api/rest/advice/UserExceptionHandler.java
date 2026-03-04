@@ -1,6 +1,7 @@
 package com.example.secrets_manager.api.rest.advice;
 
 import com.example.secrets_manager.api.rest.dto.ErrorResponse;
+import com.example.secrets_manager.core.services.exceptions.AdminDemotionException;
 import com.example.secrets_manager.core.services.exceptions.InvalidPasswordException;
 import com.example.secrets_manager.core.services.exceptions.TokenRevokedException;
 import com.example.secrets_manager.core.services.exceptions.UserAlreadyExistsException;
@@ -45,6 +46,20 @@ public class UserExceptionHandler {
             .path(request.getRequestURI())
             .build();
     return new ResponseEntity<>(errorResponse, HttpStatus.UNAUTHORIZED);
+  }
+
+  @ExceptionHandler(AdminDemotionException.class)
+  public ResponseEntity<ErrorResponse> handleAdminDemotionException(
+      AdminDemotionException ex, HttpServletRequest request) {
+    var errorResponse =
+        ErrorResponse.builder()
+            .timestamp(Instant.now())
+            .status(HttpStatus.CONFLICT.value()) // 409
+            .error(HttpStatus.CONFLICT.getReasonPhrase())
+            .messages(List.of(ex.getMessage()))
+            .path(request.getRequestURI())
+            .build();
+    return new ResponseEntity<>(errorResponse, HttpStatus.CONFLICT);
   }
 
   @ExceptionHandler(TokenRevokedException.class)

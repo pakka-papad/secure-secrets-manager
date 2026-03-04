@@ -10,11 +10,13 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.example.secrets_manager.api.rest.dto.UserCreationRequest;
 import com.example.secrets_manager.api.rest.dto.UserPasswordUpdateRequest;
+import com.example.secrets_manager.api.rest.dto.UserRolesUpdateRequest;
 import com.example.secrets_manager.config.JacksonConfig;
 import com.example.secrets_manager.core.models.User;
 import com.example.secrets_manager.core.models.UserRole;
 import com.example.secrets_manager.core.services.JwtTokenService;
 import com.example.secrets_manager.core.services.UserService;
+import com.example.secrets_manager.core.services.exceptions.AdminDemotionException;
 import com.example.secrets_manager.core.services.exceptions.InvalidPasswordException;
 import com.example.secrets_manager.core.services.exceptions.UserAlreadyExistsException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -184,5 +186,74 @@ class UserControllerTest {
                 .content(objectMapper.writeValueAsString(request)))
         // Then
         .andExpect(status().isUnauthorized());
+  }
+
+  @Test
+  @WithMockUser(roles = "ADMIN")
+  void updateRoles_AsAdmin_ShouldReturn200() throws Exception {
+    // Given
+    UUID targetId = UUID.randomUUID();
+    UserRolesUpdateRequest request =
+        UserRolesUpdateRequest.builder().roles(EnumSet.of(UserRole.ADMIN)).build();
+
+    User updatedUser =
+        User.builder()
+            .id(targetId)
+            .name("target")
+            .roles(EnumSet.of(UserRole.ADMIN, UserRole.USER))
+            .build();
+
+    when(userService.updateRoles(any(), any())).thenReturn(updatedUser);
+
+    // When
+    mockMvc
+        .perform(
+            put("/api/v1/users/" + targetId + "/roles")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+        // Then
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.roles[0]").value("ADMIN"))
+        .andExpect(jsonPath("$.roles[1]").value("USER"));
+  }
+
+  @Test
+  @WithMockUser(roles = "USER")
+  void updateRoles_AsUser_ShouldReturn403() throws Exception {
+    // Given
+    UUID targetId = UUID.randomUUID();
+    UserRolesUpdateRequest request =
+        UserRolesUpdateRequest.builder().roles(EnumSet.of(UserRole.ADMIN)).build();
+
+    // When
+    mockMvc
+        .perform(
+            put("/api/v1/users/" + targetId + "/roles")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+        // Then
+        .andExpect(status().isForbidden());
+  }
+
+  @Test
+  @WithMockUser(roles = "ADMIN")
+  void updateRoles_WhenDemotingLastAdmin_ShouldReturn409() throws Exception {
+    // Given
+    UUID targetId = UUID.randomUUID();
+    UserRolesUpdateRequest request =
+        UserRolesUpdateRequest.builder().roles(EnumSet.of(UserRole.USER)).build();
+
+    doThrow(new AdminDemotionException("Cannot remove last admin"))
+        .when(userService)
+        .updateRoles(any(), any());
+
+    // When
+    mockMvc
+        .perform(
+            put("/api/v1/users/" + targetId + "/roles")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+        // Then
+        .andExpect(status().isConflict());
   }
 }

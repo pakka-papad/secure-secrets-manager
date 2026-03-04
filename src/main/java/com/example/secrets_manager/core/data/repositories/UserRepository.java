@@ -1,6 +1,7 @@
 package com.example.secrets_manager.core.data.repositories;
 
 import com.example.secrets_manager.core.data.entities.UserEntity;
+import jakarta.persistence.LockModeType;
 import jakarta.persistence.QueryHint;
 import java.util.List;
 import java.util.Optional;
@@ -19,7 +20,7 @@ public interface UserRepository extends JpaRepository<UserEntity, UUID> {
 
   Optional<UserEntity> findByNameAndDeletedAtIsNull(String username);
 
-  @Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+  @Lock(LockModeType.PESSIMISTIC_WRITE)
   @QueryHints({@QueryHint(name = "jakarta.persistence.lock.timeout", value = "5000")})
   @Query("SELECT u FROM UserEntity u WHERE u.id = :id AND u.deletedAt IS NULL")
   Optional<UserEntity> findAndLockById(UUID id);
@@ -33,4 +34,11 @@ public interface UserRepository extends JpaRepository<UserEntity, UUID> {
           "SELECT EXISTS (SELECT 1 FROM sm.users WHERE 'ADMIN' = ANY(roles) AND id != '00000000-0000-0000-0000-000000000000' AND deleted_at IS NULL)",
       nativeQuery = true)
   boolean existsByRoleAdmin();
+
+  /** Counts the number of active human administrators. */
+  @Query(
+      value =
+          "SELECT COUNT(*) FROM sm.users WHERE 'ADMIN' = ANY(roles) AND id != '00000000-0000-0000-0000-000000000000' AND deleted_at IS NULL",
+      nativeQuery = true)
+  long countActiveAdmins();
 }

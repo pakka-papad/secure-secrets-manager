@@ -6,6 +6,7 @@ import com.example.secrets_manager.api.rest.converters.UserResponseConverter;
 import com.example.secrets_manager.api.rest.dto.UserCreationRequest;
 import com.example.secrets_manager.api.rest.dto.UserPasswordUpdateRequest;
 import com.example.secrets_manager.api.rest.dto.UserResponse;
+import com.example.secrets_manager.api.rest.dto.UserRolesUpdateRequest;
 import com.example.secrets_manager.core.services.UserService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -14,11 +15,13 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import java.util.UUID;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -72,6 +75,24 @@ public class UserController {
   public ResponseEntity<UserResponse> updatePassword(
       @Valid @RequestBody UserPasswordUpdateRequest request) {
     var user = userService.updatePassword(UserPasswordUpdateRequestConverter.toModel(request));
+    return ResponseEntity.ok(UserResponseConverter.fromModel(user));
+  }
+
+  @Operation(summary = "Update user roles")
+  @ApiResponse(
+      responseCode = "200",
+      description = "Roles updated successfully",
+      content = @Content(schema = @Schema(implementation = UserResponse.class)))
+  @ApiResponse(responseCode = "400", description = "Invalid input or system deadlock prevented")
+  @ApiResponse(responseCode = "401", description = "Unauthorized")
+  @ApiResponse(responseCode = "403", description = "Forbidden: Admin role required")
+  @ApiResponse(responseCode = "404", description = "User not found")
+  @ApiResponse(responseCode = "500", description = "Internal server error")
+  @PreAuthorize("hasRole('ADMIN')")
+  @PutMapping(value = "/{userId}/roles", consumes = MediaType.APPLICATION_JSON_VALUE)
+  public ResponseEntity<UserResponse> updateRoles(
+      @PathVariable UUID userId, @Valid @RequestBody UserRolesUpdateRequest request) {
+    var user = userService.updateRoles(userId, request.getRoles());
     return ResponseEntity.ok(UserResponseConverter.fromModel(user));
   }
 }
