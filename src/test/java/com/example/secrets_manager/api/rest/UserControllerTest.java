@@ -28,6 +28,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.cache.CacheManager;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
@@ -44,6 +45,7 @@ class UserControllerTest {
 
   @MockitoBean private UserService userService;
   @MockitoBean private JwtTokenService jwtTokenService;
+  @MockitoBean private CacheManager cacheManager;
 
   @TestConfiguration
   @EnableMethodSecurity

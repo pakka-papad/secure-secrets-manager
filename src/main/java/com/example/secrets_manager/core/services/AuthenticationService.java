@@ -10,6 +10,7 @@ import com.example.secrets_manager.core.models.LoginPayload;
 import com.example.secrets_manager.core.models.RefreshTokenPayload;
 import com.example.secrets_manager.core.models.SecurityEvent;
 import com.example.secrets_manager.core.models.SecurityEventLogPayload;
+import com.example.secrets_manager.core.models.events.UserLogoutEvent;
 import com.example.secrets_manager.core.services.exceptions.InvalidPasswordException;
 import com.example.secrets_manager.core.services.exceptions.InvalidTokenException;
 import com.example.secrets_manager.core.services.exceptions.TokenRevokedException;
@@ -25,6 +26,7 @@ import jakarta.validation.constraints.NotNull;
 import java.util.Objects;
 import java.util.UUID;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -45,6 +47,7 @@ public class AuthenticationService {
   private final AuditService auditService;
   private final SecurityEventLogService securityEventLogService;
   private final CryptographyService cryptographyService;
+  private final ApplicationEventPublisher eventPublisher;
 
   @Autowired
   public AuthenticationService(
@@ -54,7 +57,8 @@ public class AuthenticationService {
       RefreshTokenRepository refreshTokenRepository,
       AuditService auditService,
       SecurityEventLogService securityEventLogService,
-      CryptographyService cryptographyService) {
+      CryptographyService cryptographyService,
+      ApplicationEventPublisher eventPublisher) {
     this.authenticationManager = authenticationManager;
     this.userRepository = userRepository;
     this.jwtTokenService = jwtTokenService;
@@ -62,6 +66,7 @@ public class AuthenticationService {
     this.auditService = auditService;
     this.securityEventLogService = securityEventLogService;
     this.cryptographyService = cryptographyService;
+    this.eventPublisher = eventPublisher;
   }
 
   /**
@@ -317,8 +322,8 @@ public class AuthenticationService {
         .findAndLockById(userId)
         .orElseThrow(() -> new EntityNotFoundException("User not found or deleted during logout"));
 
-    // 3. Delete the refresh token to invalidate the session
-    refreshTokenRepository.deleteByUserId(userId);
+    // 3. Publish Event for side-effects (token deletion, access token invalidation)
+    eventPublisher.publishEvent(new UserLogoutEvent(userId));
 
     // 4. Audit the logout
     auditService.save(

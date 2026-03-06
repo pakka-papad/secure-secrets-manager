@@ -5,6 +5,7 @@ spring:
     type: caffeine
     cache-names:
       - buckets
+      - user-revocations
     caffeine:
       spec: maximumSize=10000,expireAfterAccess=600s
   datasource:

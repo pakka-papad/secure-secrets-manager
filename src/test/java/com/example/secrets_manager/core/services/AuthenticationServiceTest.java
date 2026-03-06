@@ -14,6 +14,7 @@ import com.example.secrets_manager.core.models.LoginPayload;
 import com.example.secrets_manager.core.models.RefreshTokenPayload;
 import com.example.secrets_manager.core.models.TokenWithExpiry;
 import com.example.secrets_manager.core.models.User;
+import com.example.secrets_manager.core.models.events.UserLogoutEvent;
 import com.example.secrets_manager.core.services.exceptions.InvalidTokenException;
 import com.example.secrets_manager.crypto.CryptographyService;
 import com.example.secrets_manager.crypto.dto.BinaryHash;
@@ -31,6 +32,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.core.Authentication;
 
@@ -44,6 +46,7 @@ class AuthenticationServiceTest {
   @Mock private AuditService auditService;
   @Mock private SecurityEventLogService securityEventLogService;
   @Mock private CryptographyService cryptographyService;
+  @Mock private ApplicationEventPublisher eventPublisher;
 
   @InjectMocks private AuthenticationService authenticationService;
 
@@ -132,7 +135,7 @@ class AuthenticationServiceTest {
   }
 
   @Test
-  void logout_ShouldDeleteTokenAndAudit() {
+  void logout_ShouldPublishEventAndAudit() {
     // Given
     mockedSecurityUtils.when(SecurityUtils::getAuthenticatedUserId).thenReturn(userId);
     when(userRepository.findAndLockById(userId)).thenReturn(Optional.of(mockUserEntity));
@@ -141,7 +144,7 @@ class AuthenticationServiceTest {
     authenticationService.logout();
 
     // Then
-    verify(refreshTokenRepository).deleteByUserId(userId);
+    verify(eventPublisher).publishEvent(any(UserLogoutEvent.class));
     verify(auditService).save(any());
   }
 }
