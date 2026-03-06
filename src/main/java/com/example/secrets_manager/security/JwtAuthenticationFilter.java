@@ -1,7 +1,7 @@
 package com.example.secrets_manager.security;
 
+import com.example.secrets_manager.core.data.CacheConstants;
 import com.example.secrets_manager.core.services.JwtTokenService;
-import com.example.secrets_manager.core.utils.CoreUtils;
 import io.jsonwebtoken.Claims;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -61,7 +61,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     UUID userId = UUID.fromString(userIdStr);
     Instant issuedAt = claims.getIssuedAt().toInstant();
 
-    Cache revocationCache = cacheManager.getCache(CoreUtils.CACHE_USER_REVOCATIONS);
+    Cache revocationCache = cacheManager.getCache(CacheConstants.CACHE_USER_REVOCATIONS);
     if (revocationCache == null) return true;
 
     Instant lastRevocation = revocationCache.get(userId, Instant.class);

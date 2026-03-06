@@ -5,10 +5,10 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.example.secrets_manager.core.data.CacheConstants;
 import com.example.secrets_manager.core.data.repositories.RefreshTokenRepository;
 import com.example.secrets_manager.core.models.events.UserDeletedEvent;
 import com.example.secrets_manager.core.models.events.UserPasswordUpdatedEvent;
-import com.example.secrets_manager.core.utils.CoreUtils;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -29,7 +29,7 @@ class SessionRevocationListenerTest {
 
   @BeforeEach
   void setUp() {
-    when(cacheManager.getCache(CoreUtils.CACHE_USER_REVOCATIONS)).thenReturn(cache);
+    when(cacheManager.getCache(CacheConstants.CACHE_USER_REVOCATIONS)).thenReturn(cache);
   }
 
   @Test

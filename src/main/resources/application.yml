@@ -3,11 +3,6 @@ spring:
     name: secrets-manager
   cache:
     type: caffeine
-    cache-names:
-      - buckets
-      - user-revocations
-    caffeine:
-      spec: maximumSize=10000,expireAfterAccess=600s
   datasource:
     url: jdbc:postgresql://localhost:5433/${POSTGRES_DB}
     username: ${POSTGRES_USER}
@@ -37,13 +32,26 @@ bootstrap:
 bucket4j:
   enabled: true
   filters:
-    - cache-name: buckets
+    # 1. Public Authentication Endpoints (IP-based)
+    - cache-name: auth-buckets
       url: /api/v1/auth/.*
       strategy: first
-      http-response-body: "{ \"timestamp\": \"${current_time}\", \"status\": 429, \"error\": \"Too Many Requests\", \"messages\": [\"You have exceeded the rate limit for authentication. Please try again later.\"], \"path\": \"${path}\" }"
+      http-response-body: "{ \"timestamp\": \"${current_time}\", \"status\": 429, \"error\": \"Too Many Requests\", \"messages\": [\"Too many login or refresh attempts. Please try again later.\"], \"path\": \"${path}\" }"
       rate-limits:
         - cache-key: "getRemoteAddr()"
           bandwidths:
             - capacity: 5
+              time: 1
+              unit: minutes
+
+    # 2. General Authenticated API Endpoints (User-based)
+    - cache-name: general-api-buckets
+      url: /api/v1/(users|secrets|groups)/.*
+      strategy: first
+      http-response-body: "{ \"timestamp\": \"${current_time}\", \"status\": 429, \"error\": \"Too Many Requests\", \"messages\": [\"General API rate limit exceeded. Please slow down.\"], \"path\": \"${path}\" }"
+      rate-limits:
+        - cache-key: "authentication?.name" # Identifies by User ID from JWT
+          bandwidths:
+            - capacity: 100
               time: 1
               unit: minutes

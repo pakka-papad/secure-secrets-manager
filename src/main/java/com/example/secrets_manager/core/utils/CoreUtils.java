@@ -29,6 +29,4 @@ public final class CoreUtils {
   }
 
   public static final UUID SYSTEM_USER_ID = UUID.fromString("00000000-0000-0000-0000-000000000000");
-
-  public static final String CACHE_USER_REVOCATIONS = "user-revocations";
 }
