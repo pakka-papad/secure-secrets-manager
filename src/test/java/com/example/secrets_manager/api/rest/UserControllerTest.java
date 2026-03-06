@@ -3,8 +3,7 @@ package com.example.secrets_manager.api.rest;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.when;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -18,6 +17,7 @@ import com.example.secrets_manager.core.services.JwtTokenService;
 import com.example.secrets_manager.core.services.UserService;
 import com.example.secrets_manager.core.services.exceptions.AdminDemotionException;
 import com.example.secrets_manager.core.services.exceptions.InvalidPasswordException;
+import com.example.secrets_manager.core.services.exceptions.SelfDeletionException;
 import com.example.secrets_manager.core.services.exceptions.SelfDemotionException;
 import com.example.secrets_manager.core.services.exceptions.UserAlreadyExistsException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -278,5 +278,61 @@ class UserControllerTest {
                 .content(objectMapper.writeValueAsString(request)))
         // Then
         .andExpect(status().isForbidden());
+  }
+
+  @Test
+  @WithMockUser(roles = "ADMIN")
+  void deleteUser_AsAdmin_ShouldReturn204() throws Exception {
+    // Given
+    UUID targetId = UUID.randomUUID();
+
+    // When
+    mockMvc
+        .perform(delete("/api/v1/users/" + targetId))
+        // Then
+        .andExpect(status().isNoContent());
+  }
+
+  @Test
+  @WithMockUser(roles = "USER")
+  void deleteUser_AsUser_ShouldReturn403() throws Exception {
+    // Given
+    UUID targetId = UUID.randomUUID();
+
+    // When
+    mockMvc
+        .perform(delete("/api/v1/users/" + targetId))
+        // Then
+        .andExpect(status().isForbidden());
+  }
+
+  @Test
+  @WithMockUser(roles = "ADMIN")
+  void deleteUser_WhenDeletingSelf_ShouldReturn403() throws Exception {
+    // Given
+    UUID adminId = UUID.randomUUID();
+    doThrow(new SelfDeletionException("Cannot delete self")).when(userService).deleteUser(adminId);
+
+    // When
+    mockMvc
+        .perform(delete("/api/v1/users/" + adminId))
+        // Then
+        .andExpect(status().isForbidden());
+  }
+
+  @Test
+  @WithMockUser(roles = "ADMIN")
+  void deleteUser_WhenDeletingLastAdmin_ShouldReturn409() throws Exception {
+    // Given
+    UUID targetId = UUID.randomUUID();
+    doThrow(new AdminDemotionException("Cannot delete last admin"))
+        .when(userService)
+        .deleteUser(targetId);
+
+    // When
+    mockMvc
+        .perform(delete("/api/v1/users/" + targetId))
+        // Then
+        .andExpect(status().isConflict());
   }
 }

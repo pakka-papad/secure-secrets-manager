@@ -5,15 +5,28 @@ import com.example.secrets_manager.core.data.entities.SecretGroupAuthorizationId
 import jakarta.persistence.LockModeType;
 import jakarta.persistence.QueryHint;
 import java.util.Optional;
+import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.jpa.repository.QueryHints;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
 
 @Repository
 public interface SecretGroupAuthorizationRepository
     extends JpaRepository<SecretGroupAuthorizationEntity, SecretGroupAuthorizationId> {
+
+  /**
+   * Deletes all secret group authorizations for a specific user.
+   *
+   * @param userId The ID of the user whose authorizations should be removed.
+   */
+  @Modifying
+  @Transactional
+  @Query("DELETE FROM SecretGroupAuthorizationEntity a WHERE a.id.userId = :userId")
+  void deleteByIdUserId(UUID userId);
 
   /**
    * Finds a secret group authorization by its composite ID and acquires a pessimistic write lock on

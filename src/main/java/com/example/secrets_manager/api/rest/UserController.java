@@ -21,6 +21,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -97,5 +98,21 @@ public class UserController {
       @PathVariable UUID userId, @Valid @RequestBody UserRolesUpdateRequest request) {
     var user = userService.updateRoles(userId, request.getRoles());
     return ResponseEntity.ok(UserResponseConverter.fromModel(user));
+  }
+
+  @Operation(summary = "Delete a user")
+  @ApiResponse(responseCode = "204", description = "User deleted successfully")
+  @ApiResponse(responseCode = "401", description = "Unauthorized")
+  @ApiResponse(
+      responseCode = "403",
+      description = "Forbidden: Admin role required or self-deletion attempted")
+  @ApiResponse(responseCode = "404", description = "User not found")
+  @ApiResponse(responseCode = "409", description = "Conflict: Deletion of last admin attempted")
+  @ApiResponse(responseCode = "500", description = "Internal server error")
+  @PreAuthorize("hasRole('ADMIN')")
+  @DeleteMapping(value = "/{userId}")
+  public ResponseEntity<Void> deleteUser(@PathVariable UUID userId) {
+    userService.deleteUser(userId);
+    return ResponseEntity.noContent().build();
   }
 }

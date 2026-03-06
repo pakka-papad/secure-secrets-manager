@@ -2,7 +2,7 @@ CREATE SCHEMA IF NOT EXISTS sm;
 
 CREATE TABLE IF NOT EXISTS sm.users(
     id UUID PRIMARY KEY DEFAULT uuidv7(),
-    name VARCHAR(255) NOT NULL UNIQUE,
+    name VARCHAR(255) NOT NULL,
     pw_salt BYTEA NOT NULL,
     pw_digest BYTEA NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -12,6 +12,8 @@ CREATE TABLE IF NOT EXISTS sm.users(
     roles VARCHAR(31)[] NOT NULL DEFAULT '{}',
     deleted_at TIMESTAMPTZ NULL
 );
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_sm_users_active_name ON sm.users (name) WHERE deleted_at IS NULL;
 
 CREATE INDEX IF NOT EXISTS idx_users_roles ON sm.users USING GIN (roles) WHERE deleted_at IS NULL;
 

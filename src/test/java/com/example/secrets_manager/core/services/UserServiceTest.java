@@ -6,7 +6,6 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 import com.example.secrets_manager.core.data.entities.UserEntity;
-import com.example.secrets_manager.core.data.repositories.RefreshTokenRepository;
 import com.example.secrets_manager.core.data.repositories.UserRepository;
 import com.example.secrets_manager.core.models.AuditAction;
 import com.example.secrets_manager.core.models.AuditLogPayload;
@@ -15,8 +14,11 @@ import com.example.secrets_manager.core.models.User;
 import com.example.secrets_manager.core.models.UserCreationPayload;
 import com.example.secrets_manager.core.models.UserPasswordUpdatePayload;
 import com.example.secrets_manager.core.models.UserRole;
+import com.example.secrets_manager.core.models.events.UserDeletedEvent;
+import com.example.secrets_manager.core.models.events.UserPasswordUpdatedEvent;
 import com.example.secrets_manager.core.services.exceptions.AdminDemotionException;
 import com.example.secrets_manager.core.services.exceptions.InvalidPasswordException;
+import com.example.secrets_manager.core.services.exceptions.SelfDeletionException;
 import com.example.secrets_manager.core.services.exceptions.SelfDemotionException;
 import com.example.secrets_manager.crypto.CryptographyService;
 import com.example.secrets_manager.crypto.dto.HashedPassword;
@@ -35,16 +37,17 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 
 @ExtendWith(MockitoExtension.class)
 class UserServiceTest {
 
   @Mock private UserRepository userRepository;
-  @Mock private RefreshTokenRepository refreshTokenRepository;
   @Mock private CryptographyService cryptographyService;
   @Mock private AuditService auditService;
   @Mock private SecurityEventLogService securityEventLogService;
   @Mock private SystemLockService systemLockService;
+  @Mock private ApplicationEventPublisher eventPublisher;
   @Mock private ObjectMapper objectMapper;
 
   @InjectMocks private UserService userService;
@@ -145,7 +148,7 @@ class UserServiceTest {
   }
 
   @Test
-  void updatePassword_shouldUpdatePasswordAndGlobalLogout() throws Exception {
+  void updatePassword_shouldUpdatePasswordAndPublishEvent() throws Exception {
     // Given
     mockedSecurityUtils.when(SecurityUtils::getAuthenticatedUserId).thenReturn(userId);
     var payload =
@@ -167,7 +170,7 @@ class UserServiceTest {
     assertThat(result).isNotNull();
     assertThat(result.getName()).isEqualTo(mockUserEntity.getName());
     verify(userRepository).save(mockUserEntity);
-    verify(refreshTokenRepository).deleteByUserId(userId);
+    verify(eventPublisher).publishEvent(any(UserPasswordUpdatedEvent.class));
 
     ArgumentCaptor<AuditLogPayload> auditCaptor = ArgumentCaptor.forClass(AuditLogPayload.class);
     verify(auditService).save(auditCaptor.capture());
@@ -189,7 +192,7 @@ class UserServiceTest {
 
     // When & Then
     assertThrows(InvalidPasswordException.class, () -> userService.updatePassword(payload));
-    verify(refreshTokenRepository, never()).deleteByUserId(any());
+    verify(eventPublisher, never()).publishEvent(any());
   }
 
   @Test
@@ -309,6 +312,38 @@ class UserServiceTest {
 
     // When & Then
     assertThrows(SelfDemotionException.class, () -> userService.updateRoles(adminId, newRoles));
+    verify(userRepository, never()).save(any());
+  }
+
+  @Test
+  void deleteUser_shouldSoftDeleteAndPublishEvent() {
+    // Given
+    UUID targetId = UUID.randomUUID();
+    mockedSecurityUtils.when(SecurityUtils::getAuthenticatedUserId).thenReturn(adminId);
+    UserEntity targetUser = UserEntity.builder().id(targetId).roles(new String[] {"USER"}).build();
+
+    when(userRepository.findAndLockById(targetId)).thenReturn(Optional.of(targetUser));
+
+    // When
+    userService.deleteUser(targetId);
+
+    // Then
+    verify(userRepository).save(targetUser);
+    verify(eventPublisher).publishEvent(new UserDeletedEvent(targetId));
+    assertNotNull(targetUser.getDeletedAt());
+
+    ArgumentCaptor<AuditLogPayload> auditCaptor = ArgumentCaptor.forClass(AuditLogPayload.class);
+    verify(auditService).save(auditCaptor.capture());
+    assertThat(auditCaptor.getValue().getAction()).isEqualTo(AuditAction.USER_DELETE);
+  }
+
+  @Test
+  void deleteUser_shouldThrowSelfDeletionException_whenAdminTargetsSelf() {
+    // Given
+    mockedSecurityUtils.when(SecurityUtils::getAuthenticatedUserId).thenReturn(adminId);
+
+    // When & Then
+    assertThrows(SelfDeletionException.class, () -> userService.deleteUser(adminId));
     verify(userRepository, never()).save(any());
   }
 }

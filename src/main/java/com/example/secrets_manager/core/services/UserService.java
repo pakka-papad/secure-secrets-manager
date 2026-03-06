@@ -2,11 +2,13 @@ package com.example.secrets_manager.core.services;
 
 import com.example.secrets_manager.core.data.converters.UserEntityConverter;
 import com.example.secrets_manager.core.data.entities.UserEntity;
-import com.example.secrets_manager.core.data.repositories.RefreshTokenRepository;
 import com.example.secrets_manager.core.data.repositories.UserRepository;
 import com.example.secrets_manager.core.models.*;
+import com.example.secrets_manager.core.models.events.UserDeletedEvent;
+import com.example.secrets_manager.core.models.events.UserPasswordUpdatedEvent;
 import com.example.secrets_manager.core.services.exceptions.AdminDemotionException;
 import com.example.secrets_manager.core.services.exceptions.InvalidPasswordException;
+import com.example.secrets_manager.core.services.exceptions.SelfDeletionException;
 import com.example.secrets_manager.core.services.exceptions.SelfDemotionException;
 import com.example.secrets_manager.core.services.exceptions.UserAlreadyExistsException;
 import com.example.secrets_manager.core.services.exceptions.UserServiceException;
@@ -19,10 +21,12 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
+import java.time.Instant;
 import java.util.Arrays;
 import java.util.EnumSet;
 import java.util.UUID;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
@@ -34,25 +38,25 @@ import org.springframework.validation.annotation.Validated;
 public class UserService {
 
   private final UserRepository userRepository;
-  private final RefreshTokenRepository refreshTokenRepository;
   private final CryptographyService cryptographyService;
   private final AuditService auditService;
   private final SystemLockService systemLockService;
+  private final ApplicationEventPublisher eventPublisher;
   private final ObjectMapper objectMapper;
 
   @Autowired
   public UserService(
       UserRepository userRepository,
-      RefreshTokenRepository refreshTokenRepository,
       CryptographyService cryptographyService,
       AuditService auditService,
       SystemLockService systemLockService,
+      ApplicationEventPublisher eventPublisher,
       ObjectMapper objectMapper) {
     this.userRepository = userRepository;
-    this.refreshTokenRepository = refreshTokenRepository;
     this.cryptographyService = cryptographyService;
     this.auditService = auditService;
     this.systemLockService = systemLockService;
+    this.eventPublisher = eventPublisher;
     this.objectMapper = objectMapper;
   }
 
@@ -107,7 +111,7 @@ public class UserService {
     try {
       savedUserEntity = userRepository.save(userEntity);
     } catch (DataIntegrityViolationException e) {
-      if (e.getMessage() != null && e.getMessage().contains("uq_sm_users_name")) {
+      if (e.getMessage() != null && e.getMessage().contains("uq_sm_users_active_name")) {
         throw new UserAlreadyExistsException(
             String.format("User with name '%s' already exists.", payload.getName()), e);
       }
@@ -177,8 +181,8 @@ public class UserService {
     }
     var savedUser = userRepository.save(userEntity);
 
-    // 5. Global Logout
-    refreshTokenRepository.deleteByUserId(userEntity.getId());
+    // 5. Global Logout (Side effect via Event)
+    eventPublisher.publishEvent(new UserPasswordUpdatedEvent(userEntity.getId()));
 
     // 6. Create audit log entry
     auditService.save(
@@ -261,5 +265,68 @@ public class UserService {
             .build());
 
     return UserEntityConverter.toModel(savedUser);
+  }
+
+  /**
+   * Soft-deletes a user from the system. This operation is restricted to administrators and
+   * includes safety checks to prevent self-deletion and the removal of the last administrator.
+   *
+   * @param userId The UUID of the user to delete.
+   * @throws EntityNotFoundException if the user is not found.
+   * @throws SelfDeletionException if an administrator attempts to delete their own account.
+   * @throws AdminDemotionException if the deletion would leave the system without an administrator.
+   * @throws UserServiceException for other internal errors.
+   */
+  @Transactional
+  @PreAuthorize("hasRole('ADMIN')")
+  public void deleteUser(UUID userId)
+      throws UserServiceException,
+          EntityNotFoundException,
+          SelfDeletionException,
+          AdminDemotionException {
+    // 1. Identify the Actor (Admin) from Security Context
+    final var authenticatedUserId = SecurityUtils.getAuthenticatedUserId();
+
+    // 2. Prevent self-deletion
+    if (authenticatedUserId.equals(userId)) {
+      throw new SelfDeletionException("Administrators cannot delete their own account.");
+    }
+
+    // 3. Serialize User Management globally to prevent demotion race conditions
+    systemLockService.acquireExclusiveLock(SystemLockName.USER_ROLE_MANAGEMENT);
+
+    // 4. Find and Lock the user row
+    var userEntity =
+        userRepository
+            .findAndLockById(userId)
+            .orElseThrow(
+                () ->
+                    new EntityNotFoundException(
+                        String.format("User not found with ID: %s", userId)));
+
+    // 5. Safety Check: Prevent removing the last admin
+    boolean isTargetAdmin = Arrays.asList(userEntity.getRoles()).contains(UserRole.ADMIN.name());
+    if (isTargetAdmin) {
+      long adminCount = userRepository.countActiveAdmins();
+      if (adminCount <= 1) {
+        throw new AdminDemotionException(
+            "Cannot delete the last administrator. System must have at least one active administrator.");
+      }
+    }
+
+    // 6. Perform Soft Delete
+    userEntity.setDeletedAt(Instant.now());
+    userRepository.save(userEntity);
+
+    // 7. Publish Event for side-effects (token deletion, authorization cleanup)
+    eventPublisher.publishEvent(new UserDeletedEvent(userId));
+
+    // 8. Create audit log entry
+    auditService.save(
+        AuditLogPayload.builder()
+            .actorUserId(authenticatedUserId)
+            .action(AuditAction.USER_DELETE)
+            .targetUserId(userId)
+            .build());
   }
 }
