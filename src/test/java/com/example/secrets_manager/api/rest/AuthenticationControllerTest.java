@@ -2,12 +2,14 @@ package com.example.secrets_manager.api.rest;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
+import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.example.secrets_manager.api.rest.dto.LoginRequest;
 import com.example.secrets_manager.config.JacksonConfig;
+import com.example.secrets_manager.config.TestSecurityConfig;
 import com.example.secrets_manager.core.models.AuthResponse;
 import com.example.secrets_manager.core.models.RefreshTokenPayload;
 import com.example.secrets_manager.core.services.AuthenticationService;
@@ -15,33 +17,37 @@ import com.example.secrets_manager.core.services.JwtTokenService;
 import com.example.secrets_manager.core.services.exceptions.InvalidTokenException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.Instant;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.cache.CacheManager;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.security.authentication.BadCredentialsException;
-import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import org.springframework.web.context.WebApplicationContext;
 
 @WebMvcTest(controllers = AuthenticationController.class)
-@Import({JacksonConfig.class, AuthenticationControllerTest.MethodSecurityConfig.class})
+@Import({JacksonConfig.class, TestSecurityConfig.class})
 class AuthenticationControllerTest {
 
-  @Autowired private MockMvc mockMvc;
+  @Autowired private WebApplicationContext context;
   @Autowired private ObjectMapper objectMapper;
+
+  private MockMvc mockMvc;
 
   @MockitoBean private AuthenticationService authenticationService;
   @MockitoBean private JwtTokenService jwtTokenService;
   @MockitoBean private CacheManager cacheManager;
 
-  @TestConfiguration
-  @EnableMethodSecurity
-  static class MethodSecurityConfig {}
+  @BeforeEach
+  void setup() {
+    mockMvc = MockMvcBuilders.webAppContextSetup(context).apply(springSecurity()).build();
+  }
 
   @Test
   void login_WithJson_ShouldReturn200() throws Exception {
@@ -145,6 +151,19 @@ class AuthenticationControllerTest {
   @Test
   @WithMockUser
   void logout_ShouldReturn204() throws Exception {
-    mockMvc.perform(post("/api/v1/auth/logout")).andExpect(status().isNoContent());
+    // When
+    mockMvc
+        .perform(post("/api/v1/auth/logout"))
+        // Then
+        .andExpect(status().isNoContent());
+  }
+
+  @Test
+  void logout_WhenUnauthenticated_ShouldReturn401() throws Exception {
+    // When
+    mockMvc
+        .perform(post("/api/v1/auth/logout"))
+        // Then
+        .andExpect(status().isUnauthorized());
   }
 }
