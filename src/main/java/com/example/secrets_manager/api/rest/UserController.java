@@ -3,10 +3,7 @@ package com.example.secrets_manager.api.rest;
 import com.example.secrets_manager.api.rest.converters.UserCreationRequestConverter;
 import com.example.secrets_manager.api.rest.converters.UserPasswordUpdateRequestConverter;
 import com.example.secrets_manager.api.rest.converters.UserResponseConverter;
-import com.example.secrets_manager.api.rest.dto.UserCreationRequest;
-import com.example.secrets_manager.api.rest.dto.UserPasswordUpdateRequest;
-import com.example.secrets_manager.api.rest.dto.UserResponse;
-import com.example.secrets_manager.api.rest.dto.UserRolesUpdateRequest;
+import com.example.secrets_manager.api.rest.dto.*;
 import com.example.secrets_manager.core.services.UserService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -17,17 +14,12 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.util.UUID;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.web.bind.annotation.DeleteMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping(value = "/api/v1/users", produces = MediaType.APPLICATION_JSON_VALUE)
@@ -40,6 +32,22 @@ public class UserController {
   @Autowired
   public UserController(UserService userService) {
     this.userService = userService;
+  }
+
+  @Operation(summary = "List users with filters and pagination")
+  @ApiResponse(
+      responseCode = "200",
+      description = "List retrieved successfully",
+      content = @Content(schema = @Schema(implementation = PagedResponse.class)))
+  @ApiResponse(responseCode = "401", description = "Unauthorized")
+  @ApiResponse(responseCode = "403", description = "Forbidden: Admin role required")
+  @PreAuthorize("hasRole('ADMIN')")
+  @GetMapping
+  public ResponseEntity<PagedResponse<UserResponse>> listUsers(
+      UserSearchCriteria criteria, Pageable pageable) {
+    var page = userService.listUsers(criteria, pageable);
+    var response = PagedResponse.fromPage(page.map(UserResponseConverter::fromModel));
+    return ResponseEntity.ok(response);
   }
 
   @Operation(summary = "Create a new user")

@@ -2,7 +2,7 @@ package com.example.secrets_manager.core.services;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import com.example.secrets_manager.core.data.repositories.RefreshTokenRepository;
+import com.example.secrets_manager.api.rest.dto.UserSearchCriteria;
 import com.example.secrets_manager.core.data.repositories.UserRepository;
 import com.example.secrets_manager.core.models.UserCreationPayload;
 import com.example.secrets_manager.crypto.CryptographyService;
@@ -12,6 +12,8 @@ import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.test.context.support.WithMockUser;
@@ -27,15 +29,25 @@ class UserServiceSecurityTest {
   @Autowired private UserService userService;
 
   @MockitoBean private UserRepository userRepository;
-  @MockitoBean private RefreshTokenRepository refreshTokenRepository;
   @MockitoBean private CryptographyService cryptographyService;
   @MockitoBean private AuditService auditService;
   @MockitoBean private SecurityEventLogService securityEventLogService;
   @MockitoBean private SystemLockService systemLockService;
+  @MockitoBean private ApplicationEventPublisher eventPublisher;
   @MockitoBean private ObjectMapper objectMapper;
 
   @EnableMethodSecurity
   static class SecurityTestConfig {}
+
+  @Test
+  @WithMockUser(roles = "USER")
+  void listUsers_AsUser_ShouldThrowAccessDeniedException() {
+    UserSearchCriteria criteria = new UserSearchCriteria();
+    PageRequest pageable = PageRequest.of(0, 10);
+
+    assertThatThrownBy(() -> userService.listUsers(criteria, pageable))
+        .isInstanceOf(AccessDeniedException.class);
+  }
 
   @Test
   @WithMockUser(roles = "USER")
@@ -57,6 +69,15 @@ class UserServiceSecurityTest {
                 userService.updateRoles(
                     targetId,
                     EnumSet.noneOf(com.example.secrets_manager.core.models.UserRole.class)))
+        .isInstanceOf(AccessDeniedException.class);
+  }
+
+  @Test
+  @WithMockUser(roles = "USER")
+  void deleteUser_AsUser_ShouldThrowAccessDeniedException() {
+    UUID targetId = UUID.randomUUID();
+
+    assertThatThrownBy(() -> userService.deleteUser(targetId))
         .isInstanceOf(AccessDeniedException.class);
   }
 

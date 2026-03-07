@@ -5,15 +5,10 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
+import com.example.secrets_manager.api.rest.dto.UserSearchCriteria;
 import com.example.secrets_manager.core.data.entities.UserEntity;
 import com.example.secrets_manager.core.data.repositories.UserRepository;
-import com.example.secrets_manager.core.models.AuditAction;
-import com.example.secrets_manager.core.models.AuditLogPayload;
-import com.example.secrets_manager.core.models.SystemLockName;
-import com.example.secrets_manager.core.models.User;
-import com.example.secrets_manager.core.models.UserCreationPayload;
-import com.example.secrets_manager.core.models.UserPasswordUpdatePayload;
-import com.example.secrets_manager.core.models.UserRole;
+import com.example.secrets_manager.core.models.*;
 import com.example.secrets_manager.core.models.events.UserDeletedEvent;
 import com.example.secrets_manager.core.models.events.UserPasswordUpdatedEvent;
 import com.example.secrets_manager.core.services.exceptions.AdminDemotionException;
@@ -25,6 +20,7 @@ import com.example.secrets_manager.crypto.dto.HashedPassword;
 import com.example.secrets_manager.security.SecurityUtils;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.EnumSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -38,6 +34,11 @@ import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 
 @ExtendWith(MockitoExtension.class)
 class UserServiceTest {
@@ -345,5 +346,24 @@ class UserServiceTest {
     // When & Then
     assertThrows(SelfDeletionException.class, () -> userService.deleteUser(adminId));
     verify(userRepository, never()).save(any());
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  void listUsers_shouldReturnPagedUsers() {
+    // Given
+    UserSearchCriteria criteria = new UserSearchCriteria();
+    Pageable pageable = PageRequest.of(0, 10);
+    Page<UserEntity> page = new PageImpl<>(List.of(mockUserEntity));
+
+    when(userRepository.findAll(any(Specification.class), eq(pageable))).thenReturn(page);
+
+    // When
+    Page<User> result = userService.listUsers(criteria, pageable);
+
+    // Then
+    assertThat(result).isNotNull();
+    assertThat(result.getContent()).hasSize(1);
+    assertThat(result.getContent().get(0).getName()).isEqualTo(mockUserEntity.getName());
   }
 }

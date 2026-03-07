@@ -1,8 +1,10 @@
 package com.example.secrets_manager.core.services;
 
+import com.example.secrets_manager.api.rest.dto.UserSearchCriteria;
 import com.example.secrets_manager.core.data.converters.UserEntityConverter;
 import com.example.secrets_manager.core.data.entities.UserEntity;
 import com.example.secrets_manager.core.data.repositories.UserRepository;
+import com.example.secrets_manager.core.data.repositories.UserSpecifications;
 import com.example.secrets_manager.core.models.*;
 import com.example.secrets_manager.core.models.events.UserDeletedEvent;
 import com.example.secrets_manager.core.models.events.UserPasswordUpdatedEvent;
@@ -28,6 +30,9 @@ import java.util.UUID;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -328,5 +333,19 @@ public class UserService {
             .action(AuditAction.USER_DELETE)
             .targetUserId(userId)
             .build());
+  }
+
+  /**
+   * Retrieves a paginated list of users based on the provided search criteria.
+   *
+   * @param criteria The {@link UserSearchCriteria} containing filters.
+   * @param pageable The {@link Pageable} object for pagination and sorting.
+   * @return A {@link Page} of {@link User} models.
+   */
+  @Transactional(readOnly = true)
+  @PreAuthorize("hasRole('ADMIN')")
+  public Page<User> listUsers(UserSearchCriteria criteria, Pageable pageable) {
+    Specification<UserEntity> spec = UserSpecifications.withCriteria(criteria);
+    return userRepository.findAll(spec, pageable).map(UserEntityConverter::toModel);
   }
 }

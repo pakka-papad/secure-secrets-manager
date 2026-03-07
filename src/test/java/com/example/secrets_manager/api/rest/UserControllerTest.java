@@ -22,6 +22,7 @@ import com.example.secrets_manager.core.services.exceptions.SelfDemotionExceptio
 import com.example.secrets_manager.core.services.exceptions.UserAlreadyExistsException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.EnumSet;
+import java.util.List;
 import java.util.UUID;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Test;
@@ -30,6 +31,7 @@ import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.cache.CacheManager;
 import org.springframework.context.annotation.Import;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.http.MediaType;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.test.context.support.WithMockUser;
@@ -50,6 +52,32 @@ class UserControllerTest {
   @TestConfiguration
   @EnableMethodSecurity
   static class MethodSecurityConfig {}
+
+  @Test
+  @WithMockUser(roles = "ADMIN")
+  void listUsers_AsAdmin_ShouldReturn200() throws Exception {
+    // Given
+    var page = new PageImpl<>(List.of(User.builder().id(UUID.randomUUID()).name("test").build()));
+    when(userService.listUsers(any(), any())).thenReturn(page);
+
+    // When
+    mockMvc
+        .perform(get("/api/v1/users").param("page", "0").param("size", "10"))
+        // Then
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.items").isArray())
+        .andExpect(jsonPath("$.totalElements").value(1));
+  }
+
+  @Test
+  @WithMockUser(roles = "USER")
+  void listUsers_AsUser_ShouldReturn403() throws Exception {
+    // When
+    mockMvc
+        .perform(get("/api/v1/users"))
+        // Then
+        .andExpect(status().isForbidden());
+  }
 
   @Test
   @WithMockUser(roles = "ADMIN")
