@@ -3,6 +3,7 @@ package com.example.secrets_manager.api.rest;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.when;
+import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -11,47 +12,48 @@ import com.example.secrets_manager.api.rest.dto.UserCreationRequest;
 import com.example.secrets_manager.api.rest.dto.UserPasswordUpdateRequest;
 import com.example.secrets_manager.api.rest.dto.UserRolesUpdateRequest;
 import com.example.secrets_manager.config.JacksonConfig;
+import com.example.secrets_manager.config.TestSecurityConfig;
 import com.example.secrets_manager.core.models.User;
 import com.example.secrets_manager.core.models.UserRole;
 import com.example.secrets_manager.core.services.JwtTokenService;
 import com.example.secrets_manager.core.services.UserService;
-import com.example.secrets_manager.core.services.exceptions.AdminDemotionException;
-import com.example.secrets_manager.core.services.exceptions.InvalidPasswordException;
-import com.example.secrets_manager.core.services.exceptions.SelfDeletionException;
-import com.example.secrets_manager.core.services.exceptions.SelfDemotionException;
-import com.example.secrets_manager.core.services.exceptions.UserAlreadyExistsException;
+import com.example.secrets_manager.core.services.exceptions.*;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.UUID;
 import org.hamcrest.Matchers;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.cache.CacheManager;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.http.MediaType;
-import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import org.springframework.web.context.WebApplicationContext;
 
 @WebMvcTest(controllers = UserController.class)
-@Import({JacksonConfig.class, UserControllerTest.MethodSecurityConfig.class})
+@Import({JacksonConfig.class, TestSecurityConfig.class})
 class UserControllerTest {
 
-  @Autowired private MockMvc mockMvc;
+  @Autowired private WebApplicationContext context;
   @Autowired private ObjectMapper objectMapper;
+
+  private MockMvc mockMvc;
 
   @MockitoBean private UserService userService;
   @MockitoBean private JwtTokenService jwtTokenService;
   @MockitoBean private CacheManager cacheManager;
 
-  @TestConfiguration
-  @EnableMethodSecurity
-  static class MethodSecurityConfig {}
+  @BeforeEach
+  void setup() {
+    mockMvc = MockMvcBuilders.webAppContextSetup(context).apply(springSecurity()).build();
+  }
 
   @Test
   @WithMockUser(roles = "ADMIN")
@@ -92,6 +94,15 @@ class UserControllerTest {
         // Then
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.name").value("current"));
+  }
+
+  @Test
+  void getCurrentUser_WhenUnauthenticated_ShouldReturn401() throws Exception {
+    // When
+    mockMvc
+        .perform(get("/api/v1/users/me"))
+        // Then
+        .andExpect(status().isUnauthorized());
   }
 
   @Test

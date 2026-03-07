@@ -3,22 +3,17 @@ package com.example.secrets_manager.core.services;
 import com.example.secrets_manager.core.models.TokenWithExpiry;
 import com.example.secrets_manager.security.SecurityConstants;
 import io.jsonwebtoken.*;
-import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.SignatureException;
 import jakarta.annotation.PostConstruct;
-import java.security.KeyFactory;
-import java.security.NoSuchAlgorithmException;
 import java.security.PrivateKey;
 import java.security.PublicKey;
-import java.security.spec.InvalidKeySpecException;
-import java.security.spec.PKCS8EncodedKeySpec;
-import java.security.spec.X509EncodedKeySpec;
 import java.time.Instant;
 import java.util.Collection;
 import java.util.Date;
 import java.util.Optional;
 import java.util.UUID;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -26,11 +21,7 @@ import org.springframework.stereotype.Service;
 @Slf4j
 public class JwtTokenService {
 
-  @Value("${jwt.secret-key.private}")
-  private String jwtPrivateKeyBase64;
-
-  @Value("${jwt.secret-key.public}")
-  private String jwtPublicKeyBase64;
+  private final JwtKeyPairProvider keyPairProvider;
 
   @Value("${jwt.expiration.access:300000}") // 5 minutes
   private long accessTokenExpirationMs;
@@ -41,28 +32,18 @@ public class JwtTokenService {
   private PrivateKey privateKey;
   private PublicKey publicKey;
 
+  @Autowired
+  public JwtTokenService(JwtKeyPairProvider keyPairProvider) {
+    this.keyPairProvider = keyPairProvider;
+  }
+
   @PostConstruct
   public void init() {
-    try {
-      var kf = KeyFactory.getInstance("EC");
-
-      // Trim strings to handle accidental whitespace/newlines from config/copy-paste
-      var pkcs8Spec = new PKCS8EncodedKeySpec(Decoders.BASE64.decode(jwtPrivateKeyBase64.trim()));
-      privateKey = kf.generatePrivate(pkcs8Spec);
-
-      var x509Spec = new X509EncodedKeySpec(Decoders.BASE64.decode(jwtPublicKeyBase64.trim()));
-      publicKey = kf.generatePublic(x509Spec);
-
-      log.info("JWT EC keys loaded from application properties.");
-    } catch (NoSuchAlgorithmException | InvalidKeySpecException e) {
-      log.error("Error initializing JWT EC keys: {}", e.getMessage(), e);
-      throw new IllegalStateException("Error initializing JWT EC keys: " + e.getMessage(), e);
-    } catch (IllegalArgumentException e) { // Catch issues with Base64 decoding if keys are invalid
-      log.error("Error decoding JWT EC keys from Base64: {}", e.getMessage(), e);
-      throw new IllegalStateException(
-          "Error decoding JWT EC keys. Ensure they are valid Base64 encoded private/public keys.",
-          e);
-    }
+    var keyPair = keyPairProvider.getKeyPair();
+    this.privateKey = keyPair.getPrivate();
+    this.publicKey = keyPair.getPublic();
+    log.info(
+        "JWT EC keys initialized using provider: {}", keyPairProvider.getClass().getSimpleName());
   }
 
   public TokenWithExpiry generateAccessToken(UUID userId, Collection<String> roles) {
