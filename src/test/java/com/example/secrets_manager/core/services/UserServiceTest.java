@@ -11,14 +11,12 @@ import com.example.secrets_manager.core.data.repositories.UserRepository;
 import com.example.secrets_manager.core.models.*;
 import com.example.secrets_manager.core.models.events.UserDeletedEvent;
 import com.example.secrets_manager.core.models.events.UserPasswordUpdatedEvent;
-import com.example.secrets_manager.core.services.exceptions.AdminDemotionException;
-import com.example.secrets_manager.core.services.exceptions.InvalidPasswordException;
-import com.example.secrets_manager.core.services.exceptions.SelfDeletionException;
-import com.example.secrets_manager.core.services.exceptions.SelfDemotionException;
+import com.example.secrets_manager.core.services.exceptions.*;
 import com.example.secrets_manager.crypto.CryptographyService;
 import com.example.secrets_manager.crypto.dto.HashedPassword;
 import com.example.secrets_manager.security.SecurityUtils;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.persistence.EntityNotFoundException;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
@@ -365,5 +363,30 @@ class UserServiceTest {
     assertThat(result).isNotNull();
     assertThat(result.getContent()).hasSize(1);
     assertThat(result.getContent().get(0).getName()).isEqualTo(mockUserEntity.getName());
+  }
+
+  @Test
+  void getCurrentUser_shouldReturnUser_whenAuthenticated() {
+    // Given
+    mockedSecurityUtils.when(SecurityUtils::getAuthenticatedUserId).thenReturn(userId);
+    when(userRepository.findByIdAndDeletedAtIsNull(userId)).thenReturn(Optional.of(mockUserEntity));
+
+    // When
+    User result = userService.getCurrentUser();
+
+    // Then
+    assertThat(result).isNotNull();
+    assertThat(result.getId()).isEqualTo(userId);
+    assertThat(result.getName()).isEqualTo(mockUserEntity.getName());
+  }
+
+  @Test
+  void getCurrentUser_shouldThrowException_whenUserNotFound() {
+    // Given
+    mockedSecurityUtils.when(SecurityUtils::getAuthenticatedUserId).thenReturn(userId);
+    when(userRepository.findByIdAndDeletedAtIsNull(userId)).thenReturn(Optional.empty());
+
+    // When & Then
+    assertThrows(EntityNotFoundException.class, () -> userService.getCurrentUser());
   }
 }

@@ -348,4 +348,23 @@ public class UserService {
     Specification<UserEntity> spec = UserSpecifications.withCriteria(criteria);
     return userRepository.findAll(spec, pageable).map(UserEntityConverter::toModel);
   }
+
+  /**
+   * Retrieves the profile of the currently authenticated user.
+   *
+   * @return The {@link User} domain model of the current user.
+   * @throws EntityNotFoundException if the user record is not found.
+   */
+  @Transactional(readOnly = true)
+  @PreAuthorize("isAuthenticated()")
+  public User getCurrentUser() {
+    final var authenticatedUserId = SecurityUtils.getAuthenticatedUserId();
+    return userRepository
+        .findByIdAndDeletedAtIsNull(authenticatedUserId)
+        .map(UserEntityConverter::toModel)
+        .orElseThrow(
+            () ->
+                new EntityNotFoundException(
+                    String.format("User not found with ID: %s", authenticatedUserId)));
+  }
 }

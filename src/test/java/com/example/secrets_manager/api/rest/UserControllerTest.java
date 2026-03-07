@@ -80,6 +80,21 @@ class UserControllerTest {
   }
 
   @Test
+  @WithMockUser
+  void getCurrentUser_ShouldReturn200() throws Exception {
+    // Given
+    User user = User.builder().id(UUID.randomUUID()).name("current").build();
+    when(userService.getCurrentUser()).thenReturn(user);
+
+    // When
+    mockMvc
+        .perform(get("/api/v1/users/me"))
+        // Then
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.name").value("current"));
+  }
+
+  @Test
   @WithMockUser(roles = "ADMIN")
   void createUser_AsAdmin_ShouldReturn201() throws Exception {
     // Given

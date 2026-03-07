@@ -50,6 +50,20 @@ public class UserController {
     return ResponseEntity.ok(response);
   }
 
+  @Operation(summary = "Get current user profile")
+  @ApiResponse(
+      responseCode = "200",
+      description = "Profile retrieved successfully",
+      content = @Content(schema = @Schema(implementation = UserResponse.class)))
+  @ApiResponse(responseCode = "401", description = "Unauthorized")
+  @ApiResponse(responseCode = "404", description = "User not found")
+  @PreAuthorize("isAuthenticated()")
+  @GetMapping("/me")
+  public ResponseEntity<UserResponse> getCurrentUser() {
+    var user = userService.getCurrentUser();
+    return ResponseEntity.ok(UserResponseConverter.fromModel(user));
+  }
+
   @Operation(summary = "Create a new user")
   @ApiResponse(
       responseCode = "201",
