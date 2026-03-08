@@ -5,6 +5,7 @@ import com.example.secrets_manager.crypto.dto.EncryptedData;
 import com.example.secrets_manager.crypto.exception.CryptoOperationException;
 import java.security.GeneralSecurityException;
 import java.security.SecureRandom;
+import java.util.Arrays;
 import javax.crypto.Cipher;
 import javax.crypto.spec.GCMParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
@@ -19,6 +20,7 @@ public class AesGcmSymmetricCipher implements SymmetricCipher {
   private static final int KEY_LENGTH_BYTES = 32;
   private static final int NONCE_LENGTH_BYTES = 12;
   private static final int AUTH_TAG_LENGTH_BITS = 128;
+  private static final int AUTH_TAG_LENGTH_BYTES = AUTH_TAG_LENGTH_BITS / 8;
 
   private final SecureRandom secureRandom = new SecureRandom();
 
@@ -34,12 +36,15 @@ public class AesGcmSymmetricCipher implements SymmetricCipher {
 
     try {
       Cipher cipher = initCipher(Cipher.ENCRYPT_MODE, key, nonce);
-      byte[] ciphertext = cipher.doFinal(plaintext);
-      // For GCM, the auth tag is appended to the ciphertext by the provider.
-      // There is no separate authTag byte array to manage.
-      return new EncryptedData(ciphertext, nonce, null, ALGORITHM_NAME);
+      byte[] combined = cipher.doFinal(plaintext);
+
+      // Separate the tag from the ciphertext
+      int ciphertextLength = combined.length - AUTH_TAG_LENGTH_BYTES;
+      byte[] ciphertext = Arrays.copyOfRange(combined, 0, ciphertextLength);
+      byte[] authTag = Arrays.copyOfRange(combined, ciphertextLength, combined.length);
+
+      return new EncryptedData(ciphertext, nonce, authTag, ALGORITHM_NAME);
     } catch (GeneralSecurityException e) {
-      // Encryption failures are unexpected and indicate a programming or environment error.
       throw new RuntimeException("Failed to encrypt data", e);
     }
   }
@@ -47,11 +52,16 @@ public class AesGcmSymmetricCipher implements SymmetricCipher {
   @Override
   public byte[] decrypt(EncryptedData data, byte[] key) throws CryptoOperationException {
     try {
+      // Re-combine ciphertext and authTag for the Java Cipher
+      byte[] ciphertext = data.getCiphertext();
+      byte[] authTag = data.getAuthTag();
+      byte[] combined = new byte[ciphertext.length + authTag.length];
+      System.arraycopy(ciphertext, 0, combined, 0, ciphertext.length);
+      System.arraycopy(authTag, 0, combined, ciphertext.length, authTag.length);
+
       Cipher cipher = initCipher(Cipher.DECRYPT_MODE, key, data.getNonce());
-      return cipher.doFinal(data.getCiphertext());
+      return cipher.doFinal(combined);
     } catch (GeneralSecurityException e) {
-      // Decryption failures can be expected (e.g., bad key, tampered data)
-      // and should be handled by the caller.
       throw new CryptoOperationException(
           "Failed to decrypt data. Data may be corrupt or key may be incorrect.", e);
     }

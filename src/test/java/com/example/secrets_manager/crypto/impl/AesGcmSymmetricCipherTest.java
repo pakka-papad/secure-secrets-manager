@@ -25,6 +25,10 @@ class AesGcmSymmetricCipherTest {
     assertThat(encrypted).isNotNull();
     assertThat(encrypted.getCiphertext()).isNotEqualTo(plaintext);
     assertThat(encrypted.getAlgorithm()).isEqualTo(cipher.getAlgorithmName());
+    
+    // Explicitly verify Auth Tag and Nonce presence
+    assertThat(encrypted.getNonce()).hasSize(12);
+    assertThat(encrypted.getAuthTag()).hasSize(16);
 
     // Then
     byte[] decrypted = cipher.decrypt(encrypted, key);
@@ -74,6 +78,22 @@ class AesGcmSymmetricCipherTest {
     // When
     EncryptedData encrypted = cipher.encrypt(plaintext, key);
     encrypted.getNonce()[0] ^= 1; // Tamper with the first byte
+
+    // Then
+    assertThatThrownBy(() -> cipher.decrypt(encrypted, key))
+        .isInstanceOf(CryptoOperationException.class);
+  }
+
+  @Test
+  void decrypt_WithTamperedAuthTag_ShouldThrowException() {
+    // Given
+    byte[] key = new byte[32];
+    random.nextBytes(key);
+    byte[] plaintext = "data".getBytes();
+
+    // When
+    EncryptedData encrypted = cipher.encrypt(plaintext, key);
+    encrypted.getAuthTag()[0] ^= 1; // Tamper with the authentication tag
 
     // Then
     assertThatThrownBy(() -> cipher.decrypt(encrypted, key))
