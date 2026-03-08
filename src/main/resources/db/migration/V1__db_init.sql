@@ -23,18 +23,20 @@ VALUES ('00000000-0000-0000-0000-000000000000', 'system', '\x', '\x', 'NONE', '{
 CREATE TABLE IF NOT EXISTS sm.master_keys(
     version INT PRIMARY KEY,
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    status VARCHAR(31) NOT NULL
+    status VARCHAR(31) NOT NULL,
+    encrypt_algo VARCHAR(31) NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS sm.secret_groups(
     id UUID PRIMARY KEY DEFAULT uuidv7(),
-    name VARCHAR(255) NOT NULL UNIQUE,
-    data_key_length INT NOT NULL,
+    name VARCHAR(255) NOT NULL,
     encrypt_algo VARCHAR(31) NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     modified_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     deleted_at TIMESTAMPTZ NULL
 );
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_sm_secret_groups_active_name ON sm.secret_groups (name) WHERE deleted_at IS NULL;
 
 CREATE TABLE IF NOT EXISTS sm.secret_group_authorizations(
     user_id UUID NOT NULL,
@@ -53,9 +55,13 @@ CREATE TABLE IF NOT EXISTS sm.secrets(
     id UUID PRIMARY KEY DEFAULT uuidv7(),
     group_id UUID NOT NULL,
     secret_name VARCHAR(511) NOT NULL,
-    encrypted_value BYTEA NOT NULL,
-    data_encryption_key BYTEA NOT NULL,
-    data_key_version INT NOT NULL,
+    value_ciphertext BYTEA NOT NULL,
+    value_nonce BYTEA NOT NULL,
+    value_auth_tag BYTEA NOT NULL,
+    dek_ciphertext BYTEA NOT NULL,
+    dek_nonce BYTEA NOT NULL,
+    dek_auth_tag BYTEA NOT NULL,
+    dek_version INT NOT NULL,
     master_key_version INT NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     modified_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -64,7 +70,7 @@ CREATE TABLE IF NOT EXISTS sm.secrets(
 
 ALTER TABLE sm.secrets ADD CONSTRAINT secrets_group_id_fk FOREIGN KEY (group_id) REFERENCES sm.secret_groups(id);
 ALTER TABLE sm.secrets ADD CONSTRAINT secrets_master_key_version_fk FOREIGN KEY (master_key_version) REFERENCES sm.master_keys(version);
-ALTER TABLE sm.secrets ADD CONSTRAINT secrets_group_id_secret_name_unique UNIQUE (group_id, secret_name);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_sm_secrets_active_group_name ON sm.secrets (group_id, secret_name) WHERE deleted_at IS NULL;
 
 CREATE TABLE IF NOT EXISTS sm.audit_logs(
     seq_id BIGSERIAL PRIMARY KEY,

@@ -21,7 +21,6 @@ public class SecretGroupEntity {
 
   public static final String COL_ID = "id";
   public static final String COL_NAME = "name";
-  public static final String COL_DATA_KEY_LENGTH = "data_key_length";
   public static final String COL_ENCRYPT_ALGO = "encrypt_algo";
   public static final String COL_CREATED_AT = "created_at";
   public static final String COL_MODIFIED_AT = "modified_at";
@@ -34,9 +33,6 @@ public class SecretGroupEntity {
 
   @Column(name = COL_NAME, nullable = false, unique = true)
   private String name;
-
-  @Column(name = COL_DATA_KEY_LENGTH, nullable = false)
-  private int dataKeyLength;
 
   @Column(name = COL_ENCRYPT_ALGO, nullable = false, length = 31)
   private String encryptAlgo;

@@ -14,4 +14,5 @@ public class MasterKey {
   private Integer version;
   private Instant createdAt;
   private String status;
+  private String encryptAlgo;
 }

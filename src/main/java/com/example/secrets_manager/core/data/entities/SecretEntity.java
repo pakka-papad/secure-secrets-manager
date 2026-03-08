@@ -28,9 +28,13 @@ public class SecretEntity {
   public static final String COL_ID = "id";
   public static final String COL_GROUP_ID = "group_id";
   public static final String COL_SECRET_NAME = "secret_name";
-  public static final String COL_ENCRYPTED_VALUE = "encrypted_value";
-  public static final String COL_DATA_ENCRYPTION_KEY = "data_encryption_key";
-  public static final String COL_DATA_KEY_VERSION = "data_key_version";
+  public static final String COL_VALUE_CIPHERTEXT = "value_ciphertext";
+  public static final String COL_VALUE_NONCE = "value_nonce";
+  public static final String COL_VALUE_AUTH_TAG = "value_auth_tag";
+  public static final String COL_DEK_CIPHERTEXT = "dek_ciphertext";
+  public static final String COL_DEK_NONCE = "dek_nonce";
+  public static final String COL_DEK_AUTH_TAG = "dek_auth_tag";
+  public static final String COL_DEK_VERSION = "dek_version";
   public static final String COL_MASTER_KEY_VERSION = "master_key_version";
   public static final String COL_CREATED_AT = "created_at";
   public static final String COL_MODIFIED_AT = "modified_at";
@@ -41,22 +45,46 @@ public class SecretEntity {
   @Column(name = COL_ID)
   private UUID id;
 
+  @ManyToOne(fetch = FetchType.LAZY)
+  @JoinColumn(name = COL_GROUP_ID, insertable = false, updatable = false)
+  private SecretGroupEntity group;
+
   @Column(name = COL_GROUP_ID, nullable = false)
   private UUID groupId;
 
   @Column(name = COL_SECRET_NAME, nullable = false, length = 511)
   private String secretName;
 
-  @Column(name = COL_ENCRYPTED_VALUE, nullable = false)
+  @Column(name = COL_VALUE_CIPHERTEXT, nullable = false)
   @ToString.Exclude
-  private byte[] encryptedValue;
+  private byte[] valueCiphertext;
 
-  @Column(name = COL_DATA_ENCRYPTION_KEY, nullable = false)
+  @Column(name = COL_VALUE_NONCE, nullable = false)
   @ToString.Exclude
-  private byte[] dataEncryptionKey;
+  private byte[] valueNonce;
 
-  @Column(name = COL_DATA_KEY_VERSION, nullable = false)
-  private int dataKeyVersion;
+  @Column(name = COL_VALUE_AUTH_TAG, nullable = false)
+  @ToString.Exclude
+  private byte[] valueAuthTag;
+
+  @Column(name = COL_DEK_CIPHERTEXT, nullable = false)
+  @ToString.Exclude
+  private byte[] dekCiphertext;
+
+  @Column(name = COL_DEK_NONCE, nullable = false)
+  @ToString.Exclude
+  private byte[] dekNonce;
+
+  @Column(name = COL_DEK_AUTH_TAG, nullable = false)
+  @ToString.Exclude
+  private byte[] dekAuthTag;
+
+  @Column(name = COL_DEK_VERSION, nullable = false)
+  private int dekVersion;
+
+  @ManyToOne(fetch = FetchType.LAZY)
+  @JoinColumn(name = COL_MASTER_KEY_VERSION, insertable = false, updatable = false)
+  private MasterKeyEntity masterKey;
 
   @Column(name = COL_MASTER_KEY_VERSION, nullable = false)
   private Integer masterKeyVersion;

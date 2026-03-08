@@ -14,7 +14,6 @@ import lombok.NoArgsConstructor;
 public class SecretGroup {
   private UUID id;
   private String name;
-  private int dataKeyLength;
   private String encryptAlgo;
   private Instant createdAt;
   private Instant modifiedAt;

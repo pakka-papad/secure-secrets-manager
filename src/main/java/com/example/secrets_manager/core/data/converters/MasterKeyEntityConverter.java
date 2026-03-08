@@ -14,6 +14,7 @@ public class MasterKeyEntityConverter {
         .version(entity.getVersion())
         .createdAt(entity.getCreatedAt())
         .status(entity.getStatus())
+        .encryptAlgo(entity.getEncryptAlgo())
         .build();
   }
 
@@ -26,6 +27,7 @@ public class MasterKeyEntityConverter {
         .version(model.getVersion())
         .createdAt(model.getCreatedAt())
         .status(model.getStatus())
+        .encryptAlgo(model.getEncryptAlgo())
         .build();
   }
 }

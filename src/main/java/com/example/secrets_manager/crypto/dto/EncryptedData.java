@@ -1,5 +1,6 @@
 package com.example.secrets_manager.crypto.dto;
 
+import lombok.ToString;
 import lombok.Value;
 
 /**
@@ -8,8 +9,8 @@ import lombok.Value;
  */
 @Value
 public class EncryptedData {
-  byte[] ciphertext;
-  byte[] nonce;
-  byte[] authTag;
+  @ToString.Exclude byte[] ciphertext;
+  @ToString.Exclude byte[] nonce;
+  @ToString.Exclude byte[] authTag;
   String algorithm;
 }

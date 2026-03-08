@@ -19,6 +19,7 @@ public class MasterKeyEntity {
   public static final String COL_VERSION = "version";
   public static final String COL_CREATED_AT = "created_at";
   public static final String COL_STATUS = "status";
+  public static final String COL_ENCRYPT_ALGO = "encrypt_algo";
 
   @Id
   @Column(name = COL_VERSION)
@@ -29,6 +30,9 @@ public class MasterKeyEntity {
 
   @Column(name = COL_STATUS, nullable = false, length = 31)
   private String status;
+
+  @Column(name = COL_ENCRYPT_ALGO, nullable = false, length = 31)
+  private String encryptAlgo;
 
   @PrePersist
   protected void onCreate() {
