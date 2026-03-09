@@ -27,6 +27,8 @@ CREATE TABLE IF NOT EXISTS sm.master_keys(
     encrypt_algo VARCHAR(31) NOT NULL
 );
 
+CREATE INDEX IF NOT EXISTS idx_master_keys_status ON sm.master_keys (status);
+
 CREATE TABLE IF NOT EXISTS sm.secret_groups(
     id UUID PRIMARY KEY DEFAULT uuidv7(),
     name VARCHAR(255) NOT NULL,
