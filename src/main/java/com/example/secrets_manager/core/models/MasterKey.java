@@ -13,6 +13,6 @@ import lombok.NoArgsConstructor;
 public class MasterKey {
   private Integer version;
   private Instant createdAt;
-  private String status;
+  private MasterKeyState status;
   private String encryptAlgo;
 }

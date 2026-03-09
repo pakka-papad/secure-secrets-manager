@@ -30,6 +30,11 @@ public class AesGcmSymmetricCipher implements SymmetricCipher {
   }
 
   @Override
+  public int getRequiredKeySizeBytes() {
+    return KEY_LENGTH_BYTES;
+  }
+
+  @Override
   public EncryptedData encrypt(byte[] plaintext, byte[] key) {
     byte[] nonce = new byte[NONCE_LENGTH_BYTES];
     secureRandom.nextBytes(nonce);

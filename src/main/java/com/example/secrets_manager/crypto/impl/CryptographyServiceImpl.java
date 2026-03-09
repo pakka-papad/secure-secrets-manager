@@ -84,6 +84,16 @@ public class CryptographyServiceImpl implements CryptographyService {
   }
 
   @Override
+  public int getRequiredSymmetricKeySizeBytes(String algorithmName) {
+    SymmetricCipher cipher = symmetricCiphers.get(algorithmName);
+    if (cipher == null) {
+      throw new IllegalArgumentException(
+          "Unsupported symmetric cipher algorithm: " + algorithmName);
+    }
+    return cipher.getRequiredKeySizeBytes();
+  }
+
+  @Override
   public byte[] createDataHash(Object dataToHash) {
     try {
       // Use a stable JSON representation for hashing to ensure determinism.

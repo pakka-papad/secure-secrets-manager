@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.example.secrets_manager.core.data.entities.MasterKeyEntity;
 import com.example.secrets_manager.core.models.MasterKey;
+import com.example.secrets_manager.core.models.MasterKeyState;
 import java.time.Instant;
 import org.junit.jupiter.api.Test;
 
@@ -26,7 +27,7 @@ class MasterKeyEntityConverterTest {
 
     // Then
     assertThat(model.getVersion()).isEqualTo(1);
-    assertThat(model.getStatus()).isEqualTo("ACTIVE");
+    assertThat(model.getStatus()).isEqualTo(MasterKeyState.ACTIVE);
     assertThat(model.getEncryptAlgo()).isEqualTo("AES-256-GCM");
     assertThat(model.getCreatedAt()).isEqualTo(now);
   }
@@ -38,7 +39,7 @@ class MasterKeyEntityConverterTest {
     var model =
         MasterKey.builder()
             .version(2)
-            .status("RETIRED")
+            .status(MasterKeyState.RETIRED)
             .encryptAlgo("AES-GCM")
             .createdAt(now)
             .build();

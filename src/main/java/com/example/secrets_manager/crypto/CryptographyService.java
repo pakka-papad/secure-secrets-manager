@@ -1,10 +1,11 @@
 package com.example.secrets_manager.crypto;
 
-import com.example.secrets_manager.crypto.dto.BinaryHash; // Add import
+import com.example.secrets_manager.crypto.dto.BinaryHash;
 import com.example.secrets_manager.crypto.dto.EncryptedData;
 import com.example.secrets_manager.crypto.dto.HashedPassword;
 import com.example.secrets_manager.crypto.exception.CryptoOperationException;
 
+/** Service providing high-level cryptographic operations. */
 public interface CryptographyService {
   /** Hashes a plaintext password using the application's default algorithm. */
   HashedPassword hashPassword(byte[] plaintextPassword);
@@ -26,6 +27,9 @@ public interface CryptographyService {
    *     other operational issues.
    */
   byte[] decrypt(EncryptedData data, byte[] key) throws CryptoOperationException;
+
+  /** Returns the required key size in bytes for the specified symmetric algorithm. */
+  int getRequiredSymmetricKeySizeBytes(String algorithmName);
 
   /**
    * Calculates a standard hash (e.g., SHA-256) for a given object's data. Used for creating the

@@ -25,7 +25,7 @@ class AesGcmSymmetricCipherTest {
     assertThat(encrypted).isNotNull();
     assertThat(encrypted.getCiphertext()).isNotEqualTo(plaintext);
     assertThat(encrypted.getAlgorithm()).isEqualTo(cipher.getAlgorithmName());
-    
+
     // Explicitly verify Auth Tag and Nonce presence
     assertThat(encrypted.getNonce()).hasSize(12);
     assertThat(encrypted.getAuthTag()).hasSize(16);
