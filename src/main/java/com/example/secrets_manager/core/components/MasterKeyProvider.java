@@ -1,77 +1,129 @@
 package com.example.secrets_manager.core.components;
 
+import com.example.secrets_manager.core.models.MasterKey;
+import com.example.secrets_manager.core.models.MasterKeyState;
+import com.example.secrets_manager.core.models.search.MasterKeySearchCriteria;
+import com.example.secrets_manager.core.services.InternalMasterKeyService;
+import com.example.secrets_manager.crypto.CryptographyService;
 import jakarta.annotation.PostConstruct;
 import java.util.Base64;
+import java.util.EnumSet;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Function;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 /**
  * High-privilege component responsible for loading Master Keys from the operating system
- * environment. Strictly enforces OS Environment Variables as the single source of truth for
- * cryptographic root keys.
+ * environment and synchronizing them with the database registry.
+ *
+ * <p>Optimized to surgically load only necessary cryptographic material into memory.
  */
 @Component
 @Slf4j
 public class MasterKeyProvider {
 
   private final Map<Integer, byte[]> masterKeys = new ConcurrentHashMap<>();
+  private final CryptographyService cryptographyService;
+  private final InternalMasterKeyService internalMasterKeyService;
+
+  @Value("${master-key.default-algorithm:AES-256-GCM}")
+  private String defaultAlgorithm;
 
   // Case-insensitive pattern to match environment variables like "master_key__v1"
   private static final Pattern MASTER_KEY_PATTERN = Pattern.compile("(?i)master_key__v(\\d+)");
 
-  @PostConstruct
-  public void init() {
-    // Strictly iterate only the OS Environment Variables
-    System.getenv().forEach(this::processEnvVar);
-
-    if (masterKeys.isEmpty()) {
-      throw new IllegalStateException(
-          "FATAL: No master keys were found in OS environment variables (expected format: 'master_key__v1', 'master_key__v2', etc.). "
-              + "Ensure keys are exported to the process environment.");
-    }
-
-    log.info("MasterKeyProvider initialized with {} keys from the environment.", masterKeys.size());
+  @Autowired
+  public MasterKeyProvider(
+      CryptographyService cryptographyService, InternalMasterKeyService internalMasterKeyService) {
+    this.cryptographyService = cryptographyService;
+    this.internalMasterKeyService = internalMasterKeyService;
   }
 
-  private void processEnvVar(String key, String value) {
-    if (StringUtils.isBlank(value)) {
-      return;
-    }
+  @PostConstruct
+  public void init() {
+    // 1. Fetch entire DB registry once to build a lookup map
+    final var requiredKeys =
+        internalMasterKeyService.listMasterKeys(
+            MasterKeySearchCriteria.builder()
+                .statuses(EnumSet.of(MasterKeyState.ACTIVE, MasterKeyState.RETIRED))
+                .build());
 
-    final var matcher = MASTER_KEY_PATTERN.matcher(key);
-    if (!matcher.matches()) {
-      return;
-    }
+    final var dbKeyMap =
+        requiredKeys.stream().collect(Collectors.toMap(MasterKey::getVersion, Function.identity()));
 
-    try {
-      int version = Integer.parseInt(matcher.group(1));
+    int currentMaxDbVersion = internalMasterKeyService.getHighestMasterKeyVersion();
 
-      // Trim to handle accidental whitespace from environment injection/scripts
-      byte[] masterKey = Base64.getDecoder().decode(value.trim());
+    // 2. Surgical ENV Scan
+    Integer highestNewVersion = null;
+    byte[] highestNewKeyBytes = null;
 
-      // Validate key length (AES-256 requires 32 bytes)
-      if (masterKey.length != 32) {
-        log.error(
-            "Invalid master key length for '{}'. Expected 32 bytes, got {}.",
-            key,
-            masterKey.length);
-        throw new IllegalStateException(
-            String.format("Master key '%s' must be 32 bytes (256 bits) for AES-256.", key));
+    for (Map.Entry<String, String> entry : System.getenv().entrySet()) {
+      Matcher matcher = MASTER_KEY_PATTERN.matcher(entry.getKey());
+      if (!matcher.matches() || StringUtils.isBlank(entry.getValue())) {
+        continue;
       }
 
-      masterKeys.put(version, masterKey);
-      log.info(
-          "Successfully loaded Master Key Version: {} from environment variable: {}", version, key);
+      int version = Integer.parseInt(matcher.group(1));
+      MasterKey dbMeta = dbKeyMap.get(version);
 
-    } catch (NumberFormatException e) {
-      log.warn("Invalid version number in environment variable key: {}. Skipping.", key);
+      if (version > currentMaxDbVersion) {
+        if (highestNewVersion == null || version > highestNewVersion) {
+          highestNewVersion = version;
+          highestNewKeyBytes = decodeAndValidate(version, entry.getValue(), defaultAlgorithm);
+        }
+      } else if (dbMeta != null) {
+        byte[] bytes = decodeAndValidate(version, entry.getValue(), dbMeta.getEncryptAlgo());
+        this.masterKeys.put(version, bytes);
+      }
+    }
+
+    // 3. Validation: Ensure all ACTIVE/RETIRED keys from DB are now in memory
+    for (var dbKey : requiredKeys) {
+      if (!this.masterKeys.containsKey(dbKey.getVersion())) {
+        throw new IllegalStateException(
+            String.format(
+                "FATAL: Required Master Key v%d is missing from ENV.", dbKey.getVersion()));
+      }
+    }
+
+    // 4. Atomic Promotion (if new key found)
+    if (highestNewVersion != null) {
+      internalMasterKeyService.promoteNewKeyInternal(highestNewVersion, defaultAlgorithm);
+      this.masterKeys.put(highestNewVersion, highestNewKeyBytes);
+    }
+
+    if (this.masterKeys.isEmpty()) {
+      throw new IllegalStateException("FATAL: No valid master keys found. System cannot operate.");
+    }
+
+    log.info(
+        "MasterKeyProvider initialized with {} keys. Active version: {}",
+        masterKeys.size(),
+        getActiveVersion());
+  }
+
+  private byte[] decodeAndValidate(int version, String base64Value, String algorithm) {
+    try {
+      byte[] bytes = Base64.getDecoder().decode(base64Value.trim());
+      int requiredLength = cryptographyService.getRequiredSymmetricKeySizeBytes(algorithm);
+
+      if (bytes.length != requiredLength) {
+        throw new IllegalStateException(
+            String.format(
+                "Master Key v%d has invalid length. Expected %d bytes for %s, got %d.",
+                version, requiredLength, algorithm, bytes.length));
+      }
+      return bytes;
     } catch (IllegalArgumentException e) {
-      log.warn(
-          "Invalid Base64 encoding for master key in environment variable '{}'. Skipping.", key);
+      throw new IllegalStateException("Invalid Base64 for Master Key v" + version, e);
     }
   }
 
@@ -79,8 +131,17 @@ public class MasterKeyProvider {
     byte[] key = masterKeys.get(version);
     if (key == null) {
       throw new IllegalArgumentException(
-          String.format("Master key not found for version: %d", version));
+          String.format(
+              "Master key v%d is not available in memory. It may be compromised, inactive, or missing from ENV.",
+              version));
     }
     return key;
+  }
+
+  /** Returns the version of the currently ACTIVE master key. */
+  public Integer getActiveVersion() {
+    return masterKeys.keySet().stream()
+        .max(Integer::compareTo)
+        .orElseThrow(() -> new IllegalStateException("No active master key available."));
   }
 }
