@@ -4,9 +4,8 @@ import com.example.secrets_manager.core.data.CacheConstants;
 import com.example.secrets_manager.core.data.entities.SecretGroupAuthorizationId;
 import com.example.secrets_manager.core.data.repositories.SecretGroupAuthorizationRepository;
 import com.example.secrets_manager.core.models.UserRole;
-import java.util.UUID;
-
 import com.example.secrets_manager.security.SecurityUtils;
+import java.util.UUID;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.Cacheable;

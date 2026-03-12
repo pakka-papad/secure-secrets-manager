@@ -4,6 +4,8 @@ import com.example.secrets_manager.core.data.entities.SecretGroupAuthorizationEn
 import com.example.secrets_manager.core.data.entities.SecretGroupAuthorizationId;
 import jakarta.persistence.LockModeType;
 import jakarta.persistence.QueryHint;
+import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -42,4 +44,14 @@ public interface SecretGroupAuthorizationRepository
   @Query("SELECT a FROM SecretGroupAuthorizationEntity a WHERE a.id = :secretGroupAuthorizationId")
   Optional<SecretGroupAuthorizationEntity> findAndLockById(
       SecretGroupAuthorizationId secretGroupAuthorizationId);
+
+  /**
+   * Finds multiple authorization records for a specific group.
+   *
+   * @param groupId The ID of the secret group.
+   * @param userIds The collection of user IDs to fetch.
+   * @return A list of authorization entities.
+   */
+  List<SecretGroupAuthorizationEntity> findAllByIdGroupIdAndIdUserIdIn(
+      UUID groupId, Collection<UUID> userIds);
 }

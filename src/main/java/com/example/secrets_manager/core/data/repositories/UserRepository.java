@@ -43,4 +43,14 @@ public interface UserRepository
           "SELECT COUNT(*) FROM sm.users WHERE 'ADMIN' = ANY(roles) AND id != '00000000-0000-0000-0000-000000000000' AND deleted_at IS NULL",
       nativeQuery = true)
   long countActiveAdmins();
+
+  /**
+   * Efficiently checks if an active user possesses a specific role. Uses a native query to avoid
+   * loading the full entity and its large binary fields.
+   */
+  @Query(
+      value =
+          "SELECT EXISTS (SELECT 1 FROM sm.users WHERE id = :userId AND :role = ANY(roles) AND deleted_at IS NULL)",
+      nativeQuery = true)
+  boolean existsByIdAndRole(UUID userId, String role);
 }
