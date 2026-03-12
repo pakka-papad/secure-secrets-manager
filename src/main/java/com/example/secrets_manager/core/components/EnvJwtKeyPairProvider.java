@@ -1,5 +1,6 @@
-package com.example.secrets_manager.core.services;
+package com.example.secrets_manager.core.components;
 
+import com.example.secrets_manager.core.services.JwtKeyPairProvider;
 import io.jsonwebtoken.io.Decoders;
 import java.security.KeyFactory;
 import java.security.KeyPair;
