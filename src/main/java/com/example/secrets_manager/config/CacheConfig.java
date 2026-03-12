@@ -42,6 +42,11 @@ public class CacheConfig {
             .expireAfterWrite(accessTokenExpirationMs, TimeUnit.MILLISECONDS)
             .build());
 
+    // 4. Configure the "secret-group-authorizations" cache
+    cacheManager.registerCustomCache(
+        CacheConstants.CACHE_SECRET_GROUP_AUTHORIZATIONS,
+        Caffeine.newBuilder().maximumSize(10000).expireAfterWrite(5, TimeUnit.MINUTES).build());
+
     return cacheManager;
   }
 }

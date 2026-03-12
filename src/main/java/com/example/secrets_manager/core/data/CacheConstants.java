@@ -21,4 +21,7 @@ public final class CacheConstants {
 
   /** Revocation timestamps for access tokens. Keyed by User ID. */
   public static final String CACHE_USER_REVOCATIONS = "user-revocations";
+
+  /** Authorization flags for users on secret groups. Keyed by composite User-Group ID. */
+  public static final String CACHE_SECRET_GROUP_AUTHORIZATIONS = "secret-group-authorizations";
 }

@@ -1,16 +1,15 @@
 package com.example.secrets_manager.core.services;
 
+import com.example.secrets_manager.core.data.CacheConstants;
 import com.example.secrets_manager.core.data.converters.SecretGroupAuthorizationEntityConverter;
 import com.example.secrets_manager.core.data.entities.SecretGroupAuthorizationEntity;
 import com.example.secrets_manager.core.data.entities.SecretGroupAuthorizationId;
 import com.example.secrets_manager.core.data.repositories.SecretGroupAuthorizationRepository;
-import com.example.secrets_manager.core.models.AuditAction;
-import com.example.secrets_manager.core.models.AuditLogPayload;
-import com.example.secrets_manager.core.models.ModifyAuthorizationPayload;
-import com.example.secrets_manager.core.models.PermissionType;
-import com.example.secrets_manager.core.models.SecretGroupAuthorization;
+import com.example.secrets_manager.core.models.*;
+import com.example.secrets_manager.security.SecurityUtils;
 import java.time.Instant;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -30,13 +29,17 @@ public class SecretGroupAuthorizationService {
   }
 
   /**
-   * Grants or revokes a permission for a user on a specific secret group.
+   * Grants or revokes a permission for a user on a specific secret group. Also evicts the
+   * corresponding authorization cache entry to ensure immediate effect.
    *
    * @param payload The {@link ModifyAuthorizationPayload} containing all details for the operation.
    * @throws AccessDeniedException if the actor does not have sufficient permission to perform the
    *     action.
    */
   @Transactional
+  @CacheEvict(
+      value = CacheConstants.CACHE_SECRET_GROUP_AUTHORIZATIONS,
+      key = "#payload.targetUserId.toString() + '-' + #payload.groupId")
   public void modifyAuthorization(ModifyAuthorizationPayload payload) throws AccessDeniedException {
     // 1. Get and lock the authorization for the user PERFORMING the action (the actor)
     final var actorAuthId =
@@ -52,7 +55,9 @@ public class SecretGroupAuthorizationService {
 
     // 2. Check if the actor is allowed to perform the action
     boolean isAllowed;
-    if (payload.isGrant()) {
+    if (SecurityUtils.hasRole(UserRole.ADMIN)) {
+      isAllowed = true;
+    } else if (payload.isGrant()) {
       isAllowed = canGrant(actorAuth, payload.getPermission());
     } else {
       isAllowed = canRevoke(actorAuth, payload.getPermission());

@@ -32,10 +32,34 @@ public final class SecurityUtils {
     return UUID.fromString((String) Objects.requireNonNull(auth.getPrincipal()));
   }
 
+  /**
+   * Checks if the currently authenticated user has the specified role.
+   *
+   * @param role The role enum.
+   */
+  public static boolean hasRole(UserRole role) {
+    if (role == null) {
+      return false;
+    }
+    Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+    if (auth == null) {
+      return false;
+    }
+
+    String targetAuthority = prefixRole(role);
+    return auth.getAuthorities().stream().anyMatch(a -> targetAuthority.equals(a.getAuthority()));
+  }
+
   /** Prefixes a raw role name with the standard Spring Security "ROLE_" prefix. */
   public static String prefixRole(String role) {
     if (role == null) return null;
     return role.startsWith(ROLE_PREFIX) ? role : ROLE_PREFIX + role;
+  }
+
+  /** Prefixes a role with the standard Spring Security "ROLE_" prefix. */
+  public static String prefixRole(UserRole role) {
+    if (role == null) return null;
+    return ROLE_PREFIX + role.name();
   }
 
   /** Converts a collection of UserRole enums to a list of prefixed strings. */
