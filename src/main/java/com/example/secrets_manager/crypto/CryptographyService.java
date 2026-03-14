@@ -3,7 +3,9 @@ package com.example.secrets_manager.crypto;
 import com.example.secrets_manager.crypto.dto.BinaryHash;
 import com.example.secrets_manager.crypto.dto.EncryptedData;
 import com.example.secrets_manager.crypto.dto.HashedPassword;
+import com.example.secrets_manager.crypto.dto.SymmetricAlgorithmMetadata;
 import com.example.secrets_manager.crypto.exception.CryptoOperationException;
+import java.util.List;
 
 /** Service providing high-level cryptographic operations. */
 public interface CryptographyService {
@@ -33,6 +35,9 @@ public interface CryptographyService {
 
   /** Checks if a symmetric cipher algorithm is supported by the system. */
   boolean isSymmetricAlgorithmSupported(String algorithmName);
+
+  /** Returns a list of metadata for all supported symmetric cipher algorithms. */
+  List<SymmetricAlgorithmMetadata> getSupportedSymmetricAlgorithms();
 
   /**
    * Calculates a standard hash (e.g., SHA-256) for a given object's data. Used for creating the

@@ -6,11 +6,13 @@ import com.example.secrets_manager.crypto.SymmetricCipher;
 import com.example.secrets_manager.crypto.dto.BinaryHash;
 import com.example.secrets_manager.crypto.dto.EncryptedData;
 import com.example.secrets_manager.crypto.dto.HashedPassword;
+import com.example.secrets_manager.crypto.dto.SymmetricAlgorithmMetadata;
 import com.example.secrets_manager.crypto.exception.CryptoOperationException;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
@@ -96,6 +98,14 @@ public class CryptographyServiceImpl implements CryptographyService {
   @Override
   public boolean isSymmetricAlgorithmSupported(String algorithmName) {
     return symmetricCiphers.containsKey(algorithmName);
+  }
+
+  @Override
+  public List<SymmetricAlgorithmMetadata> getSupportedSymmetricAlgorithms() {
+    return symmetricCiphers.values().stream()
+        .map(c -> new SymmetricAlgorithmMetadata(c.getAlgorithmName(), c.getRequiredKeySizeBytes()))
+        .sorted(Comparator.comparing(SymmetricAlgorithmMetadata::name))
+        .toList();
   }
 
   @Override
