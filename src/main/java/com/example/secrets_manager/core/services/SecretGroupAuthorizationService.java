@@ -100,26 +100,33 @@ public class SecretGroupAuthorizationService {
     // 3. Validate Actor authority
     validateActorAuthority(actorAuthEntity, added, removed);
 
-    // 4. Governance Guardrail: Only SECRET_MANAGERs can receive DELETE permission
-    if (added.contains(PermissionType.DELETE)) {
-      validateTargetUserIsManager(targetId);
+    // 4. Handle Total Revocation (Delete the row)
+    var targetAuthId = new SecretGroupAuthorizationId(targetId, groupId);
+    if (desiredPermissions.isEmpty()) {
+      authorizationRepository.deleteById(targetAuthId);
+      log.info(
+          "Purged authorization record for user {} on group {} (Total Revocation).",
+          targetId,
+          groupId);
+    } else {
+      // 5. Governance Guardrail: Only SECRET_MANAGERs can receive DELETE permission
+      if (added.contains(PermissionType.DELETE)) {
+        validateTargetUserIsManager(targetId);
+      }
+
+      // 6. Apply Sync (Update or Insert)
+      if (targetAuthEntity == null) {
+        targetAuthEntity = SecretGroupAuthorizationEntity.builder().id(targetAuthId).build();
+      }
+      targetAuthEntity.setPRead(desiredPermissions.contains(PermissionType.READ));
+      targetAuthEntity.setPWrite(desiredPermissions.contains(PermissionType.WRITE));
+      targetAuthEntity.setPDelete(desiredPermissions.contains(PermissionType.DELETE));
+      targetAuthEntity.setModifiedAt(Instant.now());
+
+      authorizationRepository.save(targetAuthEntity);
     }
 
-    // 5. Apply changes
-    if (targetAuthEntity == null) {
-      targetAuthEntity =
-          SecretGroupAuthorizationEntity.builder()
-              .id(new SecretGroupAuthorizationId(targetId, groupId))
-              .build();
-    }
-    targetAuthEntity.setPRead(desiredPermissions.contains(PermissionType.READ));
-    targetAuthEntity.setPWrite(desiredPermissions.contains(PermissionType.WRITE));
-    targetAuthEntity.setPDelete(desiredPermissions.contains(PermissionType.DELETE));
-    targetAuthEntity.setModifiedAt(Instant.now());
-
-    authorizationRepository.save(targetAuthEntity);
-
-    // 6. Create audit log entry
+    // 7. Create audit log entry
     final var detailsMap =
         Map.of("new_permissions", desiredPermissions.stream().map(Enum::name).toList());
     String details = null;
@@ -139,10 +146,7 @@ public class SecretGroupAuthorizationService {
     auditService.save(auditPayload);
   }
 
-  /**
-   * Internal method to grant full permissions to a user upon group creation. This bypasses the
-   * Mirroring Principle checks as the group is newly created.
-   */
+  /** Internal method to grant full permissions to a user upon group creation. */
   @Transactional
   public void grantInitialPermissionsInternal(UUID userId, UUID groupId) {
     var id = new SecretGroupAuthorizationId(userId, groupId);
