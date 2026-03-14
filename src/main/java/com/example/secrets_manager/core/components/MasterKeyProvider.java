@@ -35,7 +35,7 @@ public class MasterKeyProvider {
   private final InternalMasterKeyService internalMasterKeyService;
   private final EnvironmentProvider environmentProvider;
 
-  @Value("${master-key.default-algorithm:AES-256-GCM}")
+  @Value("${MASTER_KEY_DEFAULT_ALGORITHM:AES-256-GCM}")
   private String defaultAlgorithm;
 
   // Case-insensitive pattern to match environment variables like "master_key__v1"
