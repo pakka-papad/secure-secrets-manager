@@ -139,6 +139,26 @@ public class SecretGroupAuthorizationService {
     auditService.save(auditPayload);
   }
 
+  /**
+   * Internal method to grant full permissions to a user upon group creation. This bypasses the
+   * Mirroring Principle checks as the group is newly created.
+   */
+  @Transactional
+  public void grantInitialPermissionsInternal(UUID userId, UUID groupId) {
+    var id = new SecretGroupAuthorizationId(userId, groupId);
+    var entity =
+        SecretGroupAuthorizationEntity.builder()
+            .id(id)
+            .pRead(true)
+            .pWrite(true)
+            .pDelete(true)
+            .modifiedAt(Instant.now())
+            .build();
+
+    authorizationRepository.save(entity);
+    log.info("Granted initial FULL permissions to user {} for new group {}.", userId, groupId);
+  }
+
   private void validateActorAuthority(
       SecretGroupAuthorizationEntity actorAuthEntity,
       Set<PermissionType> added,

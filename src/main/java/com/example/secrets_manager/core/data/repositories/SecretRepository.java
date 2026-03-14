@@ -26,4 +26,6 @@ public interface SecretRepository extends JpaRepository<SecretEntity, UUID> {
   @EntityGraph(attributePaths = {"group", "masterKey"})
   Optional<SecretEntity> findByGroupIdAndSecretNameAndDeletedAtIsNull(
       UUID groupId, String secretName);
+
+  long countByGroupIdAndDeletedAtIsNull(UUID groupId);
 }
