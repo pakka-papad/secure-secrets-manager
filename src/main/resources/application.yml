@@ -31,6 +31,7 @@ bootstrap:
 
 bucket4j:
   enabled: true
+  cache-to-use: jcache
   filters:
     # 1. Public Authentication Endpoints (IP-based)
     - cache-name: auth-buckets
