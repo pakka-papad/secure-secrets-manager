@@ -19,6 +19,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -57,6 +58,7 @@ public class SecretGroupService {
    * @return The created {@link SecretGroup} domain model.
    * @throws SecretGroupAlreadyExistsException if an active group with the name exists.
    * @throws IllegalArgumentException if the algorithm is unsupported.
+   * @throws AccessDeniedException if the current user lacks the required system roles.
    */
   @Transactional
   @PreAuthorize("hasAnyRole('ADMIN', 'SECRET_MANAGER')")
@@ -102,7 +104,14 @@ public class SecretGroupService {
     return SecretGroupEntityConverter.toModel(savedEntity);
   }
 
-  /** Retrieves a secret group by ID. */
+  /**
+   * Retrieves a secret group by ID.
+   *
+   * @param id The UUID of the group to retrieve.
+   * @return The {@link SecretGroup} domain model.
+   * @throws EntityNotFoundException if the group does not exist or is deleted.
+   * @throws AccessDeniedException if the current user is not authorized to read this group.
+   */
   @Transactional(readOnly = true)
   @PreAuthorize("@groupAuth.canRead(principal, #id)")
   public SecretGroup getGroup(UUID id) {
@@ -112,8 +121,15 @@ public class SecretGroupService {
         .orElseThrow(() -> new EntityNotFoundException("Secret group not found: " + id));
   }
 
-  /** Lists all groups authorized for the current user. */
+  /**
+   * Lists all groups authorized for the current user.
+   *
+   * @param pageable Pagination and sorting information.
+   * @return A paginated list of authorized {@link SecretGroup} models.
+   * @throws AccessDeniedException if the user is unauthenticated.
+   */
   @Transactional(readOnly = true)
+  @PreAuthorize("isAuthenticated()")
   public Page<SecretGroup> listGroups(Pageable pageable) {
     final var userId = SecurityUtils.getAuthenticatedUserId();
 
@@ -127,7 +143,14 @@ public class SecretGroupService {
     return page.map(SecretGroupEntityConverter::toModel);
   }
 
-  /** Soft-deletes a secret group. */
+  /**
+   * Soft-deletes a secret group.
+   *
+   * @param id The UUID of the group to delete.
+   * @throws EntityNotFoundException if the group does not exist or is deleted.
+   * @throws IllegalStateException if the group still contains active secrets.
+   * @throws AccessDeniedException if the current user is not authorized to delete this group.
+   */
   @Transactional
   @PreAuthorize("@groupAuth.canDelete(principal, #id)")
   public void deleteGroup(UUID id) {
