@@ -33,6 +33,7 @@ public class MasterKeyProvider {
   private final Map<Integer, byte[]> masterKeys = new ConcurrentHashMap<>();
   private final CryptographyService cryptographyService;
   private final InternalMasterKeyService internalMasterKeyService;
+  private final EnvironmentProvider environmentProvider;
 
   @Value("${master-key.default-algorithm:AES-256-GCM}")
   private String defaultAlgorithm;
@@ -42,9 +43,12 @@ public class MasterKeyProvider {
 
   @Autowired
   public MasterKeyProvider(
-      CryptographyService cryptographyService, InternalMasterKeyService internalMasterKeyService) {
+      CryptographyService cryptographyService,
+      InternalMasterKeyService internalMasterKeyService,
+      EnvironmentProvider environmentProvider) {
     this.cryptographyService = cryptographyService;
     this.internalMasterKeyService = internalMasterKeyService;
+    this.environmentProvider = environmentProvider;
   }
 
   @PostConstruct
@@ -65,7 +69,7 @@ public class MasterKeyProvider {
     Integer highestNewVersion = null;
     byte[] highestNewKeyBytes = null;
 
-    for (Map.Entry<String, String> entry : System.getenv().entrySet()) {
+    for (Map.Entry<String, String> entry : environmentProvider.getEnvironment().entrySet()) {
       Matcher matcher = MASTER_KEY_PATTERN.matcher(entry.getKey());
       if (!matcher.matches() || StringUtils.isBlank(entry.getValue())) {
         continue;

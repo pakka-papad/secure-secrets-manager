@@ -7,10 +7,9 @@ import com.example.secrets_manager.core.data.entities.SecretGroupAuthorizationEn
 import com.example.secrets_manager.core.data.entities.SecretGroupAuthorizationId;
 import com.example.secrets_manager.core.data.repositories.SecretGroupAuthorizationRepository;
 import com.example.secrets_manager.core.models.UserRole;
+import com.example.secrets_manager.security.SecurityUtils;
 import java.util.Optional;
 import java.util.UUID;
-
-import com.example.secrets_manager.security.SecurityUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
