@@ -1,6 +1,6 @@
 package com.example.secrets_manager.core.services;
 
-import com.example.secrets_manager.core.data.entities.RefreshToken;
+import com.example.secrets_manager.core.data.entities.RefreshTokenEntity;
 import com.example.secrets_manager.core.data.repositories.RefreshTokenRepository;
 import com.example.secrets_manager.core.data.repositories.UserRepository;
 import com.example.secrets_manager.core.models.AuditAction;
@@ -165,7 +165,7 @@ public class AuthenticationService {
             },
             () -> {
               refreshTokenRepository.save(
-                  RefreshToken.builder()
+                  RefreshTokenEntity.builder()
                       .userId(userId)
                       .tokenHash(hashedToken.getHash())
                       .hashAlgo(hashedToken.getAlgorithm())

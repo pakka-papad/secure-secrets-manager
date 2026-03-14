@@ -4,7 +4,6 @@ import com.example.secrets_manager.core.data.CoreDataConstants;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
@@ -18,6 +17,7 @@ import lombok.NoArgsConstructor;
 import lombok.ToString;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.annotations.SQLDelete;
+import org.hibernate.annotations.UuidGenerator;
 import org.hibernate.type.SqlTypes;
 
 @Entity
@@ -41,7 +41,8 @@ public class UserEntity {
   public static final String COL_DELETED_AT = "deleted_at";
 
   @Id
-  @GeneratedValue(strategy = GenerationType.UUID)
+  @GeneratedValue
+  @UuidGenerator(style = UuidGenerator.Style.VERSION_7)
   @Column(name = COL_ID)
   private UUID id;
 

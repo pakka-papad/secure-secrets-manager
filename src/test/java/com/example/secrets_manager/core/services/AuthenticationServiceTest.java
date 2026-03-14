@@ -5,7 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
-import com.example.secrets_manager.core.data.entities.RefreshToken;
+import com.example.secrets_manager.core.data.entities.RefreshTokenEntity;
 import com.example.secrets_manager.core.data.entities.UserEntity;
 import com.example.secrets_manager.core.data.repositories.RefreshTokenRepository;
 import com.example.secrets_manager.core.data.repositories.UserRepository;
@@ -103,8 +103,8 @@ class AuthenticationServiceTest {
     when(claims.getSubject()).thenReturn(userId.toString());
     when(userRepository.findAndLockById(userId)).thenReturn(Optional.of(mockUserEntity));
 
-    RefreshToken storedToken =
-        RefreshToken.builder().userId(userId).tokenHash(new byte[] {1}).hashAlgo("SHA-256").build();
+    RefreshTokenEntity storedToken =
+        RefreshTokenEntity.builder().userId(userId).tokenHash(new byte[] {1}).hashAlgo("SHA-256").build();
     when(refreshTokenRepository.findByUserId(userId)).thenReturn(Optional.of(storedToken));
     when(cryptographyService.hashBytes(any()))
         .thenReturn(new BinaryHash("SHA-256", new byte[] {1}));

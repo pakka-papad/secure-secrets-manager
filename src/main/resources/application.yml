@@ -34,9 +34,11 @@ bucket4j:
   cache-to-use: jcache
   filters:
     # 1. Public Authentication Endpoints (IP-based)
+    # Order is low (runs early) to block brute-force before heavy processing
     - cache-name: auth-buckets
       url: /api/v1/auth/.*
       strategy: first
+      filter-order: -200 
       http-response-body: "{ \"timestamp\": \"${current_time}\", \"status\": 429, \"error\": \"Too Many Requests\", \"messages\": [\"Too many login or refresh attempts. Please try again later.\"], \"path\": \"${path}\" }"
       rate-limits:
         - cache-key: "getRemoteAddr()"
@@ -46,12 +48,14 @@ bucket4j:
               unit: minutes
 
     # 2. General Authenticated API Endpoints (User-based)
+    # Order is high (runs after JwtAuthenticationFilter) so we know who the user is
     - cache-name: general-api-buckets
       url: /api/v1/(users|secrets|groups)/.*
       strategy: first
+      filter-order: 10
       http-response-body: "{ \"timestamp\": \"${current_time}\", \"status\": 429, \"error\": \"Too Many Requests\", \"messages\": [\"General API rate limit exceeded. Please slow down.\"], \"path\": \"${path}\" }"
       rate-limits:
-        - cache-key: "authentication?.name" # Identifies by User ID from JWT
+        - cache-key: "getRemoteUser()" # Standard servlet method to get principal name (User ID)
           bandwidths:
             - capacity: 100
               time: 1

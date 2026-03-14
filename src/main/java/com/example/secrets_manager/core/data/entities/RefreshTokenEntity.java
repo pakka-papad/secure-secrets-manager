@@ -1,13 +1,19 @@
 package com.example.secrets_manager.core.data.entities;
 
 import com.example.secrets_manager.core.data.CoreDataConstants;
-import jakarta.persistence.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
 import java.time.Instant;
 import java.util.UUID;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import lombok.ToString;
+import org.hibernate.annotations.UuidGenerator;
 
 @Entity
 @Table(name = CoreDataConstants.TABLE_REFRESH_TOKENS, schema = CoreDataConstants.SCHEMA_NAME)
@@ -15,7 +21,8 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class RefreshToken {
+public class RefreshTokenEntity {
+
   public static final String COL_ID = "id";
   public static final String COL_USER_ID = "user_id";
   public static final String COL_TOKEN_HASH = "token_hash";
@@ -23,14 +30,16 @@ public class RefreshToken {
   public static final String COL_EXPIRY_DATE = "expiry_date";
 
   @Id
-  @GeneratedValue(strategy = GenerationType.UUID)
+  @GeneratedValue
+  @UuidGenerator(style = UuidGenerator.Style.VERSION_7)
   @Column(name = COL_ID)
   private UUID id;
 
-  @Column(name = COL_USER_ID, nullable = false)
+  @Column(name = COL_USER_ID, nullable = false, unique = true)
   private UUID userId;
 
-  @Column(name = COL_TOKEN_HASH, nullable = false, unique = true)
+  @Column(name = COL_TOKEN_HASH, nullable = false)
+  @ToString.Exclude
   private byte[] tokenHash;
 
   @Column(name = COL_HASH_ALGO, nullable = false, length = 31)

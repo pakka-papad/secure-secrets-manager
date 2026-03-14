@@ -1,6 +1,6 @@
 package com.example.secrets_manager.core.data.repositories;
 
-import com.example.secrets_manager.core.data.entities.RefreshToken;
+import com.example.secrets_manager.core.data.entities.RefreshTokenEntity;
 import jakarta.persistence.LockModeType;
 import jakarta.persistence.QueryHint;
 import java.util.Optional;
@@ -12,8 +12,8 @@ import org.springframework.data.jpa.repository.QueryHints;
 import org.springframework.stereotype.Repository;
 
 @Repository
-public interface RefreshTokenRepository extends JpaRepository<RefreshToken, UUID> {
-  Optional<RefreshToken> findByUserId(UUID userId);
+public interface RefreshTokenRepository extends JpaRepository<RefreshTokenEntity, UUID> {
+  Optional<RefreshTokenEntity> findByUserId(UUID userId);
 
   void deleteByUserId(UUID userId);
 
@@ -26,6 +26,6 @@ public interface RefreshTokenRepository extends JpaRepository<RefreshToken, UUID
    */
   @Lock(LockModeType.PESSIMISTIC_WRITE)
   @QueryHints({@QueryHint(name = "jakarta.persistence.lock.timeout", value = "5000")})
-  @Query("SELECT rt FROM RefreshToken rt WHERE rt.userId = :userId")
-  Optional<RefreshToken> findAndLockByUserId(UUID userId);
+  @Query("SELECT rt FROM RefreshTokenEntity rt WHERE rt.userId = :userId")
+  Optional<RefreshTokenEntity> findAndLockByUserId(UUID userId);
 }

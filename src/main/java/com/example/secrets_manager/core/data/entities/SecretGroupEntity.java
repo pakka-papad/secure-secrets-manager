@@ -9,6 +9,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.SQLDelete;
+import org.hibernate.annotations.UuidGenerator;
 
 @Entity
 @Table(name = CoreDataConstants.TABLE_SECRET_GROUPS, schema = CoreDataConstants.SCHEMA_NAME)
@@ -27,7 +28,8 @@ public class SecretGroupEntity {
   public static final String COL_DELETED_AT = "deleted_at";
 
   @Id
-  @GeneratedValue(strategy = GenerationType.UUID)
+  @GeneratedValue
+  @UuidGenerator(style = UuidGenerator.Style.VERSION_7)
   @Column(name = COL_ID)
   private UUID id;
 

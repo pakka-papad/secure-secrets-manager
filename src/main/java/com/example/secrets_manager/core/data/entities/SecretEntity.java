@@ -10,6 +10,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.ToString;
 import org.hibernate.annotations.SQLDelete;
+import org.hibernate.annotations.UuidGenerator;
 
 @Entity
 @Table(
@@ -41,7 +42,8 @@ public class SecretEntity {
   public static final String COL_DELETED_AT = "deleted_at";
 
   @Id
-  @GeneratedValue(strategy = GenerationType.UUID)
+  @GeneratedValue
+  @UuidGenerator(style = UuidGenerator.Style.VERSION_7)
   @Column(name = COL_ID)
   private UUID id;
 
