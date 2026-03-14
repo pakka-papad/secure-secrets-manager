@@ -94,6 +94,11 @@ public class CryptographyServiceImpl implements CryptographyService {
   }
 
   @Override
+  public boolean isSymmetricAlgorithmSupported(String algorithmName) {
+    return symmetricCiphers.containsKey(algorithmName);
+  }
+
+  @Override
   public byte[] createDataHash(Object dataToHash) {
     try {
       // Use a stable JSON representation for hashing to ensure determinism.

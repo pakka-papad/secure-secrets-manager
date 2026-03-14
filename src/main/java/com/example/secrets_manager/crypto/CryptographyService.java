@@ -31,6 +31,9 @@ public interface CryptographyService {
   /** Returns the required key size in bytes for the specified symmetric algorithm. */
   int getRequiredSymmetricKeySizeBytes(String algorithmName);
 
+  /** Checks if a symmetric cipher algorithm is supported by the system. */
+  boolean isSymmetricAlgorithmSupported(String algorithmName);
+
   /**
    * Calculates a standard hash (e.g., SHA-256) for a given object's data. Used for creating the
    * dataHash in the audit log.
