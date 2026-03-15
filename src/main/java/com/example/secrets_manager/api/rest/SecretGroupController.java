@@ -1,6 +1,5 @@
 package com.example.secrets_manager.api.rest;
 
-import com.example.secrets_manager.api.rest.converters.SecretGroupCreationRequestConverter;
 import com.example.secrets_manager.api.rest.converters.SecretGroupResponseConverter;
 import com.example.secrets_manager.api.rest.dto.PagedResponse;
 import com.example.secrets_manager.api.rest.dto.SecretGroupCreationRequest;
@@ -12,6 +11,7 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.util.UUID;
+import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
@@ -41,7 +41,9 @@ public class SecretGroupController {
   @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
   public ResponseEntity<SecretGroupResponse> createGroup(
       @Valid @RequestBody SecretGroupCreationRequest request) {
-    var payload = SecretGroupCreationRequestConverter.toModel(request);
+    var payload =
+        com.example.secrets_manager.api.rest.converters.SecretGroupCreationRequestConverter.toModel(
+            request);
     var group = secretGroupService.createGroup(payload);
     return new ResponseEntity<>(SecretGroupResponseConverter.fromModel(group), HttpStatus.CREATED);
   }
@@ -60,7 +62,8 @@ public class SecretGroupController {
   @Operation(summary = "List all secret groups authorized for the current user")
   @ApiResponse(responseCode = "200", description = "List retrieved successfully")
   @GetMapping
-  public ResponseEntity<PagedResponse<SecretGroupResponse>> listGroups(Pageable pageable) {
+  public ResponseEntity<PagedResponse<SecretGroupResponse>> listGroups(
+      @ParameterObject Pageable pageable) {
     var page = secretGroupService.listGroups(pageable);
     var response = PagedResponse.fromPage(page.map(SecretGroupResponseConverter::fromModel));
     return ResponseEntity.ok(response);

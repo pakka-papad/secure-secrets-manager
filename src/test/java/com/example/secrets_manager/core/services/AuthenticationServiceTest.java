@@ -104,7 +104,11 @@ class AuthenticationServiceTest {
     when(userRepository.findAndLockById(userId)).thenReturn(Optional.of(mockUserEntity));
 
     RefreshTokenEntity storedToken =
-        RefreshTokenEntity.builder().userId(userId).tokenHash(new byte[] {1}).hashAlgo("SHA-256").build();
+        RefreshTokenEntity.builder()
+            .userId(userId)
+            .tokenHash(new byte[] {1})
+            .hashAlgo("SHA-256")
+            .build();
     when(refreshTokenRepository.findByUserId(userId)).thenReturn(Optional.of(storedToken));
     when(cryptographyService.hashBytes(any()))
         .thenReturn(new BinaryHash("SHA-256", new byte[] {1}));

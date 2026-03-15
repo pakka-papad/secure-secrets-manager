@@ -13,6 +13,7 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.util.UUID;
+import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
@@ -44,7 +45,7 @@ public class UserController {
   @PreAuthorize("hasRole('ADMIN')")
   @GetMapping
   public ResponseEntity<PagedResponse<UserResponse>> listUsers(
-      UserSearchCriteria criteria, Pageable pageable) {
+      @ParameterObject UserSearchCriteria criteria, @ParameterObject Pageable pageable) {
     var page = userService.listUsers(criteria, pageable);
     var response = PagedResponse.fromPage(page.map(UserResponseConverter::fromModel));
     return ResponseEntity.ok(response);

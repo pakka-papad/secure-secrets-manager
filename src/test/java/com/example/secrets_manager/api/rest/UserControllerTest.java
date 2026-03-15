@@ -1,8 +1,8 @@
 package com.example.secrets_manager.api.rest;
 
+import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.doThrow;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -11,6 +11,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.example.secrets_manager.api.rest.dto.UserCreationRequest;
 import com.example.secrets_manager.api.rest.dto.UserPasswordUpdateRequest;
 import com.example.secrets_manager.api.rest.dto.UserRolesUpdateRequest;
+import com.example.secrets_manager.api.rest.dto.UserSearchCriteria;
 import com.example.secrets_manager.config.JacksonConfig;
 import com.example.secrets_manager.config.TestSecurityConfig;
 import com.example.secrets_manager.core.models.User;
@@ -25,11 +26,13 @@ import java.util.UUID;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.cache.CacheManager;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -57,18 +60,52 @@ class UserControllerTest {
 
   @Test
   @WithMockUser(roles = "ADMIN")
-  void listUsers_AsAdmin_ShouldReturn200() throws Exception {
+  void listUsers_WithNoParams_ShouldUseDefaults() throws Exception {
     // Given
     var page = new PageImpl<>(List.of(User.builder().id(UUID.randomUUID()).name("test").build()));
     when(userService.listUsers(any(), any())).thenReturn(page);
 
     // When
     mockMvc
-        .perform(get("/api/v1/users").param("page", "0").param("size", "10"))
+        .perform(get("/api/v1/users"))
         // Then
-        .andExpect(status().isOk())
-        .andExpect(jsonPath("$.items").isArray())
-        .andExpect(jsonPath("$.totalElements").value(1));
+        .andExpect(status().isOk());
+
+    ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
+    verify(userService).listUsers(any(), pageableCaptor.capture());
+    assertThat(pageableCaptor.getValue().getPageNumber()).isZero();
+    assertThat(pageableCaptor.getValue().getPageSize()).isEqualTo(20); // Default size
+  }
+
+  @Test
+  @WithMockUser(roles = "ADMIN")
+  void listUsers_WithFullParams_ShouldPassAllToService() throws Exception {
+    // Given
+    var page = new PageImpl<>(List.of(User.builder().id(UUID.randomUUID()).name("test").build()));
+    when(userService.listUsers(any(), any())).thenReturn(page);
+
+    // When
+    mockMvc
+        .perform(
+            get("/api/v1/users")
+                .param("page", "1")
+                .param("size", "10")
+                .param("sort", "name,desc")
+                .param("name", "admin")
+                .param("statuses", "ACTIVE")) // Note: criteria.statuses
+        // Then
+        .andExpect(status().isOk());
+
+    ArgumentCaptor<UserSearchCriteria> criteriaCaptor =
+        ArgumentCaptor.forClass(UserSearchCriteria.class);
+    ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
+
+    verify(userService).listUsers(criteriaCaptor.capture(), pageableCaptor.capture());
+
+    assertThat(criteriaCaptor.getValue().getName()).isEqualTo("admin");
+    assertThat(pageableCaptor.getValue().getPageNumber()).isEqualTo(1);
+    assertThat(pageableCaptor.getValue().getPageSize()).isEqualTo(10);
+    assertThat(pageableCaptor.getValue().getSort().getOrderFor("name").isDescending()).isTrue();
   }
 
   @Test
