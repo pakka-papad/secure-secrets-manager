@@ -1,5 +1,6 @@
 package com.example.secrets_manager.api.rest;
 
+import com.example.secrets_manager.api.rest.converters.SecretGroupCreationRequestConverter;
 import com.example.secrets_manager.api.rest.converters.SecretGroupResponseConverter;
 import com.example.secrets_manager.api.rest.dto.PagedResponse;
 import com.example.secrets_manager.api.rest.dto.SecretGroupCreationRequest;
@@ -44,9 +45,7 @@ public class SecretGroupController {
   @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
   public ResponseEntity<SecretGroupResponse> createGroup(
       @Valid @RequestBody SecretGroupCreationRequest request) {
-    var payload =
-        com.example.secrets_manager.api.rest.converters.SecretGroupCreationRequestConverter.toModel(
-            request);
+    var payload = SecretGroupCreationRequestConverter.toModel(request);
     var group = secretGroupService.createGroup(payload);
     return new ResponseEntity<>(SecretGroupResponseConverter.fromModel(group), HttpStatus.CREATED);
   }
@@ -69,7 +68,7 @@ public class SecretGroupController {
             name = "sort",
             in = ParameterIn.QUERY,
             description =
-                "Sorting criteria in the format: property,(asc|desc). Allowed properties: name.",
+                "Sorting criteria in the format: property,(asc|desc). Only a single sort dimension is allowed. Allowed properties: name.",
             schema = @Schema(type = "string"))
       })
   @ApiResponse(responseCode = "200", description = "List retrieved successfully")

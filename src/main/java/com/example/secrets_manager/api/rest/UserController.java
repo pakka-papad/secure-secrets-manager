@@ -44,7 +44,7 @@ public class UserController {
             name = "sort",
             in = ParameterIn.QUERY,
             description =
-                "Sorting criteria in the format: property,(asc|desc). Allowed properties: name.",
+                "Sorting criteria in the format: property,(asc|desc). Only a single sort dimension is allowed. Allowed properties: name.",
             schema = @Schema(type = "string"))
       })
   @ApiResponse(
