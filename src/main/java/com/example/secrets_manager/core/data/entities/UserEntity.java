@@ -9,6 +9,7 @@ import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
 import java.time.Instant;
+import java.util.Set;
 import java.util.UUID;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -39,6 +40,8 @@ public class UserEntity {
   public static final String COL_HASH_PARAMS = "hash_params";
   public static final String COL_ROLES = "roles";
   public static final String COL_DELETED_AT = "deleted_at";
+
+  public static final Set<String> ALLOWED_SORT_FIELDS = Set.of("name");
 
   @Id
   @GeneratedValue

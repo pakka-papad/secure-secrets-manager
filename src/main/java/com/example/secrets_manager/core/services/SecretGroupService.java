@@ -7,6 +7,7 @@ import com.example.secrets_manager.core.data.repositories.SecretRepository;
 import com.example.secrets_manager.core.models.*;
 import com.example.secrets_manager.core.services.exceptions.SecretGroupAlreadyExistsException;
 import com.example.secrets_manager.core.services.exceptions.SecretGroupServiceException;
+import com.example.secrets_manager.core.utils.PaginationUtils;
 import com.example.secrets_manager.crypto.CryptographyService;
 import com.example.secrets_manager.security.SecurityUtils;
 import jakarta.persistence.EntityNotFoundException;
@@ -131,6 +132,7 @@ public class SecretGroupService {
   @Transactional(readOnly = true)
   @PreAuthorize("isAuthenticated()")
   public Page<SecretGroup> listGroups(Pageable pageable) {
+    PaginationUtils.validateSort(pageable, SecretGroupEntity.ALLOWED_SORT_FIELDS);
     final var userId = SecurityUtils.getAuthenticatedUserId();
 
     Page<SecretGroupEntity> page;

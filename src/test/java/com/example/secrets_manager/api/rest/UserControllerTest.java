@@ -1,6 +1,6 @@
 package com.example.secrets_manager.api.rest;
 
-import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
@@ -91,8 +91,7 @@ class UserControllerTest {
                 .param("page", "1")
                 .param("size", "10")
                 .param("sort", "name,desc")
-                .param("name", "admin")
-                .param("statuses", "ACTIVE")) // Note: criteria.statuses
+                .param("name", "admin"))
         // Then
         .andExpect(status().isOk());
 
@@ -106,6 +105,20 @@ class UserControllerTest {
     assertThat(pageableCaptor.getValue().getPageNumber()).isEqualTo(1);
     assertThat(pageableCaptor.getValue().getPageSize()).isEqualTo(10);
     assertThat(pageableCaptor.getValue().getSort().getOrderFor("name").isDescending()).isTrue();
+  }
+
+  @Test
+  @WithMockUser(roles = "ADMIN")
+  void listUsers_WithInvalidSort_ShouldReturn400() throws Exception {
+    // Given
+    when(userService.listUsers(any(), any()))
+        .thenThrow(new IllegalArgumentException("Invalid sort"));
+
+    // When
+    mockMvc
+        .perform(get("/api/v1/users").param("sort", "invalid,asc"))
+        // Then
+        .andExpect(status().isBadRequest());
   }
 
   @Test

@@ -6,6 +6,8 @@ import com.example.secrets_manager.api.rest.converters.UserResponseConverter;
 import com.example.secrets_manager.api.rest.dto.*;
 import com.example.secrets_manager.core.services.UserService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.enums.ParameterIn;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -35,7 +37,16 @@ public class UserController {
     this.userService = userService;
   }
 
-  @Operation(summary = "List users with filters and pagination")
+  @Operation(
+      summary = "List users with filters and pagination",
+      parameters = {
+        @Parameter(
+            name = "sort",
+            in = ParameterIn.QUERY,
+            description =
+                "Sorting criteria in the format: property,(asc|desc). Allowed properties: name.",
+            schema = @Schema(type = "string"))
+      })
   @ApiResponse(
       responseCode = "200",
       description = "List retrieved successfully",

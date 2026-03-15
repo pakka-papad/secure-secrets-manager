@@ -6,6 +6,9 @@ import com.example.secrets_manager.api.rest.dto.SecretGroupCreationRequest;
 import com.example.secrets_manager.api.rest.dto.SecretGroupResponse;
 import com.example.secrets_manager.core.services.SecretGroupService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.enums.ParameterIn;
+import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -59,7 +62,16 @@ public class SecretGroupController {
     return ResponseEntity.ok(SecretGroupResponseConverter.fromModel(group));
   }
 
-  @Operation(summary = "List all secret groups authorized for the current user")
+  @Operation(
+      summary = "List all secret groups authorized for the current user",
+      parameters = {
+        @Parameter(
+            name = "sort",
+            in = ParameterIn.QUERY,
+            description =
+                "Sorting criteria in the format: property,(asc|desc). Allowed properties: name.",
+            schema = @Schema(type = "string"))
+      })
   @ApiResponse(responseCode = "200", description = "List retrieved successfully")
   @GetMapping
   public ResponseEntity<PagedResponse<SecretGroupResponse>> listGroups(

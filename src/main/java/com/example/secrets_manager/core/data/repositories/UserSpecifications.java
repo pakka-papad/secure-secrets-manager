@@ -2,11 +2,12 @@ package com.example.secrets_manager.core.data.repositories;
 
 import com.example.secrets_manager.api.rest.dto.UserSearchCriteria;
 import com.example.secrets_manager.core.data.entities.UserEntity;
+import com.example.secrets_manager.core.utils.CoreUtils;
 import jakarta.persistence.criteria.Predicate;
 import java.util.ArrayList;
 import java.util.List;
-import org.apache.commons.lang3.StringUtils;
 import org.springframework.data.jpa.domain.Specification;
+import org.springframework.util.StringUtils;
 
 /** Dynamic specifications for building JPA queries for User entities. */
 public final class UserSpecifications {
@@ -21,12 +22,15 @@ public final class UserSpecifications {
       // 1. Always exclude deleted users (Soft Delete)
       predicates.add(cb.isNull(root.get("deletedAt")));
 
-      // 2. Filter by name (prefix match)
-      if (!StringUtils.isBlank(criteria.getName())) {
-        predicates.add(cb.like(root.get("name"), criteria.getName() + "%"));
+      // 2. Always exclude the internal system user from listings
+      predicates.add(cb.notEqual(root.get("id"), CoreUtils.SYSTEM_USER_ID));
+
+      // 3. Filter by name (prefix match)
+      if (StringUtils.hasText(criteria.getName())) {
+        predicates.add(cb.like(root.get("name"), criteria.getName().trim() + "%"));
       }
 
-      // 3. Filter by role
+      // 4. Filter by role
       if (criteria.getRole() != null) {
         // Use cb.function for Postgres-specific array check compatibility
         predicates.add(

@@ -15,6 +15,7 @@ import com.example.secrets_manager.core.services.exceptions.SelfDemotionExceptio
 import com.example.secrets_manager.core.services.exceptions.UserAlreadyExistsException;
 import com.example.secrets_manager.core.services.exceptions.UserServiceException;
 import com.example.secrets_manager.core.utils.CoreUtils;
+import com.example.secrets_manager.core.utils.PaginationUtils;
 import com.example.secrets_manager.crypto.CryptographyService;
 import com.example.secrets_manager.crypto.dto.HashedPassword;
 import com.example.secrets_manager.security.SecurityUtils;
@@ -345,6 +346,7 @@ public class UserService {
   @Transactional(readOnly = true)
   @PreAuthorize("hasRole('ADMIN')")
   public Page<User> listUsers(UserSearchCriteria criteria, Pageable pageable) {
+    PaginationUtils.validateSort(pageable, UserEntity.ALLOWED_SORT_FIELDS);
     Specification<UserEntity> spec = UserSpecifications.withCriteria(criteria);
     return userRepository.findAll(spec, pageable).map(UserEntityConverter::toModel);
   }

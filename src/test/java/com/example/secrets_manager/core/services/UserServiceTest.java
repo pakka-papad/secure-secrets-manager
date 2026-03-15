@@ -32,10 +32,7 @@ import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.*;
 import org.springframework.data.jpa.domain.Specification;
 
 @ExtendWith(MockitoExtension.class)
@@ -363,6 +360,16 @@ class UserServiceTest {
     assertThat(result).isNotNull();
     assertThat(result.getContent()).hasSize(1);
     assertThat(result.getContent().get(0).getName()).isEqualTo(mockUserEntity.getName());
+  }
+
+  @Test
+  void listUsers_WithInvalidSort_ShouldThrowException() {
+    // Given
+    UserSearchCriteria criteria = new UserSearchCriteria();
+    Pageable pageable = PageRequest.of(0, 10, Sort.by("invalidField"));
+
+    // When & Then
+    assertThrows(IllegalArgumentException.class, () -> userService.listUsers(criteria, pageable));
   }
 
   @Test

@@ -82,6 +82,20 @@ public class AppExceptionHandler {
     return new ResponseEntity<>(errorResponse, HttpStatus.FORBIDDEN);
   }
 
+  @ExceptionHandler(IllegalArgumentException.class)
+  public ResponseEntity<ErrorResponse> handleIllegalArgumentException(
+      IllegalArgumentException ex, HttpServletRequest request) {
+    var errorResponse =
+        ErrorResponse.builder()
+            .timestamp(Instant.now())
+            .status(HttpStatus.BAD_REQUEST.value()) // 400
+            .error(HttpStatus.BAD_REQUEST.getReasonPhrase())
+            .messages(List.of(ex.getMessage()))
+            .path(request.getRequestURI())
+            .build();
+    return new ResponseEntity<>(errorResponse, HttpStatus.BAD_REQUEST);
+  }
+
   @ExceptionHandler(PessimisticLockingFailureException.class)
   public ResponseEntity<ErrorResponse> handlePessimisticLockingFailureException(
       PessimisticLockingFailureException ex, HttpServletRequest request) {

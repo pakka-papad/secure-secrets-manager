@@ -140,6 +140,20 @@ class SecretGroupControllerTest {
 
   @Test
   @WithMockUser
+  void listGroups_WithInvalidSort_ShouldReturn400() throws Exception {
+    // Given
+    when(secretGroupService.listGroups(any()))
+        .thenThrow(new IllegalArgumentException("Invalid sort"));
+
+    // When
+    mockMvc
+        .perform(get("/api/v1/secret-groups").param("sort", "invalid,asc"))
+        // Then
+        .andExpect(status().isBadRequest());
+  }
+
+  @Test
+  @WithMockUser
   void getGroup_WhenAuthorized_ShouldReturn200() throws Exception {
     // Given
     UUID groupId = UUID.randomUUID();

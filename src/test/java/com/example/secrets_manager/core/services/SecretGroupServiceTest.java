@@ -9,9 +9,11 @@ import com.example.secrets_manager.core.data.entities.SecretGroupEntity;
 import com.example.secrets_manager.core.data.repositories.SecretGroupRepository;
 import com.example.secrets_manager.core.data.repositories.SecretRepository;
 import com.example.secrets_manager.core.models.SecretGroupCreationPayload;
+import com.example.secrets_manager.core.models.UserRole;
 import com.example.secrets_manager.core.services.exceptions.SecretGroupAlreadyExistsException;
 import com.example.secrets_manager.crypto.CryptographyService;
 import com.example.secrets_manager.security.SecurityUtils;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
@@ -23,6 +25,10 @@ import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 
 @ExtendWith(MockitoExtension.class)
 class SecretGroupServiceTest {
@@ -80,6 +86,35 @@ class SecretGroupServiceTest {
     // When & Then
     assertThrows(
         SecretGroupAlreadyExistsException.class, () -> secretGroupService.createGroup(payload));
+  }
+
+  @Test
+  void listGroups_ShouldReturnPagedGroups() {
+    // Given
+    Pageable pageable = PageRequest.of(0, 10);
+    var entity = SecretGroupEntity.builder().name("group1").build();
+    var page = new PageImpl<>(List.of(entity));
+
+    mockedSecurityUtils.when(SecurityUtils::getAuthenticatedUserId).thenReturn(userId);
+    mockedSecurityUtils.when(() -> SecurityUtils.hasRole(UserRole.ADMIN)).thenReturn(false);
+    when(secretGroupRepository.findAuthorizedGroups(eq(userId), eq(pageable))).thenReturn(page);
+
+    // When
+    var result = secretGroupService.listGroups(pageable);
+
+    // Then
+    assertThat(result).isNotNull();
+    assertThat(result.getContent()).hasSize(1);
+    assertThat(result.getContent().get(0).getName()).isEqualTo("group1");
+  }
+
+  @Test
+  void listGroups_WithInvalidSort_ShouldThrowException() {
+    // Given
+    Pageable pageable = PageRequest.of(0, 10, Sort.by("invalid_field"));
+
+    // When & Then
+    assertThrows(IllegalArgumentException.class, () -> secretGroupService.listGroups(pageable));
   }
 
   @Test
