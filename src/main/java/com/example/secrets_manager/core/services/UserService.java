@@ -115,7 +115,7 @@ public class UserService {
     // 6. Save the user entity
     UserEntity savedUserEntity;
     try {
-      savedUserEntity = userRepository.save(userEntity);
+      savedUserEntity = userRepository.saveAndFlush(userEntity);
     } catch (DataIntegrityViolationException e) {
       if (e.getMessage() != null && e.getMessage().contains("uq_sm_users_active_name")) {
         throw new UserAlreadyExistsException(

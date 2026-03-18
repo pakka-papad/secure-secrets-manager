@@ -80,7 +80,7 @@ public class SecretGroupService {
     // 3. Save and Catch
     SecretGroupEntity savedEntity;
     try {
-      savedEntity = secretGroupRepository.save(entity);
+      savedEntity = secretGroupRepository.saveAndFlush(entity);
     } catch (DataIntegrityViolationException e) {
       if (e.getMessage() != null && e.getMessage().contains("uq_sm_secret_groups_active_name")) {
         throw new SecretGroupAlreadyExistsException(
