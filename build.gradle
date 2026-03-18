@@ -50,7 +50,34 @@ dependencies {
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
 	testImplementation 'org.springframework.boot:spring-boot-starter-webmvc-test'
 	testImplementation 'org.springframework.security:spring-security-test'
+	testImplementation 'org.springframework.boot:spring-boot-testcontainers'
+
+	testImplementation 'org.testcontainers:postgresql:1.21.4'
+	testImplementation 'org.testcontainers:testcontainers-junit-jupiter:2.0.3'
+	testImplementation 'io.rest-assured:rest-assured:6.0.0'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+sourceSets {
+    e2e {
+        java.srcDirs = ['src/e2e/java']
+        resources.srcDirs = ['src/e2e/resources']
+        compileClasspath += sourceSets.main.output + sourceSets.test.output
+        runtimeClasspath += sourceSets.main.output + sourceSets.test.output
+    }
+}
+
+configurations {
+    e2eImplementation.extendsFrom testImplementation
+    e2eRuntimeOnly.extendsFrom testRuntimeOnly
+}
+
+task e2eTest(type: Test) {
+    description = 'Runs the end-to-end tests.'
+    group = 'verification'
+    testClassesDirs = sourceSets.e2e.output.classesDirs
+    classpath = sourceSets.e2e.runtimeClasspath
+    useJUnitPlatform()
 }
 
 tasks.named('test') {
