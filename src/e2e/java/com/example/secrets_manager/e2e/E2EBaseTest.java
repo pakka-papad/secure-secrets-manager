@@ -1,10 +1,8 @@
 package com.example.secrets_manager.e2e;
 
 import com.example.secrets_manager.core.components.EnvironmentProvider;
+import com.example.secrets_manager.e2e.actor.ActorFactory;
 import io.restassured.RestAssured;
-import io.restassured.builder.RequestSpecBuilder;
-import io.restassured.http.ContentType;
-import io.restassured.specification.RequestSpecification;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.util.Base64;
@@ -69,8 +67,6 @@ public abstract class E2EBaseTest {
 
   @DynamicPropertySource
   static void registerProperties(DynamicPropertyRegistry registry) {
-    // Directly override all connection properties for both Spring Datasource and Flyway
-    // This ensures no placeholders from the main application.yml interfere
     registry.add("spring.datasource.url", postgres::getJdbcUrl);
     registry.add("spring.datasource.username", postgres::getUsername);
     registry.add("spring.datasource.password", postgres::getPassword);
@@ -80,10 +76,8 @@ public abstract class E2EBaseTest {
     registry.add("spring.flyway.user", postgres::getUsername);
     registry.add("spring.flyway.password", postgres::getPassword);
 
-    // Real generated keys for E2E
     registry.add("JWT_PUBLIC_KEY", () -> JWT_PUBLIC_KEY);
     registry.add("JWT_PRIVATE_KEY", () -> JWT_PRIVATE_KEY);
-
     registry.add("MASTER_KEY__V1", () -> MASTER_KEY__V1);
     registry.add("MASTER_KEY_DEFAULT_ALGORITHM", () -> "AES-256-GCM");
 
@@ -93,19 +87,11 @@ public abstract class E2EBaseTest {
 
   @LocalServerPort private int port;
 
-  protected RequestSpecification requestSpec;
+  protected ActorFactory actors;
 
   @BeforeEach
   void setUp() {
     RestAssured.port = port;
-    requestSpec =
-        new RequestSpecBuilder()
-            .setContentType(ContentType.JSON)
-            .setAccept(ContentType.JSON)
-            .build();
-  }
-
-  protected RequestSpecification withAuth(String token) {
-    return RestAssured.given(requestSpec).header("Authorization", "Bearer " + token);
+    actors = new ActorFactory(BOOTSTRAP_ADMIN_USERNAME, BOOTSTRAP_ADMIN_PASSWORD);
   }
 }
