@@ -13,7 +13,7 @@ class SecretGroupLifecycleE2ETest extends E2EBaseTest {
   void shouldManageSecretGroupLifecycle() {
     String managerName = "manager" + System.currentTimeMillis();
     String groupName = "group" + System.currentTimeMillis();
-    
+
     var admin = actors.asBootstrapAdmin();
 
     // 1. Create a Secret Manager
@@ -32,13 +32,13 @@ class SecretGroupLifecycleE2ETest extends E2EBaseTest {
     String otherName = "other" + System.currentTimeMillis();
     admin.users().create(otherName, "Pass1234", Set.of("USER"));
     var other = actors.asUser(otherName, "Pass1234");
-    
+
     var otherGroups = other.secretGroups().list(Map.of());
     assertThat(otherGroups.getItems()).noneMatch(g -> g.getId().equals(group.getId()));
 
     // 5. Manager deletes the group
     manager.secretGroups().delete(group.getId());
-    
+
     // 6. Verify it's gone
     var finalGroups = manager.secretGroups().list(Map.of());
     assertThat(finalGroups.getItems()).noneMatch(g -> g.getId().equals(group.getId()));
