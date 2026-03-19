@@ -94,14 +94,14 @@ class UserServiceTest {
 
     when(cryptographyService.hashPassword(any())).thenReturn(mockHashedPassword);
     when(objectMapper.writeValueAsString(any())).thenReturn("{}");
-    when(userRepository.save(any(UserEntity.class))).thenReturn(mockUserEntity);
+    when(userRepository.saveAndFlush(any(UserEntity.class))).thenReturn(mockUserEntity);
 
     // When
     User result = userService.createUser(payload);
 
     // Then
     assertThat(result).isNotNull();
-    verify(userRepository).save(any(UserEntity.class));
+    verify(userRepository).saveAndFlush(any(UserEntity.class));
 
     ArgumentCaptor<AuditLogPayload> auditCaptor = ArgumentCaptor.forClass(AuditLogPayload.class);
     verify(auditService).save(auditCaptor.capture());
@@ -129,7 +129,7 @@ class UserServiceTest {
 
     when(cryptographyService.hashPassword(any())).thenReturn(mockHashedPassword);
     when(objectMapper.writeValueAsString(any())).thenReturn("{}");
-    when(userRepository.save(any(UserEntity.class))).thenReturn(adminEntity);
+    when(userRepository.saveAndFlush(any(UserEntity.class))).thenReturn(adminEntity);
 
     // When
     User result = userService.createUser(payload);
@@ -139,7 +139,7 @@ class UserServiceTest {
     assertThat(result.getRoles()).containsExactlyInAnyOrder(UserRole.ADMIN, UserRole.USER);
 
     ArgumentCaptor<UserEntity> entityCaptor = ArgumentCaptor.forClass(UserEntity.class);
-    verify(userRepository).save(entityCaptor.capture());
+    verify(userRepository).saveAndFlush(entityCaptor.capture());
     assertThat(entityCaptor.getValue().getRoles()).containsExactlyInAnyOrder("ADMIN", "USER");
   }
 
@@ -244,7 +244,7 @@ class UserServiceTest {
 
     when(cryptographyService.hashPassword(any())).thenReturn(mockHashedPassword);
     when(objectMapper.writeValueAsString(any())).thenReturn("{}");
-    when(userRepository.save(any())).thenReturn(mockUserEntity);
+    when(userRepository.saveAndFlush(any())).thenReturn(mockUserEntity);
 
     // When
     final var result = userService.createUser(payload);
@@ -255,7 +255,7 @@ class UserServiceTest {
     assertThat(result.getRoles()).containsExactlyInAnyOrder(UserRole.USER);
 
     ArgumentCaptor<UserEntity> entityCaptor = ArgumentCaptor.forClass(UserEntity.class);
-    verify(userRepository).save(entityCaptor.capture());
+    verify(userRepository).saveAndFlush(entityCaptor.capture());
     assertThat(entityCaptor.getValue().getRoles()).contains("USER");
   }
 

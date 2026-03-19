@@ -63,7 +63,7 @@ class SecretGroupServiceTest {
 
     mockedSecurityUtils.when(SecurityUtils::getAuthenticatedUserId).thenReturn(userId);
     when(cryptographyService.isSymmetricAlgorithmSupported("AES-256-GCM")).thenReturn(true);
-    when(secretGroupRepository.save(any())).thenReturn(entity);
+    when(secretGroupRepository.saveAndFlush(any())).thenReturn(entity);
 
     // When
     var result = secretGroupService.createGroup(payload);
@@ -80,7 +80,7 @@ class SecretGroupServiceTest {
     // Given
     var payload = new SecretGroupCreationPayload("exists", "AES-GCM");
     when(cryptographyService.isSymmetricAlgorithmSupported(any())).thenReturn(true);
-    when(secretGroupRepository.save(any()))
+    when(secretGroupRepository.saveAndFlush(any()))
         .thenThrow(new DataIntegrityViolationException("uq_sm_secret_groups_active_name"));
 
     // When & Then
