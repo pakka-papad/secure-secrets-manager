@@ -1,8 +1,9 @@
-package com.example.secrets_manager.e2e;
+package com.example.secrets_manager.e2e.users;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.example.secrets_manager.core.models.UserRole;
+import com.example.secrets_manager.e2e.base.E2EBaseTest;
 import org.junit.jupiter.api.Test;
 
 class UserLifecycleE2ETest extends E2EBaseTest {

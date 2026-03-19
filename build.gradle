@@ -78,6 +78,7 @@ task e2eTest(type: Test) {
     testClassesDirs = sourceSets.e2e.output.classesDirs
     classpath = sourceSets.e2e.runtimeClasspath
     useJUnitPlatform()
+    maxParallelForks = 1
 }
 
 tasks.named('test') {

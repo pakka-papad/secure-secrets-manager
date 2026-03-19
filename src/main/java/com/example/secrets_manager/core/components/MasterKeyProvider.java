@@ -8,6 +8,7 @@ import com.example.secrets_manager.crypto.CryptographyService;
 import jakarta.annotation.PostConstruct;
 import java.util.Base64;
 import java.util.EnumSet;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
@@ -18,13 +19,17 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.env.ConfigurableEnvironment;
+import org.springframework.core.env.EnumerablePropertySource;
+import org.springframework.core.env.PropertySource;
 import org.springframework.stereotype.Component;
 
 /**
- * High-privilege component responsible for loading Master Keys from the operating system
- * environment and synchronizing them with the database registry.
+ * High-privilege component responsible for loading Master Keys from the Spring Environment.
  *
- * <p>Optimized to surgically load only necessary cryptographic material into memory.
+ * <p>Directly scans all active PropertySources for the pattern MASTER_KEY__V{n}. This provides the
+ * most robust support for POSIX environment variables while maintaining compatibility with Spring's
+ * DynamicPropertyRegistry used in E2E tests.
  */
 @Component
 @Slf4j
@@ -33,22 +38,22 @@ public class MasterKeyProvider {
   private final Map<Integer, byte[]> masterKeys = new ConcurrentHashMap<>();
   private final CryptographyService cryptographyService;
   private final InternalMasterKeyService internalMasterKeyService;
-  private final EnvironmentProvider environmentProvider;
+  private final ConfigurableEnvironment environment;
 
   @Value("${MASTER_KEY_DEFAULT_ALGORITHM:AES-256-GCM}")
   private String defaultAlgorithm;
 
-  // Case-insensitive pattern to match environment variables like "master_key__v1"
-  private static final Pattern MASTER_KEY_PATTERN = Pattern.compile("(?i)master_key__v(\\d+)");
+  // Case-insensitive pattern to match keys like "MASTER_KEY__V1"
+  private static final Pattern MASTER_KEY_PATTERN = Pattern.compile("(?i)MASTER_KEY__V(\\d+)");
 
   @Autowired
   public MasterKeyProvider(
       CryptographyService cryptographyService,
       InternalMasterKeyService internalMasterKeyService,
-      EnvironmentProvider environmentProvider) {
+      ConfigurableEnvironment environment) {
     this.cryptographyService = cryptographyService;
     this.internalMasterKeyService = internalMasterKeyService;
-    this.environmentProvider = environmentProvider;
+    this.environment = environment;
   }
 
   @PostConstruct
@@ -65,40 +70,40 @@ public class MasterKeyProvider {
 
     int currentMaxDbVersion = internalMasterKeyService.getHighestMasterKeyVersion();
 
-    // 2. Surgical ENV Scan
+    // 2. Discover matching keys across all Spring Property Sources
+    Map<Integer, String> discoveredKeys = scanForMasterKeys();
+
     Integer highestNewVersion = null;
     byte[] highestNewKeyBytes = null;
 
-    for (Map.Entry<String, String> entry : environmentProvider.getEnvironment().entrySet()) {
-      Matcher matcher = MASTER_KEY_PATTERN.matcher(entry.getKey());
-      if (!matcher.matches() || StringUtils.isBlank(entry.getValue())) {
-        continue;
-      }
-
-      int version = Integer.parseInt(matcher.group(1));
+    // 3. Process discovered keys
+    for (Map.Entry<Integer, String> entry : discoveredKeys.entrySet()) {
+      int version = entry.getKey();
+      String base64Value = entry.getValue();
       MasterKey dbMeta = dbKeyMap.get(version);
 
       if (version > currentMaxDbVersion) {
         if (highestNewVersion == null || version > highestNewVersion) {
           highestNewVersion = version;
-          highestNewKeyBytes = decodeAndValidate(version, entry.getValue(), defaultAlgorithm);
+          highestNewKeyBytes = decodeAndValidate(version, base64Value, defaultAlgorithm);
         }
       } else if (dbMeta != null) {
-        byte[] bytes = decodeAndValidate(version, entry.getValue(), dbMeta.getEncryptAlgo());
+        byte[] bytes = decodeAndValidate(version, base64Value, dbMeta.getEncryptAlgo());
         this.masterKeys.put(version, bytes);
       }
     }
 
-    // 3. Validation: Ensure all ACTIVE/RETIRED keys from DB are now in memory
+    // 4. Validation: Ensure all ACTIVE/RETIRED keys from DB are now in memory
     for (var dbKey : requiredKeys) {
       if (!this.masterKeys.containsKey(dbKey.getVersion())) {
         throw new IllegalStateException(
             String.format(
-                "FATAL: Required Master Key v%d is missing from ENV.", dbKey.getVersion()));
+                "FATAL: Required Master Key v%d is missing from environment (Expected: MASTER_KEY__V%d).",
+                dbKey.getVersion(), dbKey.getVersion()));
       }
     }
 
-    // 4. Atomic Promotion (if new key found)
+    // 5. Atomic Promotion (if new key found)
     if (highestNewVersion != null) {
       internalMasterKeyService.promoteNewKeyInternal(highestNewVersion, defaultAlgorithm);
       this.masterKeys.put(highestNewVersion, highestNewKeyBytes);
@@ -112,6 +117,28 @@ public class MasterKeyProvider {
         "MasterKeyProvider initialized with {} keys. Active version: {}",
         masterKeys.size(),
         getActiveVersion());
+  }
+
+  /** Scans all property sources in the environment for keys matching the MASTER_KEY pattern. */
+  private Map<Integer, String> scanForMasterKeys() {
+    Map<Integer, String> result = new HashMap<>();
+    for (PropertySource<?> source : environment.getPropertySources()) {
+      if (!(source instanceof EnumerablePropertySource<?> enumerable)) {
+        continue;
+      }
+      for (String propertyName : enumerable.getPropertyNames()) {
+        Matcher matcher = MASTER_KEY_PATTERN.matcher(propertyName);
+        if (!matcher.matches()) {
+          continue;
+        }
+        String value = environment.getProperty(propertyName);
+        if (StringUtils.isBlank(value)) {
+          continue;
+        }
+        result.put(Integer.parseInt(matcher.group(1)), value);
+      }
+    }
+    return result;
   }
 
   private byte[] decodeAndValidate(int version, String base64Value, String algorithm) {
@@ -136,7 +163,7 @@ public class MasterKeyProvider {
     if (key == null) {
       throw new IllegalArgumentException(
           String.format(
-              "Master key v%d is not available in memory. It may be compromised, inactive, or missing from ENV.",
+              "Master key v%d is not available in memory. It may be compromised, inactive, or missing from environment.",
               version));
     }
     return key;
