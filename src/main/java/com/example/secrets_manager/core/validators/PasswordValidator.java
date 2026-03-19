@@ -7,7 +7,7 @@ import java.util.regex.Pattern;
 
 public class PasswordValidator implements ConstraintValidator<Password, byte[]> {
 
-  private static final Pattern PASSWORD_PATTERN = Pattern.compile("^[a-zA-Z0-9_\\-+#?]{8,}$");
+  private static final Pattern PASSWORD_PATTERN = Pattern.compile("^[a-zA-Z0-9_\\-+#?!]{8,}$");
 
   @Override
   public boolean isValid(byte[] password, ConstraintValidatorContext context) {

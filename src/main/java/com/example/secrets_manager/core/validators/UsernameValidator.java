@@ -6,7 +6,7 @@ import java.util.regex.Pattern;
 
 public class UsernameValidator implements ConstraintValidator<Username, String> {
 
-  private static final Pattern USERNAME_PATTERN = Pattern.compile("^[a-zA-Z0-9]{1,255}$");
+  private static final Pattern USERNAME_PATTERN = Pattern.compile("^[a-zA-Z0-9_-]{1,255}$");
 
   @Override
   public boolean isValid(String username, ConstraintValidatorContext context) {

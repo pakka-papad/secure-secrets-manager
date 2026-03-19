@@ -8,6 +8,7 @@ import com.example.secrets_manager.api.rest.dto.PagedResponse;
 import com.example.secrets_manager.api.rest.dto.UserResponse;
 import io.restassured.common.mapper.TypeRef;
 import io.restassured.http.ContentType;
+import io.restassured.response.Response;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -24,18 +25,22 @@ public class UserClient {
   }
 
   public UserResponse create(String username, String password, Set<String> roles) {
-    return given()
-        .header("Authorization", "Bearer " + token)
-        .contentType(ContentType.JSON)
-        .body(Map.of("name", username, "password", password, "roles", roles))
-        .when()
-        .post("/api/v1/users")
+    return createRaw(username, password, roles)
         .then()
         .statusCode(201)
         .body("name", equalTo(username))
         .body("id", notNullValue())
         .extract()
         .as(UserResponse.class);
+  }
+
+  public Response createRaw(String username, String password, Set<String> roles) {
+    return given()
+        .header("Authorization", "Bearer " + token)
+        .contentType(ContentType.JSON)
+        .body(Map.of("name", username, "password", password, "roles", roles))
+        .when()
+        .post("/api/v1/users");
   }
 
   public UserResponse me() {
@@ -48,6 +53,14 @@ public class UserClient {
         .statusCode(200)
         .extract()
         .as(UserResponse.class);
+  }
+
+  public UserResponse get(UUID userId) {
+    return getRaw(userId).then().statusCode(200).extract().as(UserResponse.class);
+  }
+
+  public Response getRaw(UUID userId) {
+    return given().header("Authorization", "Bearer " + token).when().get("/api/v1/users/" + userId);
   }
 
   public PagedResponse<UserResponse> list(Map<String, ?> params) {
@@ -63,12 +76,14 @@ public class UserClient {
   }
 
   public void delete(UUID userId) {
-    given()
+    deleteRaw(userId).then().statusCode(204);
+  }
+
+  public Response deleteRaw(UUID userId) {
+    return given()
         .header("Authorization", "Bearer " + token)
         .when()
-        .delete("/api/v1/users/" + userId)
-        .then()
-        .statusCode(204);
+        .delete("/api/v1/users/" + userId);
   }
 
   public UserResponse updateRoles(UUID userId, Set<String> roles) {
