@@ -38,7 +38,7 @@ class PasswordValidatorTest {
   }
 
   private static Stream<Arguments> invalidPasswords() {
-    return Stream.of("short", "invalid password", "invalid!")
+    return Stream.of("short", "invalid password", "invalid^")
         .map(PasswordValidatorTest::toArguments);
   }
 

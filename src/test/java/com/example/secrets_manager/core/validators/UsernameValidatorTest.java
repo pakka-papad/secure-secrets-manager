@@ -20,8 +20,8 @@ class UsernameValidatorTest {
   @ValueSource(
       strings = {
         "invalid username",
-        "invalid-username",
-        "invalid_username",
+        "invalid=username",
+        "invalid@username",
         "invalid!",
         "loooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooong"
       })
