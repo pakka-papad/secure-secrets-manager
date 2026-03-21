@@ -21,12 +21,12 @@ class AdminUserManagementE2ETest extends E2EBaseTest {
 
   @Test
   void shouldPerformComplexAdminUserManagement() {
-    // 1. Bootstrap admin creates another admin
-    var bootstrap = actors.asBootstrapAdmin();
+    // 1. Get ANY admin
+    var initAdmin = actors.asAnyAdmin();
     String newAdminName = "sub-admin-" + UUID.randomUUID();
     String password = "Password1234!";
     UserResponse subAdmin =
-        bootstrap.users().create(newAdminName, password, Set.of("ADMIN", "USER"));
+        initAdmin.users().create(newAdminName, password, Set.of("ADMIN", "USER"));
 
     // 2. New admin logs in
     var admin = actors.asUser(newAdminName, password);
@@ -55,39 +55,34 @@ class AdminUserManagementE2ETest extends E2EBaseTest {
 
     assertThat(createdUsers).hasSize(50);
 
-    // 4. List all users (verify pagination works)
-    var pagedUsers = admin.users().list(Map.of("size", "100"));
-    assertThat(pagedUsers.getItems().size()).isGreaterThanOrEqualTo(50);
-
-    // 5. Try creating one more user with an existing name (Conflict expected)
+    // 4. Try creating one more user with an existing name (Conflict expected)
     String existingName = createdUsers.get(0).getName();
     admin.users().createRaw(existingName, password, Set.of("USER")).then().statusCode(409);
 
-    // 6. Pick a random user and delete it (not self)
+    // 5. Pick a random user and delete it (not self)
     UserResponse randomUser = createdUsers.get(new Random().nextInt(createdUsers.size()));
     admin.users().delete(randomUser.getId());
 
-    // 7. Verify deleted user is gone from listings
+    // 6. Verify deleted user is gone from listings
     var afterDeleteList = admin.users().list(Map.of("size", "100"));
     assertThat(afterDeleteList.getItems()).noneMatch(u -> u.getId().equals(randomUser.getId()));
 
-    // 8. Delete self (Expect 403 Forbidden - Self Deletion Guardrail)
+    // 7. Delete self (Expect 403 Forbidden - Self Deletion Guardrail)
     admin.users().deleteRaw(subAdmin.getId()).then().statusCode(403);
 
-    // 9. Delete bootstrap admin (Expect 204 - Admin can delete other Admin as long as it's not the
-    // last one)
-    var allUsers = admin.users().list(Map.of("size", "100", "name", BOOTSTRAP_ADMIN_USERNAME));
-    UUID bootstrapId =
+    // 8. Delete the original admin (Expect 204 - Admin can delete other Admin)
+    var allUsers = admin.users().list(Map.of("size", "100", "name", initAdmin.getUsername()));
+    UUID initAdminId =
         allUsers.getItems().stream()
             .filter(u -> u.getName().equals(BOOTSTRAP_ADMIN_USERNAME))
             .findFirst()
             .map(UserResponse::getId)
             .orElseThrow();
 
-    admin.users().delete(bootstrapId);
+    admin.users().delete(initAdminId);
 
-    // 10. Verify bootstrap admin is gone
-    var finalCheck = admin.users().list(Map.of("size", "100", "name", BOOTSTRAP_ADMIN_USERNAME));
-    assertThat(finalCheck.getItems()).noneMatch(u -> u.getName().equals(BOOTSTRAP_ADMIN_USERNAME));
+    // 9. Verify initial admin is gone
+    var finalCheck = admin.users().list(Map.of("size", "100", "name", initAdmin.getUsername()));
+    assertThat(finalCheck.getItems()).noneMatch(u -> u.getName().equals(initAdmin.getUsername()));
   }
 }

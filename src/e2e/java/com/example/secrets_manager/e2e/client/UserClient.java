@@ -6,12 +6,13 @@ import static org.hamcrest.Matchers.notNullValue;
 
 import com.example.secrets_manager.api.rest.dto.PagedResponse;
 import com.example.secrets_manager.api.rest.dto.UserResponse;
+import com.example.secrets_manager.core.models.UserRole;
+import com.example.secrets_manager.e2e.actor.ActorRegistry;
+import com.example.secrets_manager.e2e.actor.UserCredential;
 import io.restassured.common.mapper.TypeRef;
 import io.restassured.http.ContentType;
 import io.restassured.response.Response;
-import java.util.Map;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
 
 public class UserClient {
   private final String token;
@@ -35,12 +36,19 @@ public class UserClient {
   }
 
   public Response createRaw(String username, String password, Set<String> roles) {
-    return given()
-        .header("Authorization", "Bearer " + token)
-        .contentType(ContentType.JSON)
-        .body(Map.of("name", username, "password", password, "roles", roles))
-        .when()
-        .post("/api/v1/users");
+    final var response =
+        given()
+            .header("Authorization", "Bearer " + token)
+            .contentType(ContentType.JSON)
+            .body(Map.of("name", username, "password", password, "roles", roles))
+            .when()
+            .post("/api/v1/users");
+    if (response.statusCode() == 201) {
+      final var typedResponse = response.as(UserResponse.class);
+      ActorRegistry.register(
+          new UserCredential(typedResponse.getId(), username, password, typedResponse.getRoles()));
+    }
+    return response;
   }
 
   public UserResponse me() {
@@ -72,7 +80,8 @@ public class UserClient {
         .then()
         .statusCode(200)
         .extract()
-        .as(new TypeRef<PagedResponse<UserResponse>>() {});
+        .as(new TypeRef<>() {
+        });
   }
 
   public void delete(UUID userId) {
@@ -80,22 +89,52 @@ public class UserClient {
   }
 
   public Response deleteRaw(UUID userId) {
-    return given()
-        .header("Authorization", "Bearer " + token)
-        .when()
-        .delete("/api/v1/users/" + userId);
+    final var response =
+        given().header("Authorization", "Bearer " + token).when().delete("/api/v1/users/" + userId);
+    if (response.statusCode() == 204) {
+      ActorRegistry.unregister(userId);
+    }
+    return response;
   }
 
-  public UserResponse updateRoles(UUID userId, Set<String> roles) {
-    return given()
-        .header("Authorization", "Bearer " + token)
-        .contentType(ContentType.JSON)
-        .body(Map.of("roles", roles))
-        .when()
-        .put("/api/v1/users/" + userId + "/roles")
+  public UserResponse updateRoles(UUID userId, Set<UserRole> roles) {
+    return updateRolesRaw(userId, roles).then().statusCode(200).extract().as(UserResponse.class);
+  }
+
+  public Response updateRolesRaw(UUID userId, Set<UserRole> roles) {
+    final var response =
+        given()
+            .header("Authorization", "Bearer " + token)
+            .contentType(ContentType.JSON)
+            .body(Map.of("roles", roles))
+            .when()
+            .put("/api/v1/users/" + userId + "/roles");
+    if (response.statusCode() == 200) {
+      final var typedResponse = response.as(UserResponse.class);
+      ActorRegistry.updateRoles(userId, typedResponse.getRoles());
+    }
+    return response;
+  }
+
+  public UserResponse updatePassword(UUID userId, String oldPassword, String newPassword) {
+    return updatePasswordRaw(userId, oldPassword, newPassword)
         .then()
         .statusCode(200)
         .extract()
         .as(UserResponse.class);
+  }
+
+  public Response updatePasswordRaw(UUID userId, String oldPassword, String newPassword) {
+    final var response =
+        given()
+            .header("Authorization", "Bearer " + token)
+            .contentType(ContentType.JSON)
+            .body(Map.of("oldPassword", oldPassword, "newPassword", newPassword))
+            .when()
+            .put("/api/v1/users/me/password");
+    if (response.statusCode() == 200) {
+      ActorRegistry.updatePassword(userId, newPassword);
+    }
+    return response;
   }
 }

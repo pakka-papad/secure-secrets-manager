@@ -14,7 +14,7 @@ class SecretGroupLifecycleE2ETest extends E2EBaseTest {
     String managerName = "manager" + System.currentTimeMillis();
     String groupName = "group" + System.currentTimeMillis();
 
-    var admin = actors.asBootstrapAdmin();
+    var admin = actors.asAnyAdmin();
 
     // 1. Create a Secret Manager
     admin.users().create(managerName, "Pass1234", Set.of("SECRET_MANAGER"));

@@ -9,7 +9,7 @@ class SystemMetadataE2ETest extends E2EBaseTest {
 
   @Test
   void shouldDiscoverSupportedAlgorithms() {
-    var admin = actors.asBootstrapAdmin();
+    var admin = actors.asAnyAdmin();
 
     var algorithms = admin.systemMetadata().getSymmetricAlgorithms();
 

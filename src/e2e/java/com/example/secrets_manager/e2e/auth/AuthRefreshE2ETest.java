@@ -11,11 +11,12 @@ class AuthRefreshE2ETest extends E2EBaseTest {
 
   @Test
   void shouldRotateTokensDuringRefresh() {
-    var authClient = new AuthClient();
+    final var authClient = new AuthClient();
+    final var initAdmin = actors.asAnyAdmin();
 
     // 1. Initial Login
     var initialResponse =
-        authClient.loginExtended(BOOTSTRAP_ADMIN_USERNAME, BOOTSTRAP_ADMIN_PASSWORD);
+        authClient.loginExtended(initAdmin.getUsername(), initAdmin.getPassword());
     String firstAccessToken = initialResponse.getAccessToken();
     String firstRefreshToken = initialResponse.getRefreshToken();
     assertThat(firstAccessToken).isNotNull();
@@ -29,8 +30,10 @@ class AuthRefreshE2ETest extends E2EBaseTest {
     assertThat(refreshResponse.getRefreshToken()).isNotEqualTo(firstRefreshToken);
 
     // 4. Verify new Access Token works
-    var actor = new E2EActor(refreshResponse.getAccessToken());
+    var actor =
+        new E2EActor(
+            refreshResponse.getAccessToken(), initAdmin.getUsername(), initAdmin.getPassword());
     var profile = actor.users().me();
-    assertThat(profile.getName()).isEqualTo(BOOTSTRAP_ADMIN_USERNAME);
+    assertThat(profile.getName()).isEqualTo(initAdmin.getUsername());
   }
 }

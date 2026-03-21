@@ -9,13 +9,11 @@ import java.util.TimeZone;
 import org.junit.jupiter.api.BeforeEach;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
-import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.PostgreSQLContainer;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 public abstract class E2EBaseTest {
 
   static PostgreSQLContainer<?> postgres =
@@ -69,6 +67,9 @@ public abstract class E2EBaseTest {
     // 4. Bootstrap Credentials
     registry.add("bootstrap.admin.username", () -> BOOTSTRAP_ADMIN_USERNAME);
     registry.add("bootstrap.admin.password", () -> BOOTSTRAP_ADMIN_PASSWORD);
+
+    // 5. Disable Rate Limiting for E2E speed
+    registry.add("bucket4j.enabled", () -> false);
   }
 
   @LocalServerPort private int port;

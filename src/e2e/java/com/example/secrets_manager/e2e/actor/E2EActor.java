@@ -6,12 +6,16 @@ import com.example.secrets_manager.e2e.client.UserClient;
 
 public class E2EActor {
   private final String token;
+  private final String username;
+  private final String password;
   private UserClient userClient;
   private SecretGroupClient secretGroupClient;
   private SystemMetadataClient systemMetadataClient;
 
-  public E2EActor(String token) {
+  public E2EActor(String token, String username, String password) {
     this.token = token;
+    this.username = username;
+    this.password = password;
   }
 
   public UserClient users() {
@@ -37,5 +41,13 @@ public class E2EActor {
 
   public String getToken() {
     return token;
+  }
+
+  public String getUsername() {
+    return username;
+  }
+
+  public String getPassword() {
+    return password;
   }
 }

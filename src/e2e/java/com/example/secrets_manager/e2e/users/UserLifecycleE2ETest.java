@@ -14,7 +14,7 @@ class UserLifecycleE2ETest extends E2EBaseTest {
     String password = "Password1234";
 
     // 1. Create a user as Admin
-    var admin = actors.asBootstrapAdmin();
+    var admin = actors.asAnyAdmin();
     admin.users().create(username, password);
 
     // 2. Login as the new user and verify profile
