@@ -328,8 +328,12 @@ public class UserService {
       }
     }
 
-    // 6. Perform Soft Delete
+    // 6. Perform Soft Delete and scrub sensitive data
     userEntity.setDeletedAt(Instant.now());
+    userEntity.setPwSalt(new byte[0]);
+    userEntity.setPwDigest(new byte[0]);
+    userEntity.setHashAlgo("SCRUBBED");
+    userEntity.setHashParams("{}");
     userRepository.save(userEntity);
 
     // 7. Publish Event for side-effects (token deletion, authorization cleanup)
