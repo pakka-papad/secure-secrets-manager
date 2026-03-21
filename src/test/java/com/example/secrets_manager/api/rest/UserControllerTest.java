@@ -123,12 +123,16 @@ class UserControllerTest {
 
   @Test
   @WithMockUser(roles = "USER")
-  void listUsers_AsUser_ShouldReturn403() throws Exception {
+  void listUsers_AsUser_ShouldReturnSuccess() throws Exception {
+    // Given
+    var page = new PageImpl<>(List.of(User.builder().id(UUID.randomUUID()).name("test").build()));
+    when(userService.listUsers(any(), any())).thenReturn(page);
+
     // When
     mockMvc
         .perform(get("/api/v1/users"))
         // Then
-        .andExpect(status().isForbidden());
+        .andExpect(status().isOk());
   }
 
   @Test
