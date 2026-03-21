@@ -80,8 +80,7 @@ public class UserClient {
         .then()
         .statusCode(200)
         .extract()
-        .as(new TypeRef<>() {
-        });
+        .as(new TypeRef<>() {});
   }
 
   public void delete(UUID userId) {
