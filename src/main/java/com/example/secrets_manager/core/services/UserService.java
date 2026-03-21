@@ -344,7 +344,7 @@ public class UserService {
    * @return A {@link Page} of {@link User} models.
    */
   @Transactional(readOnly = true)
-  @PreAuthorize("hasRole('ADMIN')")
+  @PreAuthorize("isAuthenticated()")
   public Page<User> listUsers(UserSearchCriteria criteria, Pageable pageable) {
     PaginationUtils.validateSort(pageable, UserEntity.ALLOWED_SORT_FIELDS);
     Specification<UserEntity> spec = UserSpecifications.withCriteria(criteria);

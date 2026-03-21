@@ -53,7 +53,7 @@ public class UserController {
       content = @Content(schema = @Schema(implementation = PagedResponse.class)))
   @ApiResponse(responseCode = "401", description = "Unauthorized")
   @ApiResponse(responseCode = "403", description = "Forbidden: Admin role required")
-  @PreAuthorize("hasRole('ADMIN')")
+  @PreAuthorize("isAuthenticated()")
   @GetMapping
   public ResponseEntity<PagedResponse<UserResponse>> listUsers(
       @ParameterObject UserSearchCriteria criteria, @ParameterObject Pageable pageable) {
