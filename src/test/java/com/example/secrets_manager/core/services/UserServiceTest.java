@@ -377,6 +377,29 @@ class UserServiceTest {
   }
 
   @Test
+  void getUserById_shouldReturnUser_whenAdminAndUserExists() {
+    // Given
+    when(userRepository.findByIdAndDeletedAtIsNull(userId)).thenReturn(Optional.of(mockUserEntity));
+
+    // When
+    User result = userService.getUserById(userId);
+
+    // Then
+    assertThat(result).isNotNull();
+    assertThat(result.getId()).isEqualTo(userId);
+    assertThat(result.getName()).isEqualTo(mockUserEntity.getName());
+  }
+
+  @Test
+  void getUserById_shouldThrowException_whenUserNotFound() {
+    // Given
+    when(userRepository.findByIdAndDeletedAtIsNull(userId)).thenReturn(Optional.empty());
+
+    // When & Then
+    assertThrows(EntityNotFoundException.class, () -> userService.getUserById(userId));
+  }
+
+  @Test
   void getCurrentUser_shouldReturnUser_whenAuthenticated() {
     // Given
     mockedSecurityUtils.when(SecurityUtils::getAuthenticatedUserId).thenReturn(userId);

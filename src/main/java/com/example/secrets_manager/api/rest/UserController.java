@@ -76,6 +76,20 @@ public class UserController {
     return ResponseEntity.ok(UserResponseConverter.fromModel(user));
   }
 
+  @Operation(summary = "Get user details by ID")
+  @ApiResponse(
+      responseCode = "200",
+      description = "User details retrieved successfully",
+      content = @Content(schema = @Schema(implementation = UserResponse.class)))
+  @ApiResponse(responseCode = "401", description = "Unauthorized")
+  @ApiResponse(responseCode = "404", description = "User not found")
+  @PreAuthorize("isAuthenticated()")
+  @GetMapping("/{userId}")
+  public ResponseEntity<UserResponse> getUserById(@PathVariable UUID userId) {
+    var user = userService.getUserById(userId);
+    return ResponseEntity.ok(UserResponseConverter.fromModel(user));
+  }
+
   @Operation(summary = "Create a new user")
   @ApiResponse(
       responseCode = "201",

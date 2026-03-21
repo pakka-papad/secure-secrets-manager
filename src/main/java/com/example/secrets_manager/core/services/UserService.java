@@ -381,4 +381,21 @@ public class UserService {
                 new EntityNotFoundException(
                     String.format("User not found with ID: %s", authenticatedUserId)));
   }
+
+  /**
+   * Retrieves a specific user by their ID.
+   *
+   * @param userId The UUID of the user to retrieve.
+   * @return The {@link User} domain model.
+   * @throws EntityNotFoundException if the user is not found or is deleted.
+   */
+  @Transactional(readOnly = true)
+  @PreAuthorize("isAuthenticated()")
+  public User getUserById(UUID userId) {
+    return userRepository
+        .findByIdAndDeletedAtIsNull(userId)
+        .map(UserEntityConverter::toModel)
+        .orElseThrow(
+            () -> new EntityNotFoundException(String.format("User not found with ID: %s", userId)));
+  }
 }

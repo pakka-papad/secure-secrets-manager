@@ -151,6 +151,39 @@ class UserControllerTest {
   }
 
   @Test
+  @WithMockUser(roles = "ADMIN")
+  void getUserById_AsAdmin_ShouldReturn200() throws Exception {
+    // Given
+    UUID targetId = UUID.randomUUID();
+    User user = User.builder().id(targetId).name("target").build();
+    when(userService.getUserById(targetId)).thenReturn(user);
+
+    // When
+    mockMvc
+        .perform(get("/api/v1/users/" + targetId))
+        // Then
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.name").value("target"))
+        .andExpect(jsonPath("$.id").value(targetId.toString()));
+  }
+
+  @Test
+  @WithMockUser(roles = "USER")
+  void getUserById_AsUser_ShouldReturn200() throws Exception {
+    // Given
+    UUID targetId = UUID.randomUUID();
+    User user = User.builder().id(targetId).name("target").build();
+    when(userService.getUserById(targetId)).thenReturn(user);
+
+    // When
+    mockMvc
+        .perform(get("/api/v1/users/" + targetId))
+        // Then
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.name").value("target"));
+  }
+
+  @Test
   void getCurrentUser_WhenUnauthenticated_ShouldReturn401() throws Exception {
     // When
     mockMvc
