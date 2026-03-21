@@ -54,4 +54,14 @@ public interface SecretGroupAuthorizationRepository
    */
   List<SecretGroupAuthorizationEntity> findAllByIdGroupIdAndIdUserIdIn(
       UUID groupId, Collection<UUID> userIds);
+
+  /**
+   * Surgically revokes DELETE permissions for a specific user across all groups.
+   *
+   * @param userId THe ID of the user whose delete permissions are to be revoked.
+   */
+  @Modifying
+  @Query(
+      "UPDATE SecretGroupAuthorizationEntity a SET a.pDelete = false WHERE a.id.userId = :userId")
+  void revokeDeletePermissionForUser(UUID userId);
 }

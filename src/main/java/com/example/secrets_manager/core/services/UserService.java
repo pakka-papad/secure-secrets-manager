@@ -8,6 +8,7 @@ import com.example.secrets_manager.core.data.repositories.UserSpecifications;
 import com.example.secrets_manager.core.models.*;
 import com.example.secrets_manager.core.models.events.UserDeletedEvent;
 import com.example.secrets_manager.core.models.events.UserPasswordUpdatedEvent;
+import com.example.secrets_manager.core.models.events.UserRolesUpdatedEvent;
 import com.example.secrets_manager.core.services.exceptions.AdminDemotionException;
 import com.example.secrets_manager.core.services.exceptions.InvalidPasswordException;
 import com.example.secrets_manager.core.services.exceptions.SelfDeletionException;
@@ -243,9 +244,13 @@ public class UserService {
                     new EntityNotFoundException(
                         String.format("User not found with ID: %s", userId)));
 
+    EnumSet<UserRole> oldRoles = EnumSet.noneOf(UserRole.class);
+    for (String role : userEntity.getRoles()) {
+      oldRoles.add(UserRole.valueOf(role));
+    }
+
     // 5. Invariant Safety Check: Prevent removing the last admin
-    boolean isTargetCurrentlyAdmin =
-        Arrays.asList(userEntity.getRoles()).contains(UserRole.ADMIN.name());
+    boolean isTargetCurrentlyAdmin = oldRoles.contains(UserRole.ADMIN);
     boolean willBeAdmin = roles.contains(UserRole.ADMIN);
 
     if (isTargetCurrentlyAdmin && !willBeAdmin) {
@@ -262,7 +267,10 @@ public class UserService {
     userEntity.setRoles(newRoles.stream().map(Enum::name).toArray(String[]::new));
     var savedUser = userRepository.save(userEntity);
 
-    // 7. Create audit log entry
+    // 7. Publish event for side-effects
+    eventPublisher.publishEvent(new UserRolesUpdatedEvent(userId, oldRoles, newRoles));
+
+    // 8. Create audit log entry
     auditService.save(
         AuditLogPayload.builder()
             .actorUserId(authenticatedUserId)
