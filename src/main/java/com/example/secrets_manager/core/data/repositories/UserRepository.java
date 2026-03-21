@@ -3,6 +3,7 @@ package com.example.secrets_manager.core.data.repositories;
 import com.example.secrets_manager.core.data.entities.UserEntity;
 import jakarta.persistence.LockModeType;
 import jakarta.persistence.QueryHint;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -45,12 +46,13 @@ public interface UserRepository
   long countActiveAdmins();
 
   /**
-   * Efficiently checks if an active user possesses a specific role. Uses a native query to avoid
-   * loading the full entity and its large binary fields.
+   * Efficiently checks if an active user possesses any of the specified roles. Uses a native query
+   * with the array overlap operator (&&) to avoid loading the full entity and its large binary
+   * fields.
    */
   @Query(
       value =
-          "SELECT EXISTS (SELECT 1 FROM sm.users WHERE id = :userId AND :role = ANY(roles) AND deleted_at IS NULL)",
+          "SELECT EXISTS (SELECT 1 FROM sm.users WHERE id = :userId AND roles && CAST(:roles AS varchar[]) AND deleted_at IS NULL)",
       nativeQuery = true)
-  boolean existsByIdAndRole(UUID userId, String role);
+  boolean existsByIdAndAnyRole(UUID userId, Collection<String> roles);
 }

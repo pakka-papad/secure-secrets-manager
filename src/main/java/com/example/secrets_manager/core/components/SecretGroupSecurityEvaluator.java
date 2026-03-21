@@ -89,7 +89,8 @@ public class SecretGroupSecurityEvaluator {
                   switch (permissionType) {
                     case PERMISSION_READ -> auth.isPRead();
                     case PERMISSION_WRITE -> auth.isPWrite();
-                    case PERMISSION_DELETE -> auth.isPDelete();
+                    case PERMISSION_DELETE ->
+                        (auth.isPDelete() && SecurityUtils.hasRole(UserRole.SECRET_MANAGER));
                     default -> false;
                   })
           .orElse(false);

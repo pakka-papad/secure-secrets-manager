@@ -111,7 +111,7 @@ public class SecretGroupAuthorizationService {
     } else {
       // 5. Governance Guardrail: Only SECRET_MANAGERs can receive DELETE permission
       if (added.contains(PermissionType.DELETE)) {
-        validateTargetUserIsManager(targetId);
+        validateTargetUserForDeletePermission(targetId);
       }
 
       // 6. Apply Sync (Update or Insert)
@@ -213,13 +213,14 @@ public class SecretGroupAuthorizationService {
     }
   }
 
-  private void validateTargetUserIsManager(UUID targetUserId) {
-    boolean isManager =
-        userRepository.existsByIdAndRole(targetUserId, UserRole.SECRET_MANAGER.name());
+  private void validateTargetUserForDeletePermission(UUID targetUserId) {
+    boolean isAuthorizedRole =
+        userRepository.existsByIdAndAnyRole(
+            targetUserId, List.of(UserRole.SECRET_MANAGER.name(), UserRole.ADMIN.name()));
 
-    if (!isManager) {
+    if (!isAuthorizedRole) {
       throw new AccessDeniedException(
-          "Governance Violation: Only users with the SECRET_MANAGER role can be granted DELETE permission.");
+          "Governance Violation: Only users with the SECRET_MANAGER or ADMIN role can be granted DELETE permission.");
     }
   }
 
