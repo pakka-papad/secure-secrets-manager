@@ -12,6 +12,7 @@ import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.jpa.repository.QueryHints;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 @Repository
@@ -55,4 +56,9 @@ public interface UserRepository
           "SELECT EXISTS (SELECT 1 FROM sm.users WHERE id = :userId AND roles && CAST(:roles AS varchar[]) AND deleted_at IS NULL)",
       nativeQuery = true)
   boolean existsByIdAndAnyRole(UUID userId, Collection<String> roles);
+
+  /** Surgically retrieves a user's ID, name, and roles. */
+  @Query(
+      "SELECT u.id as id, u.name as name, u.roles as roles FROM UserEntity u WHERE u.id = :id AND u.deletedAt IS NULL")
+  Optional<UserRoleInfo> findRoleInfoById(@Param("id") UUID id);
 }

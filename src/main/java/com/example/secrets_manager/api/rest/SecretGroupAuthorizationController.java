@@ -82,6 +82,9 @@ public class SecretGroupAuthorizationController {
 
   @Operation(
       summary = "List all authorizations for a secret group",
+      description =
+          "Returns a paged list of users who have explicit entries in the group's Access Control List (ACL). "
+              + "Note: Global Administrators are not listed here unless they have an explicit ACL entry.",
       parameters = {
         @Parameter(
             name = "sort",
@@ -107,7 +110,12 @@ public class SecretGroupAuthorizationController {
     return ResponseEntity.ok(response);
   }
 
-  @Operation(summary = "Get authorization details for a specific user on a group")
+  @Operation(
+      summary = "Get authorization details for a specific user on a group",
+      description =
+          "Retrieves the effective permissions for a user within a secret group. "
+              + "If the user is a Global Administrator, this endpoint returns full effective permissions (READ, WRITE, DELETE) "
+              + "regardless of the existence of an explicit ACL record.")
   @ApiResponse(
       responseCode = "200",
       description = "Authorization retrieved successfully",

@@ -161,11 +161,45 @@ public class SecretGroupAuthorizationService {
         .map(info -> SecretGroupAuthorizationEntityConverter.toDetailedModel(info, groupId));
   }
 
-  /** Retrieves authorization details for a specific user on a group. */
+  /**
+   * Retrieves the effective authorization details for a specific user within a secret group.
+   *
+   * <p>This method implements an 'Effective Permissions' logic:
+   * <ul>
+   *   <li>Administrators are granted full permissions (READ, WRITE, DELETE) globally,
+   *       bypassing the need for explicit ACL records.</li>
+   *   <li>Standard users and managers are restricted to the permissions explicitly
+   *       defined within the secret group's ACL.</li>
+   * </ul>
+   *
+   * @param groupId The unique identifier of the secret group.
+   * @param userId The unique identifier of the user.
+   * @return A {@link SecretGroupAuthorizationDetailed} containing the effective permissions.
+   * @throws EntityNotFoundException If the group or user does not exist, or if a non-administrator
+   *     lacks an explicit ACL entry.
+   */
   @Transactional(readOnly = true)
   @PreAuthorize("@groupAuth.canRead(principal, #groupId)")
   public SecretGroupAuthorizationDetailed getUserAuthorization(UUID groupId, UUID userId) {
     validateGroupActive(groupId);
+
+    // 1. Resolve effective permissions for administrators
+    var userRoleInfo = userRepository.findRoleInfoById(userId)
+        .orElseThrow(() -> new EntityNotFoundException(String.format("User not found: %s", userId)));
+    
+    boolean isAdmin = Arrays.asList(userRoleInfo.getRoles()).contains(UserRole.ADMIN.name());
+    
+    if (isAdmin) {
+      return SecretGroupAuthorizationDetailed.builder()
+          .userId(userId)
+          .username(userRoleInfo.getName())
+          .groupId(groupId)
+          .permissions(EnumSet.allOf(PermissionType.class))
+          .modifiedAt(null) // Administrator permissions are derived from global roles
+          .build();
+    }
+
+    // 2. Resolve explicit permissions from the Access Control List
     return authorizationRepository
         .findByGroupIdAndUserIdSurgical(groupId, userId)
         .map(info -> SecretGroupAuthorizationEntityConverter.toDetailedModel(info, groupId))
@@ -173,7 +207,7 @@ public class SecretGroupAuthorizationService {
             () ->
                 new EntityNotFoundException(
                     String.format(
-                        "Authorization not found for user %s in group %s", userId, groupId)));
+                        "Authorization record not found for user %s in group %s", userId, groupId)));
   }
 
   private void validateGroupActive(UUID groupId) {
