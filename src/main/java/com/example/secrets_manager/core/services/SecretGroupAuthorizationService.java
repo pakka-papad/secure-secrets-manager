@@ -78,8 +78,8 @@ public class SecretGroupAuthorizationService {
     final var targetId = payload.getTargetUserId();
     final var groupId = payload.getGroupId();
 
-    validateGroupActive(groupId);
-    validateUserActive(targetId);
+    validateGroup(groupId);
+    validateUser(targetId);
 
     // 1. Get both Actor and Target authorizations at once
     final var auths =
@@ -154,7 +154,7 @@ public class SecretGroupAuthorizationService {
   @PreAuthorize("@groupAuth.canRead(principal, #groupId)")
   public Page<SecretGroupAuthorizationDetailed> listAuthorizations(
       UUID groupId, Pageable pageable) {
-    validateGroupActive(groupId);
+    validateGroup(groupId);
     PaginationUtils.validateSort(pageable, SecretGroupAuthorizationEntity.ALLOWED_SORT_FIELDS);
     return authorizationRepository
         .findAllByGroupIdSurgical(groupId, pageable)
@@ -165,11 +165,12 @@ public class SecretGroupAuthorizationService {
    * Retrieves the effective authorization details for a specific user within a secret group.
    *
    * <p>This method implements an 'Effective Permissions' logic:
+   *
    * <ul>
-   *   <li>Administrators are granted full permissions (READ, WRITE, DELETE) globally,
-   *       bypassing the need for explicit ACL records.</li>
-   *   <li>Standard users and managers are restricted to the permissions explicitly
-   *       defined within the secret group's ACL.</li>
+   *   <li>Administrators are granted full permissions (READ, WRITE, DELETE) globally, bypassing the
+   *       need for explicit ACL records.
+   *   <li>Standard users and managers are restricted to the permissions explicitly defined within
+   *       the secret group's ACL.
    * </ul>
    *
    * @param groupId The unique identifier of the secret group.
@@ -181,14 +182,17 @@ public class SecretGroupAuthorizationService {
   @Transactional(readOnly = true)
   @PreAuthorize("@groupAuth.canRead(principal, #groupId)")
   public SecretGroupAuthorizationDetailed getUserAuthorization(UUID groupId, UUID userId) {
-    validateGroupActive(groupId);
+    validateGroup(groupId);
 
     // 1. Resolve effective permissions for administrators
-    var userRoleInfo = userRepository.findRoleInfoById(userId)
-        .orElseThrow(() -> new EntityNotFoundException(String.format("User not found: %s", userId)));
-    
+    var userRoleInfo =
+        userRepository
+            .findRoleInfoById(userId)
+            .orElseThrow(
+                () -> new EntityNotFoundException(String.format("User not found: %s", userId)));
+
     boolean isAdmin = Arrays.asList(userRoleInfo.getRoles()).contains(UserRole.ADMIN.name());
-    
+
     if (isAdmin) {
       return SecretGroupAuthorizationDetailed.builder()
           .userId(userId)
@@ -207,17 +211,18 @@ public class SecretGroupAuthorizationService {
             () ->
                 new EntityNotFoundException(
                     String.format(
-                        "Authorization record not found for user %s in group %s", userId, groupId)));
+                        "Authorization record not found for user %s in group %s",
+                        userId, groupId)));
   }
 
-  private void validateGroupActive(UUID groupId) {
+  private void validateGroup(UUID groupId) {
     if (!secretGroupRepository.existsByIdAndDeletedAtIsNull(groupId)) {
       throw new EntityNotFoundException(
           String.format("Secret Group not found or deleted: %s", groupId));
     }
   }
 
-  private void validateUserActive(UUID userId) {
+  private void validateUser(UUID userId) {
     if (!userRepository.existsByIdAndAnyRole(userId, List.of(UserRole.USER.name()))) {
       throw new EntityNotFoundException(String.format("User not found or deleted: %s", userId));
     }

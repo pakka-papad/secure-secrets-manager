@@ -74,7 +74,7 @@ public interface SecretGroupAuthorizationRepository
           + "a.pRead as PRead, a.pWrite as PWrite, a.pDelete as PDelete, a.modifiedAt as modifiedAt "
           + "FROM SecretGroupAuthorizationEntity a "
           + "JOIN UserEntity u ON a.id.userId = u.id "
-          + "WHERE a.id.groupId = :groupId AND u.deletedAt IS NULL")
+          + "WHERE a.id.groupId = :groupId AND u.deletedAt IS NULL AND u.id != '00000000-0000-0000-0000-000000000000'")
   Page<SecretGroupAuthorizationInfo> findAllByGroupIdSurgical(
       @Param("groupId") UUID groupId, Pageable pageable);
 
@@ -84,7 +84,7 @@ public interface SecretGroupAuthorizationRepository
           + "a.pRead as PRead, a.pWrite as PWrite, a.pDelete as PDelete, a.modifiedAt as modifiedAt "
           + "FROM SecretGroupAuthorizationEntity a "
           + "JOIN UserEntity u ON a.id.userId = u.id "
-          + "WHERE a.id.groupId = :groupId AND a.id.userId = :userId AND u.deletedAt IS NULL")
+          + "WHERE a.id.groupId = :groupId AND a.id.userId = :userId AND u.deletedAt IS NULL AND u.id != '00000000-0000-0000-0000-000000000000'")
   Optional<SecretGroupAuthorizationInfo> findByGroupIdAndUserIdSurgical(
       @Param("groupId") UUID groupId, @Param("userId") UUID userId);
 }
