@@ -5,11 +5,14 @@ import com.example.secrets_manager.core.data.converters.SecretGroupAuthorization
 import com.example.secrets_manager.core.data.entities.SecretGroupAuthorizationEntity;
 import com.example.secrets_manager.core.data.entities.SecretGroupAuthorizationId;
 import com.example.secrets_manager.core.data.repositories.SecretGroupAuthorizationRepository;
+import com.example.secrets_manager.core.data.repositories.SecretGroupRepository;
 import com.example.secrets_manager.core.data.repositories.UserRepository;
 import com.example.secrets_manager.core.models.*;
+import com.example.secrets_manager.core.utils.PaginationUtils;
 import com.example.secrets_manager.security.SecurityUtils;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.persistence.EntityNotFoundException;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import java.time.Instant;
@@ -18,7 +21,10 @@ import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.validation.annotation.Validated;
@@ -33,6 +39,7 @@ import org.springframework.validation.annotation.Validated;
 public class SecretGroupAuthorizationService {
 
   private final SecretGroupAuthorizationRepository authorizationRepository;
+  private final SecretGroupRepository secretGroupRepository;
   private final UserRepository userRepository;
   private final AuditService auditService;
   private final ObjectMapper objectMapper;
@@ -40,10 +47,12 @@ public class SecretGroupAuthorizationService {
   @Autowired
   public SecretGroupAuthorizationService(
       SecretGroupAuthorizationRepository authorizationRepository,
+      SecretGroupRepository secretGroupRepository,
       UserRepository userRepository,
       AuditService auditService,
       ObjectMapper objectMapper) {
     this.authorizationRepository = authorizationRepository;
+    this.secretGroupRepository = secretGroupRepository;
     this.userRepository = userRepository;
     this.auditService = auditService;
     this.objectMapper = objectMapper;
@@ -68,6 +77,9 @@ public class SecretGroupAuthorizationService {
     final var actorId = SecurityUtils.getAuthenticatedUserId();
     final var targetId = payload.getTargetUserId();
     final var groupId = payload.getGroupId();
+
+    validateGroupActive(groupId);
+    validateUserActive(targetId);
 
     // 1. Get both Actor and Target authorizations at once
     final var auths =
@@ -135,6 +147,46 @@ public class SecretGroupAuthorizationService {
     createAuditLog(actorId, targetId, groupId, desiredPermissions);
 
     return Optional.of(SecretGroupAuthorizationEntityConverter.toModel(savedEntity));
+  }
+
+  /** Retrieves a paged list of authorizations for a group. */
+  @Transactional(readOnly = true)
+  @PreAuthorize("@groupAuth.canRead(principal, #groupId)")
+  public Page<SecretGroupAuthorizationDetailed> listAuthorizations(
+      UUID groupId, Pageable pageable) {
+    validateGroupActive(groupId);
+    PaginationUtils.validateSort(pageable, SecretGroupAuthorizationEntity.ALLOWED_SORT_FIELDS);
+    return authorizationRepository
+        .findAllByGroupIdSurgical(groupId, pageable)
+        .map(info -> SecretGroupAuthorizationEntityConverter.toDetailedModel(info, groupId));
+  }
+
+  /** Retrieves authorization details for a specific user on a group. */
+  @Transactional(readOnly = true)
+  @PreAuthorize("@groupAuth.canRead(principal, #groupId)")
+  public SecretGroupAuthorizationDetailed getUserAuthorization(UUID groupId, UUID userId) {
+    validateGroupActive(groupId);
+    return authorizationRepository
+        .findByGroupIdAndUserIdSurgical(groupId, userId)
+        .map(info -> SecretGroupAuthorizationEntityConverter.toDetailedModel(info, groupId))
+        .orElseThrow(
+            () ->
+                new EntityNotFoundException(
+                    String.format(
+                        "Authorization not found for user %s in group %s", userId, groupId)));
+  }
+
+  private void validateGroupActive(UUID groupId) {
+    if (!secretGroupRepository.existsByIdAndDeletedAtIsNull(groupId)) {
+      throw new EntityNotFoundException(
+          String.format("Secret Group not found or deleted: %s", groupId));
+    }
+  }
+
+  private void validateUserActive(UUID userId) {
+    if (!userRepository.existsByIdAndAnyRole(userId, List.of(UserRole.USER.name()))) {
+      throw new EntityNotFoundException(String.format("User not found or deleted: %s", userId));
+    }
   }
 
   private void createAuditLog(

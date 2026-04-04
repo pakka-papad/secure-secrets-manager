@@ -8,6 +8,7 @@ import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
 import java.time.Instant;
+import java.util.Set;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -27,6 +28,8 @@ public class SecretGroupAuthorizationEntity {
   public static final String COL_P_WRITE = "p_write";
   public static final String COL_P_DELETE = "p_delete";
   public static final String COL_MODIFIED_AT = "modified_at";
+
+  public static final Set<String> ALLOWED_SORT_FIELDS = Set.of("username");
 
   @EmbeddedId private SecretGroupAuthorizationId id;
 

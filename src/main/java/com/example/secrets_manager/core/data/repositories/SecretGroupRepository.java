@@ -14,6 +14,8 @@ public interface SecretGroupRepository extends JpaRepository<SecretGroupEntity, 
 
   Optional<SecretGroupEntity> findByIdAndDeletedAtIsNull(UUID id);
 
+  boolean existsByIdAndDeletedAtIsNull(UUID id);
+
   Optional<SecretGroupEntity> findByNameAndDeletedAtIsNull(String name);
 
   /**
