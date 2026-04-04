@@ -1,6 +1,7 @@
 package com.example.secrets_manager.core.models;
 
 import java.time.Instant;
+import java.util.EnumSet;
 import java.util.UUID;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -14,8 +15,6 @@ import lombok.NoArgsConstructor;
 public class SecretGroupAuthorization {
   private UUID userId;
   private UUID groupId;
-  private boolean pRead;
-  private boolean pWrite;
-  private boolean pDelete;
+  private EnumSet<PermissionType> permissions;
   private Instant modifiedAt;
 }

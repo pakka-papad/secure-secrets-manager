@@ -4,8 +4,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.example.secrets_manager.core.data.entities.SecretGroupAuthorizationEntity;
 import com.example.secrets_manager.core.data.entities.SecretGroupAuthorizationId;
+import com.example.secrets_manager.core.models.PermissionType;
 import com.example.secrets_manager.core.models.SecretGroupAuthorization;
 import java.time.Instant;
+import java.util.EnumSet;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
@@ -33,9 +35,8 @@ class SecretGroupAuthorizationEntityConverterTest {
     assertThat(model).isNotNull();
     assertThat(model.getUserId()).isEqualTo(userId);
     assertThat(model.getGroupId()).isEqualTo(groupId);
-    assertThat(model.isPRead()).isTrue();
-    assertThat(model.isPWrite()).isFalse();
-    assertThat(model.isPDelete()).isTrue();
+    assertThat(model.getPermissions())
+        .containsExactlyInAnyOrder(PermissionType.READ, PermissionType.DELETE);
     assertThat(model.getModifiedAt()).isEqualTo(now);
   }
 
@@ -49,9 +50,7 @@ class SecretGroupAuthorizationEntityConverterTest {
         SecretGroupAuthorization.builder()
             .userId(userId)
             .groupId(groupId)
-            .pRead(false)
-            .pWrite(true)
-            .pDelete(false)
+            .permissions(EnumSet.of(PermissionType.WRITE))
             .modifiedAt(now)
             .build();
 
