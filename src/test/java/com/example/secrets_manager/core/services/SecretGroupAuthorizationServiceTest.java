@@ -188,6 +188,94 @@ class SecretGroupAuthorizationServiceTest {
   }
 
   @Test
+  void getUserAuthorization_AdminWithLimitedAcl_ReturnsFullAccess() {
+    // Given: Bob is an Admin but the ACL table only says READ
+    when(secretGroupRepository.existsByIdAndDeletedAtIsNull(groupId)).thenReturn(true);
+
+    var roleInfo = mock(UserRoleInfo.class);
+    when(roleInfo.getName()).thenReturn("bob-admin");
+    when(roleInfo.getRoles()).thenReturn(new String[] {"ADMIN"});
+    when(userRepository.findRoleInfoById(targetId)).thenReturn(Optional.of(roleInfo));
+
+    // When
+    var result = service.getUserAuthorization(groupId, targetId);
+
+    // Then: He still gets everything (Shadowing)
+    assertThat(result.getPermissions()).containsAll(EnumSet.allOf(PermissionType.class));
+    verify(authorizationRepository, never()).findByGroupIdAndUserIdSurgical(any(), any());
+  }
+
+  @Test
+  void modifyAuthorization_RevokingUnpossessedPermission_Forbidden() {
+    // Given: Actor has READ, Target has READ and DELETE. Actor tries to revoke DELETE.
+    var payload =
+        new ModifyAuthorizationPayload(targetId, groupId, EnumSet.of(PermissionType.READ));
+
+    mockedSecurityUtils.when(SecurityUtils::getAuthenticatedUserId).thenReturn(actorId);
+    mockedSecurityUtils.when(() -> SecurityUtils.hasRole(UserRole.ADMIN)).thenReturn(false);
+    mockedSecurityUtils.when(() -> SecurityUtils.hasRole(UserRole.SECRET_MANAGER)).thenReturn(true);
+
+    when(secretGroupRepository.existsByIdAndDeletedAtIsNull(groupId)).thenReturn(true);
+    when(userRepository.existsByIdAndAnyRole(eq(targetId), anyList())).thenReturn(true);
+
+    var actorAuth =
+        SecretGroupAuthorizationEntity.builder()
+            .id(new SecretGroupAuthorizationId(actorId, groupId))
+            .pRead(true) // No DELETE!
+            .pWrite(true)
+            .build();
+
+    var targetAuth =
+        SecretGroupAuthorizationEntity.builder()
+            .id(new SecretGroupAuthorizationId(targetId, groupId))
+            .pRead(true)
+            .pDelete(true)
+            .build();
+
+    when(authorizationRepository.findAllByIdGroupIdAndIdUserIdIn(eq(groupId), anyList()))
+        .thenReturn(List.of(actorAuth, targetAuth));
+
+    // When & Then: Mirroring principle prevents revoking what you don't have
+    assertThrows(AccessDeniedException.class, () -> service.modifyAuthorization(payload));
+  }
+
+  @Test
+  void modifyAuthorization_GrantDeleteToRegularUser_Forbidden() {
+    // Given: Trying to give DELETE to someone who is just a USER
+    var payload =
+        new ModifyAuthorizationPayload(targetId, groupId, EnumSet.of(PermissionType.DELETE));
+
+    mockedSecurityUtils.when(SecurityUtils::getAuthenticatedUserId).thenReturn(actorId);
+    mockedSecurityUtils.when(() -> SecurityUtils.hasRole(UserRole.ADMIN)).thenReturn(true);
+    when(secretGroupRepository.existsByIdAndDeletedAtIsNull(groupId)).thenReturn(true);
+
+    // 1. User exists (has USER role)
+    when(userRepository.existsByIdAndAnyRole(eq(targetId), eq(List.of(UserRole.USER.name()))))
+        .thenReturn(true);
+
+    // 2. User is NOT a manager or admin
+    when(userRepository.existsByIdAndAnyRole(
+            eq(targetId), eq(List.of(UserRole.SECRET_MANAGER.name(), UserRole.ADMIN.name()))))
+        .thenReturn(false);
+
+    // When & Then
+    assertThrows(AccessDeniedException.class, () -> service.modifyAuthorization(payload));
+  }
+
+  @Test
+  void listAuthorizations_DeletedGroup_Throws404() {
+    // Given
+    when(secretGroupRepository.existsByIdAndDeletedAtIsNull(groupId)).thenReturn(false);
+
+    // When & Then
+    assertThrows(
+        EntityNotFoundException.class,
+        () ->
+            service.listAuthorizations(
+                groupId, org.springframework.data.domain.Pageable.unpaged()));
+  }
+
+  @Test
   void validateUser_SystemUser_ThrowsException() {
     // Given
     UUID systemUserId = UUID.fromString("00000000-0000-0000-0000-000000000000");
