@@ -1,6 +1,5 @@
 package com.example.secrets_manager.core.services;
 
-import com.example.secrets_manager.api.rest.dto.UserSearchCriteria;
 import com.example.secrets_manager.core.data.converters.UserEntityConverter;
 import com.example.secrets_manager.core.data.entities.UserEntity;
 import com.example.secrets_manager.core.data.repositories.UserRepository;
@@ -9,6 +8,7 @@ import com.example.secrets_manager.core.models.*;
 import com.example.secrets_manager.core.models.events.UserDeletedEvent;
 import com.example.secrets_manager.core.models.events.UserPasswordUpdatedEvent;
 import com.example.secrets_manager.core.models.events.UserRolesUpdatedEvent;
+import com.example.secrets_manager.core.models.search.UserSearchCriteria;
 import com.example.secrets_manager.core.services.exceptions.AdminDemotionException;
 import com.example.secrets_manager.core.services.exceptions.InvalidPasswordException;
 import com.example.secrets_manager.core.services.exceptions.SelfDeletionException;

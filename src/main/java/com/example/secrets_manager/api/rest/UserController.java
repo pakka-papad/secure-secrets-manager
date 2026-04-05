@@ -4,6 +4,7 @@ import com.example.secrets_manager.api.rest.converters.UserCreationRequestConver
 import com.example.secrets_manager.api.rest.converters.UserPasswordUpdateRequestConverter;
 import com.example.secrets_manager.api.rest.converters.UserResponseConverter;
 import com.example.secrets_manager.api.rest.dto.*;
+import com.example.secrets_manager.core.models.search.UserSearchCriteria;
 import com.example.secrets_manager.core.services.UserService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;

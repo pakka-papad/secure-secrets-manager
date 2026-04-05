@@ -11,11 +11,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.example.secrets_manager.api.rest.dto.UserCreationRequest;
 import com.example.secrets_manager.api.rest.dto.UserPasswordUpdateRequest;
 import com.example.secrets_manager.api.rest.dto.UserRolesUpdateRequest;
-import com.example.secrets_manager.api.rest.dto.UserSearchCriteria;
 import com.example.secrets_manager.config.JacksonConfig;
 import com.example.secrets_manager.config.TestSecurityConfig;
 import com.example.secrets_manager.core.models.User;
 import com.example.secrets_manager.core.models.UserRole;
+import com.example.secrets_manager.core.models.search.UserSearchCriteria;
 import com.example.secrets_manager.core.services.JwtTokenService;
 import com.example.secrets_manager.core.services.UserService;
 import com.example.secrets_manager.core.services.exceptions.*;

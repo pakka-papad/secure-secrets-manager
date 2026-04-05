@@ -1,7 +1,7 @@
 package com.example.secrets_manager.core.data.repositories;
 
-import com.example.secrets_manager.api.rest.dto.UserSearchCriteria;
 import com.example.secrets_manager.core.data.entities.UserEntity;
+import com.example.secrets_manager.core.models.search.UserSearchCriteria;
 import com.example.secrets_manager.core.utils.CoreUtils;
 import jakarta.persistence.criteria.Predicate;
 import java.util.ArrayList;

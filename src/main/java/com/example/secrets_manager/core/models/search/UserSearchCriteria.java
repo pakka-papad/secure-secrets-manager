@@ -1,4 +1,4 @@
-package com.example.secrets_manager.api.rest.dto;
+package com.example.secrets_manager.core.models.search;
 
 import com.example.secrets_manager.core.models.UserRole;
 import lombok.AllArgsConstructor;
