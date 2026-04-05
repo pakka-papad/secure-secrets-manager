@@ -1,6 +1,7 @@
 package com.example.secrets_manager.core.data.repositories;
 
 import com.example.secrets_manager.core.data.entities.UserEntity;
+import com.example.secrets_manager.core.utils.CoreUtils;
 import jakarta.persistence.LockModeType;
 import jakarta.persistence.QueryHint;
 import java.util.Collection;
@@ -19,18 +20,36 @@ public interface UserRepository
     extends JpaRepository<UserEntity, UUID>, JpaSpecificationExecutor<UserEntity> {
 
   @Query(
-      "SELECT u FROM UserEntity u WHERE u.id = :id AND u.deletedAt IS NULL AND u.id != '00000000-0000-0000-0000-000000000000'")
-  Optional<UserEntity> findByIdAndDeletedAtIsNull(@Param("id") UUID id);
+      "SELECT u FROM UserEntity u WHERE u.id = :id AND u.deletedAt IS NULL")
+  Optional<UserEntity> _findByIdAndDeletedAtIsNull(@Param("id") UUID id);
+
+  default Optional<UserEntity> findByIdAndDeletedAtIsNull(UUID id) {
+    if (id == null || CoreUtils.SYSTEM_USER_ID.equals(id)) {
+      return Optional.empty();
+    }
+    return _findByIdAndDeletedAtIsNull(id);
+  }
 
   @Query(
-      "SELECT u FROM UserEntity u WHERE u.name = :name AND u.deletedAt IS NULL AND u.id != '00000000-0000-0000-0000-000000000000'")
-  Optional<UserEntity> findByNameAndDeletedAtIsNull(@Param("name") String name);
+      "SELECT u FROM UserEntity u WHERE u.name = :name AND u.deletedAt IS NULL AND u.id != :systemId")
+  Optional<UserEntity> findByNameAndDeletedAtIsNull(@Param("name") String name, @Param("systemId") UUID systemId);
+
+  default Optional<UserEntity> findByNameAndDeletedAtIsNull(String name) {
+    return findByNameAndDeletedAtIsNull(name, CoreUtils.SYSTEM_USER_ID);
+  }
 
   @Lock(LockModeType.PESSIMISTIC_WRITE)
   @QueryHints({@QueryHint(name = "jakarta.persistence.lock.timeout", value = "5000")})
   @Query(
-      "SELECT u FROM UserEntity u WHERE u.id = :id AND u.deletedAt IS NULL AND u.id != '00000000-0000-0000-0000-000000000000'")
-  Optional<UserEntity> findAndLockById(@Param("id") UUID id);
+      "SELECT u FROM UserEntity u WHERE u.id = :id AND u.deletedAt IS NULL")
+  Optional<UserEntity> _findAndLockById(@Param("id") UUID id);
+
+  default Optional<UserEntity> findAndLockById(UUID id) {
+    if (id == null || CoreUtils.SYSTEM_USER_ID.equals(id)) {
+      return Optional.empty();
+    }
+    return _findAndLockById(id);
+  }
 
   /**
    * Checks if any active (non-deleted) human administrator exists. This excludes the internal
@@ -61,8 +80,15 @@ public interface UserRepository
   boolean existsByIdAndAnyRole(
       @Param("userId") UUID userId, @Param("roles") Collection<String> roles);
 
-  /** Surgically retrieves a user's ID, name, and roles. Excludes the system user. */
   @Query(
-      "SELECT u.id as id, u.name as name, u.roles as roles FROM UserEntity u WHERE u.id = :id AND u.deletedAt IS NULL AND u.id != '00000000-0000-0000-0000-000000000000'")
-  Optional<UserRoleInfo> findRoleInfoById(@Param("id") UUID id);
+      "SELECT u.id as id, u.name as name, u.roles as roles FROM UserEntity u WHERE u.id = :id AND u.deletedAt IS NULL")
+  Optional<UserRoleInfo> _findRoleInfoById(@Param("id") UUID id);
+
+  /** Surgically retrieves a user's ID, name, and roles. Excludes the system user. */
+  default Optional<UserRoleInfo> findRoleInfoById(UUID id) {
+    if (id == null || id.equals(CoreUtils.SYSTEM_USER_ID)) {
+      return Optional.empty();
+    }
+    return _findRoleInfoById(id);
+  }
 }

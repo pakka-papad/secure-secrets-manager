@@ -2,6 +2,7 @@ package com.example.secrets_manager.core.data.repositories;
 
 import com.example.secrets_manager.core.data.entities.SecretGroupAuthorizationEntity;
 import com.example.secrets_manager.core.data.entities.SecretGroupAuthorizationId;
+import com.example.secrets_manager.core.utils.CoreUtils;
 import jakarta.persistence.LockModeType;
 import jakarta.persistence.QueryHint;
 import java.util.Collection;
@@ -68,23 +69,34 @@ public interface SecretGroupAuthorizationRepository
       "UPDATE SecretGroupAuthorizationEntity a SET a.pDelete = false WHERE a.id.userId = :userId")
   void revokeDeletePermissionForUser(UUID userId);
 
-  /** Surgically retrieves a paged list of authorizations for a group, joined with usernames. */
   @Query(
       "SELECT a.id.userId as userId, u.name as username, "
           + "a.pRead as PRead, a.pWrite as PWrite, a.pDelete as PDelete, a.modifiedAt as modifiedAt "
           + "FROM SecretGroupAuthorizationEntity a "
           + "JOIN UserEntity u ON a.id.userId = u.id "
-          + "WHERE a.id.groupId = :groupId AND u.deletedAt IS NULL AND u.id != '00000000-0000-0000-0000-000000000000'")
+          + "WHERE a.id.groupId = :groupId AND u.deletedAt IS NULL AND u.id != :systemId")
   Page<SecretGroupAuthorizationInfo> findAllByGroupIdSurgical(
-      @Param("groupId") UUID groupId, Pageable pageable);
+      @Param("groupId") UUID groupId, Pageable pageable, @Param("systemId") UUID systemId);
+
+  /** Surgically retrieves a paged list of authorizations for a group, joined with usernames. */
+  default Page<SecretGroupAuthorizationInfo> findAllByGroupIdSurgical(UUID groupId, Pageable pageable) {
+    return  findAllByGroupIdSurgical(groupId, pageable, CoreUtils.SYSTEM_USER_ID);
+  }
+
+  @Query(
+      "SELECT a.id.userId as userId, u.name as username, "
+          + "a.pRead as PRead, a.pWrite as PWrite, a.pDelete as PDelete, a.modifiedAt as modifiedAt "
+          + "FROM SecretGroupAuthorizationEntity a "
+          + "JOIN UserEntity u ON a.id.userId = u.id "
+          + "WHERE a.id.groupId = :groupId AND a.id.userId = :userId AND u.deletedAt IS NULL")
+  Optional<SecretGroupAuthorizationInfo> _findByGroupIdAndUserIdSurgical(
+      @Param("groupId") UUID groupId, @Param("userId") UUID userId);
 
   /** Surgically retrieves authorization details for a specific user on a specific group. */
-  @Query(
-      "SELECT a.id.userId as userId, u.name as username, "
-          + "a.pRead as PRead, a.pWrite as PWrite, a.pDelete as PDelete, a.modifiedAt as modifiedAt "
-          + "FROM SecretGroupAuthorizationEntity a "
-          + "JOIN UserEntity u ON a.id.userId = u.id "
-          + "WHERE a.id.groupId = :groupId AND a.id.userId = :userId AND u.deletedAt IS NULL AND u.id != '00000000-0000-0000-0000-000000000000'")
-  Optional<SecretGroupAuthorizationInfo> findByGroupIdAndUserIdSurgical(
-      @Param("groupId") UUID groupId, @Param("userId") UUID userId);
+  default Optional<SecretGroupAuthorizationInfo> findByGroupIdAndUserIdSurgical(UUID groupId, UUID userId) {
+    if (userId == null || CoreUtils.SYSTEM_USER_ID.equals(userId)) {
+      return Optional.empty();
+    }
+    return _findByGroupIdAndUserIdSurgical(groupId, userId);
+  }
 }
