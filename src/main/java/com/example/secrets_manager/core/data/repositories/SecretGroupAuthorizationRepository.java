@@ -79,8 +79,9 @@ public interface SecretGroupAuthorizationRepository
       @Param("groupId") UUID groupId, Pageable pageable, @Param("systemId") UUID systemId);
 
   /** Surgically retrieves a paged list of authorizations for a group, joined with usernames. */
-  default Page<SecretGroupAuthorizationInfo> findAllByGroupIdSurgical(UUID groupId, Pageable pageable) {
-    return  findAllByGroupIdSurgical(groupId, pageable, CoreUtils.SYSTEM_USER_ID);
+  default Page<SecretGroupAuthorizationInfo> findAllByGroupIdSurgical(
+      UUID groupId, Pageable pageable) {
+    return findAllByGroupIdSurgical(groupId, pageable, CoreUtils.SYSTEM_USER_ID);
   }
 
   @Query(
@@ -93,7 +94,8 @@ public interface SecretGroupAuthorizationRepository
       @Param("groupId") UUID groupId, @Param("userId") UUID userId);
 
   /** Surgically retrieves authorization details for a specific user on a specific group. */
-  default Optional<SecretGroupAuthorizationInfo> findByGroupIdAndUserIdSurgical(UUID groupId, UUID userId) {
+  default Optional<SecretGroupAuthorizationInfo> findByGroupIdAndUserIdSurgical(
+      UUID groupId, UUID userId) {
     if (userId == null || CoreUtils.SYSTEM_USER_ID.equals(userId)) {
       return Optional.empty();
     }

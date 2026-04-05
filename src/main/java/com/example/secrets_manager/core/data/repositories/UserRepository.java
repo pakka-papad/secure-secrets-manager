@@ -19,8 +19,7 @@ import org.springframework.stereotype.Repository;
 public interface UserRepository
     extends JpaRepository<UserEntity, UUID>, JpaSpecificationExecutor<UserEntity> {
 
-  @Query(
-      "SELECT u FROM UserEntity u WHERE u.id = :id AND u.deletedAt IS NULL")
+  @Query("SELECT u FROM UserEntity u WHERE u.id = :id AND u.deletedAt IS NULL")
   Optional<UserEntity> _findByIdAndDeletedAtIsNull(@Param("id") UUID id);
 
   default Optional<UserEntity> findByIdAndDeletedAtIsNull(UUID id) {
@@ -32,7 +31,8 @@ public interface UserRepository
 
   @Query(
       "SELECT u FROM UserEntity u WHERE u.name = :name AND u.deletedAt IS NULL AND u.id != :systemId")
-  Optional<UserEntity> findByNameAndDeletedAtIsNull(@Param("name") String name, @Param("systemId") UUID systemId);
+  Optional<UserEntity> findByNameAndDeletedAtIsNull(
+      @Param("name") String name, @Param("systemId") UUID systemId);
 
   default Optional<UserEntity> findByNameAndDeletedAtIsNull(String name) {
     return findByNameAndDeletedAtIsNull(name, CoreUtils.SYSTEM_USER_ID);
@@ -40,8 +40,7 @@ public interface UserRepository
 
   @Lock(LockModeType.PESSIMISTIC_WRITE)
   @QueryHints({@QueryHint(name = "jakarta.persistence.lock.timeout", value = "5000")})
-  @Query(
-      "SELECT u FROM UserEntity u WHERE u.id = :id AND u.deletedAt IS NULL")
+  @Query("SELECT u FROM UserEntity u WHERE u.id = :id AND u.deletedAt IS NULL")
   Optional<UserEntity> _findAndLockById(@Param("id") UUID id);
 
   default Optional<UserEntity> findAndLockById(UUID id) {
