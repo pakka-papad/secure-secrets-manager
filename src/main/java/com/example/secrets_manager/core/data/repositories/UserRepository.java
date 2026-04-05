@@ -6,6 +6,7 @@ import jakarta.persistence.LockModeType;
 import jakarta.persistence.QueryHint;
 import java.util.Collection;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
@@ -67,17 +68,13 @@ public interface UserRepository
       nativeQuery = true)
   long countActiveAdmins();
 
-  /**
-   * Efficiently checks if an active user possesses any of the specified roles. Uses a native query
-   * with the array overlap operator (&&) to avoid loading the full entity and its large binary
-   * fields. Excludes the system user.
-   */
-  @Query(
-      value =
-          "SELECT EXISTS (SELECT 1 FROM sm.users WHERE id = :userId AND roles && CAST(:roles AS varchar[]) AND deleted_at IS NULL AND id != '00000000-0000-0000-0000-000000000000')",
-      nativeQuery = true)
-  boolean existsByIdAndAnyRole(
-      @Param("userId") UUID userId, @Param("roles") Collection<String> roles);
+  default boolean existsByIdAndAnyRole(UUID userId, Collection<String> roles) {
+    final var roleInfo = findRoleInfoById(userId);
+    return roleInfo
+        .map(userRoleInfo -> Set.of(userRoleInfo.getRoles()))
+        .orElseGet(Set::of)
+        .containsAll(roles);
+  }
 
   @Query(
       "SELECT u.id as id, u.name as name, u.roles as roles FROM UserEntity u WHERE u.id = :id AND u.deletedAt IS NULL")
