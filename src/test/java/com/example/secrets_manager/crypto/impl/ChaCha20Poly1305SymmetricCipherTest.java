@@ -29,7 +29,7 @@ class ChaCha20Poly1305SymmetricCipherTest {
     byte[] plaintext = "Hello ChaCha20!".getBytes(StandardCharsets.UTF_8);
 
     var encrypted = cipher.encrypt(plaintext, validKey);
-    
+
     assertThat(encrypted.getAlgorithm()).isEqualTo("CHACHA20-POLY1305");
     assertThat(encrypted.getCiphertext()).isNotEqualTo(plaintext);
     assertThat(encrypted.getNonce()).hasSize(12);

@@ -15,6 +15,7 @@ class SystemMetadataE2ETest extends E2EBaseTest {
 
     assertThat(algorithms).isNotEmpty();
     assertThat(algorithms).anyMatch(a -> a.name().equals("AES-256-GCM") && a.keySizeBytes() == 32);
-    assertThat(algorithms).anyMatch(a -> a.name().equals("CHACHA20-POLY1305") && a.keySizeBytes() == 32);
+    assertThat(algorithms)
+        .anyMatch(a -> a.name().equals("CHACHA20-POLY1305") && a.keySizeBytes() == 32);
   }
 }

@@ -12,8 +12,8 @@ import javax.crypto.spec.SecretKeySpec;
 import org.springframework.stereotype.Component;
 
 /**
- * Implementation of ChaCha20-Poly1305 authenticated encryption.
- * ChaCha20-Poly1305 is a high-performance software-based AEAD cipher.
+ * Implementation of ChaCha20-Poly1305 authenticated encryption. ChaCha20-Poly1305 is a
+ * high-performance software-based AEAD cipher.
  */
 @Component
 public class ChaCha20Poly1305SymmetricCipher implements SymmetricCipher {
