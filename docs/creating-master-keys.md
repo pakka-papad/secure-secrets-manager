@@ -6,6 +6,7 @@ This guide explains how to generate the high-entropy symmetric keys required to 
 - [General Requirements](#general-requirements)
 - [Supported Algorithms](#supported-algorithms)
   - [1. AES-256-GCM](#1-aes-256-gcm)
+  - [2. ChaCha20-Poly1305](#2-chacha20-poly1305)
 - [Configuration](#configuration)
 - [Best Practices](#best-practices)
 - [Compromise Policy](#compromise-policy)
@@ -40,6 +41,9 @@ head -c 32 /dev/urandom | base64 | tr -d '\n' > master_key_v1.txt
 *   `-base64 32`: Generates 32 bytes and encodes them in Base64.
 *   `tr -d '\n'`: (Critical) Removes any trailing newlines. The application expects a single, continuous string.
 
+### 2. ChaCha20-Poly1305
+An alternative high-performance software-based AEAD algorithm. It also requires exactly **32 bytes** (256 bits) of random data.  
+Follow the same steps from AES-256-GCM section to generate the keys.
 ---
 
 ## Configuration
@@ -49,7 +53,7 @@ Once you have generated your key, export it to your environment.
 ### Linux / macOS / Bash
 ```bash
 export MASTER_KEY__V1=$(cat master_key_v1.txt)
-export MASTER_KEY_DEFAULT_ALGORITHM=AES-256-GCM
+export MASTER_KEY_DEFAULT_ALGORITHM=AES-256-GCM # Or CHACHA20-POLY1305
 ```
 
 ---
