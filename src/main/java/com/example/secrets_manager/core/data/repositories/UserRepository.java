@@ -4,10 +4,7 @@ import com.example.secrets_manager.core.data.entities.UserEntity;
 import com.example.secrets_manager.core.utils.CoreUtils;
 import jakarta.persistence.LockModeType;
 import jakarta.persistence.QueryHint;
-import java.util.Collection;
-import java.util.Optional;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Lock;
@@ -71,9 +68,8 @@ public interface UserRepository
   default boolean existsByIdAndAnyRole(UUID userId, Collection<String> roles) {
     final var roleInfo = findRoleInfoById(userId);
     return roleInfo
-        .map(userRoleInfo -> Set.of(userRoleInfo.getRoles()))
-        .orElseGet(Set::of)
-        .containsAll(roles);
+        .map(userRoleInfo -> Arrays.stream(userRoleInfo.getRoles()).anyMatch(roles::contains))
+        .orElse(false);
   }
 
   @Query(

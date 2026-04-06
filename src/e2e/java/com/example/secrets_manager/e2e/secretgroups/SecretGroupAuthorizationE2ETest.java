@@ -64,6 +64,27 @@ class SecretGroupAuthorizationE2ETest extends E2EBaseTest {
   }
 
   @Test
+  @DisplayName("Governance: Administrator can grant DELETE permission to Secret Managers")
+  void governance_AdminCanGrantDeleteToManager() {
+    var bootstrap = actors.asAnyAdmin();
+    String managerName = "mgr-" + UUID.randomUUID();
+    var manager = bootstrap.users().create(managerName, DEFAULT_PASSWORD, Set.of("SECRET_MANAGER"));
+
+    // Admin creates group
+    var group = bootstrap.secretGroups().create("admin-managed-group", "AES-256-GCM");
+
+    // Admin grants DELETE to the manager
+    bootstrap
+        .authorizations()
+        .update(
+            group.getId(), manager.getId(), EnumSet.of(PermissionType.READ, PermissionType.DELETE));
+
+    // Verify
+    var auth = bootstrap.authorizations().get(group.getId(), manager.getId());
+    assertThat(auth.getPermissions()).contains(PermissionType.DELETE);
+  }
+
+  @Test
   @DisplayName("Authorization: Administrators should have virtual full access")
   void effectivePermissions_ShouldAllowAdminBypass() {
     var setup = setupGroupWithManagers("secret-group-" + UUID.randomUUID());
