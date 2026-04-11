@@ -34,10 +34,16 @@ public interface CryptographyService {
   int getRequiredSymmetricKeySizeBytes(String algorithmName);
 
   /** Checks if a symmetric cipher algorithm is supported by the system. */
-  boolean isSymmetricAlgorithmSupported(String algorithmName);
+  boolean isAlgorithmSupported(String algorithmName);
+
+  /** Checks if a symmetric cipher algorithm is supported for a specific purpose. */
+  boolean isAlgorithmSupported(String algorithmName, CipherPurpose purpose);
 
   /** Returns a list of metadata for all supported symmetric cipher algorithms. */
-  List<SymmetricAlgorithmMetadata> getSupportedSymmetricAlgorithms();
+  List<SymmetricAlgorithmMetadata> getSupportedAlgorithms();
+
+  /** Returns a list of metadata for symmetric algorithms that support a specific purpose. */
+  List<SymmetricAlgorithmMetadata> getSupportedAlgorithms(CipherPurpose purpose);
 
   /**
    * Calculates a standard hash (e.g., SHA-256) for a given object's data. Used for creating the

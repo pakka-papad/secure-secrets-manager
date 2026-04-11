@@ -2,6 +2,7 @@ package com.example.secrets_manager.crypto;
 
 import com.example.secrets_manager.crypto.dto.EncryptedData;
 import com.example.secrets_manager.crypto.exception.CryptoOperationException;
+import java.util.Set;
 
 /** Interface for symmetric cryptographic operations. */
 public interface SymmetricCipher {
@@ -10,6 +11,9 @@ public interface SymmetricCipher {
 
   /** Returns the required key size in bytes for this algorithm. */
   int getRequiredKeySizeBytes();
+
+  /** Returns the set of purposes this algorithm is suitable for. */
+  Set<CipherPurpose> getSupportedPurposes();
 
   /** Encrypts the provided plaintext using the given key. */
   EncryptedData encrypt(byte[] plaintext, byte[] key);

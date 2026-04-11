@@ -1,8 +1,10 @@
 package com.example.secrets_manager.api.rest;
 
+import com.example.secrets_manager.crypto.CipherPurpose;
 import com.example.secrets_manager.crypto.CryptographyService;
 import com.example.secrets_manager.crypto.dto.SymmetricAlgorithmMetadata;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -13,6 +15,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /** Controller for exposing system capabilities and metadata. */
@@ -34,7 +37,13 @@ public class SystemMetadataController {
   @ApiResponse(responseCode = "200", description = "List retrieved successfully")
   @ApiResponse(responseCode = "401", description = "Unauthorized")
   @GetMapping("/algorithms/symmetric")
-  public ResponseEntity<List<SymmetricAlgorithmMetadata>> getSymmetricAlgorithms() {
-    return ResponseEntity.ok(cryptographyService.getSupportedSymmetricAlgorithms());
+  public ResponseEntity<List<SymmetricAlgorithmMetadata>> getSymmetricAlgorithms(
+      @Parameter(description = "Filter algorithms by their intended purpose")
+          @RequestParam(required = false)
+          CipherPurpose purpose) {
+    if (purpose != null) {
+      return ResponseEntity.ok(cryptographyService.getSupportedAlgorithms(purpose));
+    }
+    return ResponseEntity.ok(cryptographyService.getSupportedAlgorithms());
   }
 }

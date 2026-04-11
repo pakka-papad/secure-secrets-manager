@@ -1,11 +1,14 @@
 package com.example.secrets_manager.crypto.impl;
 
+import com.example.secrets_manager.crypto.CipherPurpose;
 import com.example.secrets_manager.crypto.SymmetricCipher;
 import com.example.secrets_manager.crypto.dto.EncryptedData;
 import com.example.secrets_manager.crypto.exception.CryptoOperationException;
 import java.security.GeneralSecurityException;
 import java.security.SecureRandom;
 import java.util.Arrays;
+import java.util.EnumSet;
+import java.util.Set;
 import javax.crypto.Cipher;
 import javax.crypto.spec.GCMParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
@@ -32,6 +35,11 @@ public class AesGcmSymmetricCipher implements SymmetricCipher {
   @Override
   public int getRequiredKeySizeBytes() {
     return KEY_LENGTH_BYTES;
+  }
+
+  @Override
+  public Set<CipherPurpose> getSupportedPurposes() {
+    return EnumSet.of(CipherPurpose.DATA, CipherPurpose.KEY_WRAP);
   }
 
   @Override

@@ -1,5 +1,6 @@
 package com.example.secrets_manager.crypto.impl;
 
+import com.example.secrets_manager.crypto.CipherPurpose;
 import com.example.secrets_manager.crypto.CryptographyService;
 import com.example.secrets_manager.crypto.PasswordHasher;
 import com.example.secrets_manager.crypto.SymmetricCipher;
@@ -96,14 +97,36 @@ public class CryptographyServiceImpl implements CryptographyService {
   }
 
   @Override
-  public boolean isSymmetricAlgorithmSupported(String algorithmName) {
+  public boolean isAlgorithmSupported(String algorithmName) {
     return symmetricCiphers.containsKey(algorithmName);
   }
 
   @Override
-  public List<SymmetricAlgorithmMetadata> getSupportedSymmetricAlgorithms() {
+  public boolean isAlgorithmSupported(String algorithmName, CipherPurpose purpose) {
+    SymmetricCipher cipher = symmetricCiphers.get(algorithmName);
+    return cipher != null && cipher.getSupportedPurposes().contains(purpose);
+  }
+
+  @Override
+  public List<SymmetricAlgorithmMetadata> getSupportedAlgorithms() {
+    // Return all supported algorithms with their metadata
     return symmetricCiphers.values().stream()
-        .map(c -> new SymmetricAlgorithmMetadata(c.getAlgorithmName(), c.getRequiredKeySizeBytes()))
+        .map(
+            c ->
+                new SymmetricAlgorithmMetadata(
+                    c.getAlgorithmName(), c.getRequiredKeySizeBytes(), c.getSupportedPurposes()))
+        .sorted(Comparator.comparing(SymmetricAlgorithmMetadata::name))
+        .toList();
+  }
+
+  @Override
+  public List<SymmetricAlgorithmMetadata> getSupportedAlgorithms(CipherPurpose purpose) {
+    return symmetricCiphers.values().stream()
+        .filter(c -> c.getSupportedPurposes().contains(purpose))
+        .map(
+            c ->
+                new SymmetricAlgorithmMetadata(
+                    c.getAlgorithmName(), c.getRequiredKeySizeBytes(), c.getSupportedPurposes()))
         .sorted(Comparator.comparing(SymmetricAlgorithmMetadata::name))
         .toList();
   }

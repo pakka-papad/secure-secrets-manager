@@ -8,6 +8,7 @@ import com.example.secrets_manager.core.models.*;
 import com.example.secrets_manager.core.services.exceptions.SecretGroupAlreadyExistsException;
 import com.example.secrets_manager.core.services.exceptions.SecretGroupServiceException;
 import com.example.secrets_manager.core.utils.PaginationUtils;
+import com.example.secrets_manager.crypto.CipherPurpose;
 import com.example.secrets_manager.crypto.CryptographyService;
 import com.example.secrets_manager.security.SecurityUtils;
 import jakarta.persistence.EntityNotFoundException;
@@ -64,10 +65,10 @@ public class SecretGroupService {
   @Transactional
   @PreAuthorize("hasAnyRole('ADMIN', 'SECRET_MANAGER')")
   public SecretGroup createGroup(@NotNull @Valid SecretGroupCreationPayload payload) {
-    // 1. Validate Algorithm Availability
-    if (!cryptographyService.isSymmetricAlgorithmSupported(payload.getEncryptAlgo())) {
+    // 1. Validate Algorithm Availability for DATA encryption
+    if (!cryptographyService.isAlgorithmSupported(payload.getEncryptAlgo(), CipherPurpose.DATA)) {
       throw new IllegalArgumentException(
-          "Unsupported encryption algorithm: " + payload.getEncryptAlgo());
+          "Unsupported or unauthorized data encryption algorithm: " + payload.getEncryptAlgo());
     }
 
     // 2. Map to Entity

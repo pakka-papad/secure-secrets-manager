@@ -9,9 +9,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.example.secrets_manager.config.JacksonConfig;
 import com.example.secrets_manager.config.TestSecurityConfig;
 import com.example.secrets_manager.core.services.JwtTokenService;
+import com.example.secrets_manager.crypto.CipherPurpose;
 import com.example.secrets_manager.crypto.CryptographyService;
 import com.example.secrets_manager.crypto.dto.SymmetricAlgorithmMetadata;
 import java.util.List;
+import java.util.Set;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -42,10 +44,10 @@ class SystemMetadataControllerTest {
 
   @Test
   @WithMockUser
-  void getSymmetricAlgorithms_ShouldReturnMetadataList() throws Exception {
+  void getSymmetricAlgorithms_ShouldReturnAllMetadataList() throws Exception {
     // Given
-    var metadata = new SymmetricAlgorithmMetadata("AES-256-GCM", 32);
-    when(cryptographyService.getSupportedSymmetricAlgorithms()).thenReturn(List.of(metadata));
+    var metadata = new SymmetricAlgorithmMetadata("AES-256-GCM", 32, Set.of(CipherPurpose.DATA));
+    when(cryptographyService.getSupportedAlgorithms()).thenReturn(List.of(metadata));
 
     // When
     mockMvc
@@ -53,7 +55,25 @@ class SystemMetadataControllerTest {
         // Then
         .andExpect(status().isOk())
         .andExpect(jsonPath("$[0].name").value("AES-256-GCM"))
-        .andExpect(jsonPath("$[0].keySizeBytes").value(32));
+        .andExpect(jsonPath("$[0].keySizeBytes").value(32))
+        .andExpect(jsonPath("$[0].supportedPurposes").isArray());
+  }
+
+  @Test
+  @WithMockUser
+  void getSymmetricAlgorithms_WithPurpose_ShouldReturnFilteredList() throws Exception {
+    // Given
+    var metadata = new SymmetricAlgorithmMetadata("AES-KW-256", 32, Set.of(CipherPurpose.KEY_WRAP));
+    when(cryptographyService.getSupportedAlgorithms(CipherPurpose.KEY_WRAP))
+        .thenReturn(List.of(metadata));
+
+    // When
+    mockMvc
+        .perform(get("/api/v1/system/algorithms/symmetric").param("purpose", "KEY_WRAP"))
+        // Then
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$[0].name").value("AES-KW-256"))
+        .andExpect(jsonPath("$[0].supportedPurposes[0]").value("KEY_WRAP"));
   }
 
   @Test
