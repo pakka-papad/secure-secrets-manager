@@ -11,7 +11,6 @@ import com.example.secrets_manager.core.data.repositories.SecretRepository;
 import com.example.secrets_manager.core.models.SecretGroupCreationPayload;
 import com.example.secrets_manager.core.models.UserRole;
 import com.example.secrets_manager.core.services.exceptions.SecretGroupAlreadyExistsException;
-import com.example.secrets_manager.crypto.CipherPurpose;
 import com.example.secrets_manager.crypto.CryptographyService;
 import com.example.secrets_manager.security.SecurityUtils;
 import java.util.List;
@@ -63,8 +62,6 @@ class SecretGroupServiceTest {
     var entity = SecretGroupEntity.builder().id(UUID.randomUUID()).name("my-group").build();
 
     mockedSecurityUtils.when(SecurityUtils::getAuthenticatedUserId).thenReturn(userId);
-    when(cryptographyService.isAlgorithmSupported(eq("AES-256-GCM"), eq(CipherPurpose.DATA)))
-        .thenReturn(true);
     when(secretGroupRepository.saveAndFlush(any())).thenReturn(entity);
 
     // When
@@ -81,7 +78,6 @@ class SecretGroupServiceTest {
   void createGroup_WithDuplicateName_ShouldThrowException() {
     // Given
     var payload = new SecretGroupCreationPayload("exists", "AES-GCM");
-    when(cryptographyService.isAlgorithmSupported(any(), eq(CipherPurpose.DATA))).thenReturn(true);
     when(secretGroupRepository.saveAndFlush(any()))
         .thenThrow(new DataIntegrityViolationException("uq_sm_secret_groups_active_name"));
 

@@ -1,5 +1,6 @@
 package com.example.secrets_manager.core.models;
 
+import com.example.secrets_manager.core.validators.EncryptionAlgorithm;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
@@ -19,5 +20,6 @@ public class SecretGroupCreationPayload {
 
   @NotBlank
   @Size(max = 31)
+  @EncryptionAlgorithm
   private String encryptAlgo;
 }
