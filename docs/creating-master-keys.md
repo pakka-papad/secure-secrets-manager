@@ -7,6 +7,7 @@ This guide explains how to generate the high-entropy symmetric keys required to 
 - [Supported Algorithms](#supported-algorithms)
   - [1. AES-256-GCM](#1-aes-256-gcm)
   - [2. ChaCha20-Poly1305](#2-chacha20-poly1305)
+  - [3. AES-KW (128, 192, 256)](#3-aes-kw-128-192-256)
 - [Configuration](#configuration)
 - [Best Practices](#best-practices)
 - [Compromise Policy](#compromise-policy)
@@ -44,6 +45,20 @@ head -c 32 /dev/urandom | base64 | tr -d '\n' > master_key_v1.txt
 ### 2. ChaCha20-Poly1305
 An alternative high-performance software-based AEAD algorithm. It also requires exactly **32 bytes** (256 bits) of random data.  
 Follow the same steps from AES-256-GCM section to generate the keys.
+
+### 3. AES-KW (128, 192, 256)
+A specialized key wrapping algorithm (RFC 3394) used for secure transmission of Data Encryption Keys (DEKs). Supported variants are `AES-KW-128`, `AES-KW-192`, and `AES-KW-256`.
+
+Required key sizes:
+*   **AES-KW-128**: Exactly **16 bytes** (128 bits).
+*   **AES-KW-192**: Exactly **24 bytes** (192 bits).
+*   **AES-KW-256**: Exactly **32 bytes** (256 bits).
+
+To generate these keys, adjust the byte count in the generation command:
+```bash
+# Example for AES-KW-128
+openssl rand -base64 16 | tr -d '\n' > master_key_v1.txt
+```
 ---
 
 ## Configuration
