@@ -1,6 +1,8 @@
 package com.example.secrets_manager.core.data.repositories;
 
 import com.example.secrets_manager.core.data.entities.SecretEntity;
+import jakarta.persistence.LockModeType;
+import jakarta.persistence.QueryHint;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -11,6 +13,8 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.QueryHints;
 import org.springframework.stereotype.Repository;
 
 @Repository
@@ -31,6 +35,13 @@ public interface SecretRepository
   /** Finds a specific secret by name within a group. */
   @EntityGraph(attributePaths = {"group", "masterKey"})
   Optional<SecretEntity> findByGroupIdAndSecretNameAndDeletedAtIsNull(
+      UUID groupId, String secretName);
+
+  /** Finds a secret by name and acquires a pessimistic write lock to prevent concurrent updates. */
+  @Lock(LockModeType.PESSIMISTIC_WRITE)
+  @QueryHints({@QueryHint(name = "jakarta.persistence.lock.timeout", value = "5000")})
+  @EntityGraph(attributePaths = {"group", "masterKey"})
+  Optional<SecretEntity> findAndLockByGroupIdAndSecretNameAndDeletedAtIsNull(
       UUID groupId, String secretName);
 
   long countByGroupIdAndDeletedAtIsNull(UUID groupId);
