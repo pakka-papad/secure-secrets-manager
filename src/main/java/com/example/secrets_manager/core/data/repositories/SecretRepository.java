@@ -4,12 +4,18 @@ import com.example.secrets_manager.core.data.entities.SecretEntity;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import org.jspecify.annotations.NonNull;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.stereotype.Repository;
 
 @Repository
-public interface SecretRepository extends JpaRepository<SecretEntity, UUID> {
+public interface SecretRepository
+    extends JpaRepository<SecretEntity, UUID>, JpaSpecificationExecutor<SecretEntity> {
 
   /**
    * Finds a secret by ID and pre-fetches the associated group and master key records. This avoids
@@ -28,4 +34,10 @@ public interface SecretRepository extends JpaRepository<SecretEntity, UUID> {
       UUID groupId, String secretName);
 
   long countByGroupIdAndDeletedAtIsNull(UUID groupId);
+
+  /** Overrides standard findAll to ensure associated metadata is pre-fetched during searches. */
+  @Override
+  @EntityGraph(attributePaths = {"group", "masterKey"})
+  @NonNull Page<SecretEntity> findAll(
+      @NonNull Specification<SecretEntity> spec, @NonNull Pageable pageable);
 }

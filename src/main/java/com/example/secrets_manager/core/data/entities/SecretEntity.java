@@ -3,6 +3,7 @@ package com.example.secrets_manager.core.data.entities;
 import com.example.secrets_manager.core.data.CoreDataConstants;
 import jakarta.persistence.*;
 import java.time.Instant;
+import java.util.Set;
 import java.util.UUID;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -40,6 +41,8 @@ public class SecretEntity {
   public static final String COL_CREATED_AT = "created_at";
   public static final String COL_MODIFIED_AT = "modified_at";
   public static final String COL_DELETED_AT = "deleted_at";
+
+  public static final Set<String> ALLOWED_SORT_FIELDS = Set.of("secretName");
 
   @Id
   @GeneratedValue
