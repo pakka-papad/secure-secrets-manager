@@ -13,11 +13,14 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.security.SecureRandom;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import javax.crypto.SecretKey;
+import javax.crypto.spec.SecretKeySpec;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -30,6 +33,7 @@ public class CryptographyServiceImpl implements CryptographyService {
   private final Map<String, PasswordHasher> passwordHashers;
   private final Map<String, SymmetricCipher> symmetricCiphers;
   private final ObjectMapper objectMapper;
+  private final SecureRandom secureRandom = new SecureRandom();
 
   @Autowired
   public CryptographyServiceImpl(
@@ -153,5 +157,16 @@ public class CryptographyServiceImpl implements CryptographyService {
     } catch (NoSuchAlgorithmException e) {
       throw new RuntimeException(BYTES_HASH_ALGO + " algorithm not found", e);
     }
+  }
+
+  @Override
+  public SecretKey generateKey(String algorithmName) {
+    int keySize = getRequiredSymmetricKeySizeBytes(algorithmName);
+    byte[] keyBytes = new byte[keySize];
+    secureRandom.nextBytes(keyBytes);
+
+    // We use "RAW" as the internal key algorithm for the SecretKey object
+    // to maintain compatibility with byte-array based cipher logic.
+    return new SecretKeySpec(keyBytes, "RAW");
   }
 }

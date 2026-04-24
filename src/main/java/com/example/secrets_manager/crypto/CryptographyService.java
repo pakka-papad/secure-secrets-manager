@@ -6,6 +6,7 @@ import com.example.secrets_manager.crypto.dto.HashedPassword;
 import com.example.secrets_manager.crypto.dto.SymmetricAlgorithmMetadata;
 import com.example.secrets_manager.crypto.exception.CryptoOperationException;
 import java.util.List;
+import javax.crypto.SecretKey;
 
 /** Service providing high-level cryptographic operations. */
 public interface CryptographyService {
@@ -58,4 +59,13 @@ public interface CryptographyService {
    * @return A BinaryHash object containing the hash and algorithm name.
    */
   BinaryHash hashBytes(byte[] data);
+
+  /**
+   * Generates a cryptographically secure symmetric key suitable for the specified algorithm.
+   *
+   * @param algorithmName The name of the algorithm (e.g., "AES-256-GCM").
+   * @return A SecretKey of the correct length for the algorithm.
+   * @throws IllegalArgumentException if the algorithm is not supported.
+   */
+  SecretKey generateKey(String algorithmName);
 }
