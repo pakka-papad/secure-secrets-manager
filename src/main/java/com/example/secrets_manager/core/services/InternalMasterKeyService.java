@@ -7,6 +7,7 @@ import com.example.secrets_manager.core.data.repositories.MasterKeySpecification
 import com.example.secrets_manager.core.models.MasterKey;
 import com.example.secrets_manager.core.models.MasterKeyState;
 import com.example.secrets_manager.core.models.search.MasterKeySearchCriteria;
+import jakarta.persistence.EntityNotFoundException;
 import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -43,6 +44,15 @@ public class InternalMasterKeyService {
    */
   public int getHighestMasterKeyVersion() {
     return masterKeyRepository.findMaxVersion().orElse(0);
+  }
+
+  /** Retrieves metadata for a specific master key version. */
+  @Transactional(readOnly = true)
+  public MasterKey getMasterKeyMetadata(Integer version) {
+    return masterKeyRepository
+        .findById(version)
+        .map(MasterKeyEntityConverter::toModel)
+        .orElseThrow(() -> new EntityNotFoundException("Master key version not found: " + version));
   }
 
   /** Atomically retires existing active keys and registers a new active key. Internal use only. */
