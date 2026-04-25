@@ -102,7 +102,7 @@ public class SecretService {
   }
 
   /** Retrieves the decrypted plaintext value of a secret. */
-  @Transactional(readOnly = true)
+  @Transactional
   @PreAuthorize("@groupAuth.canRead(principal, #groupId)")
   public String getSecretValue(UUID groupId, String secretName) {
     final var entity = getSecretOrThrow(groupId, secretName);

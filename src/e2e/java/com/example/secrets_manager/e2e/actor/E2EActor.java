@@ -1,5 +1,6 @@
 package com.example.secrets_manager.e2e.actor;
 
+import com.example.secrets_manager.e2e.client.SecretClient;
 import com.example.secrets_manager.e2e.client.SecretGroupAuthorizationClient;
 import com.example.secrets_manager.e2e.client.SecretGroupClient;
 import com.example.secrets_manager.e2e.client.SystemMetadataClient;
@@ -11,6 +12,7 @@ public class E2EActor {
   private final String password;
   private UserClient userClient;
   private SecretGroupClient secretGroupClient;
+  private SecretClient secretClient;
   private SecretGroupAuthorizationClient secretGroupAuthorizationClient;
   private SystemMetadataClient systemMetadataClient;
 
@@ -32,6 +34,13 @@ public class E2EActor {
       secretGroupClient = new SecretGroupClient(token);
     }
     return secretGroupClient;
+  }
+
+  public SecretClient secrets() {
+    if (secretClient == null) {
+      secretClient = new SecretClient(token);
+    }
+    return secretClient;
   }
 
   public SecretGroupAuthorizationClient authorizations() {
