@@ -1,6 +1,7 @@
 package com.example.secrets_manager.crypto.impl;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.*;
 
 import com.example.secrets_manager.crypto.CipherPurpose;
@@ -14,6 +15,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import javax.crypto.SecretKey;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -101,6 +103,27 @@ class CryptographyServiceImplTest {
     assertThat(cryptographyService.isAlgorithmSupported("AES_GCM_256")).isTrue();
     assertThat(cryptographyService.isAlgorithmSupported("AES_KW_256")).isTrue();
     assertThat(cryptographyService.isAlgorithmSupported("NON_EXISTENT")).isFalse();
+  }
+
+  @Test
+  void generateKey_ShouldReturnCorrectKeySpec() {
+    // Given
+    String algo = "AES_GCM_256";
+
+    // When
+    SecretKey key = cryptographyService.generateKey(algo);
+
+    // Then
+    assertThat(key).isNotNull();
+    assertThat(key.getAlgorithm()).isEqualTo("RAW");
+    assertThat(key.getEncoded()).hasSize(32);
+  }
+
+  @Test
+  void generateKey_WithUnsupportedAlgorithm_ShouldThrowException() {
+    // When & Then
+    assertThatThrownBy(() -> cryptographyService.generateKey("UNSUPPORTED"))
+        .isInstanceOf(IllegalArgumentException.class);
   }
 
   @Test
