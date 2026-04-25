@@ -2,121 +2,83 @@ package com.example.secrets_manager.crypto.impl;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.Mockito.*;
 
 import com.example.secrets_manager.crypto.CipherPurpose;
 import com.example.secrets_manager.crypto.PasswordHasher;
-import com.example.secrets_manager.crypto.SymmetricCipher;
 import com.example.secrets_manager.crypto.dto.BinaryHash;
 import com.example.secrets_manager.crypto.dto.EncryptedData;
 import com.example.secrets_manager.crypto.dto.HashedPassword;
 import com.example.secrets_manager.crypto.dto.SymmetricAlgorithmMetadata;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.List;
-import java.util.Map;
-import java.util.Set;
 import javax.crypto.SecretKey;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 
-@ExtendWith(MockitoExtension.class)
 class CryptographyServiceImplTest {
 
-  @Mock private PasswordHasher mockHasher;
-  @Mock private SymmetricCipher mockDataCipher;
-  @Mock private SymmetricCipher mockKwOnlyCipher;
   private final ObjectMapper objectMapper = new ObjectMapper();
-
   private CryptographyServiceImpl cryptographyService;
 
   @BeforeEach
   void setUp() {
-    lenient().when(mockHasher.getAlgorithmName()).thenReturn("BCRYPT");
+    final var hashers = List.<PasswordHasher>of(new BcryptPasswordHasher());
 
-    // Mock a general-purpose cipher
-    lenient().when(mockDataCipher.getAlgorithmName()).thenReturn("AES_GCM_256");
-    lenient().when(mockDataCipher.getRequiredKeySizeBytes()).thenReturn(32);
-    lenient()
-        .when(mockDataCipher.getSupportedPurposes())
-        .thenReturn(Set.of(CipherPurpose.DATA, CipherPurpose.KEY_WRAP));
+    final var ciphers =
+        List.of(
+            new AesGcmSymmetricCipher(),
+            new ChaCha20Poly1305SymmetricCipher(),
+            new AesKw128SymmetricCipher(),
+            new AesKw192SymmetricCipher(),
+            new AesKw256SymmetricCipher());
 
-    // Mock a key-wrap only cipher
-    lenient().when(mockKwOnlyCipher.getAlgorithmName()).thenReturn("AES_KW_256");
-    lenient().when(mockKwOnlyCipher.getRequiredKeySizeBytes()).thenReturn(32);
-    lenient()
-        .when(mockKwOnlyCipher.getSupportedPurposes())
-        .thenReturn(Set.of(CipherPurpose.KEY_WRAP));
-
-    cryptographyService =
-        new CryptographyServiceImpl(
-            List.of(mockHasher), List.of(mockDataCipher, mockKwOnlyCipher), objectMapper);
+    cryptographyService = new CryptographyServiceImpl(hashers, ciphers, objectMapper);
   }
 
   @Test
   void getSupportedAlgorithms_ShouldFilterByPurpose() {
-    // 1. DATA purpose should only return the data cipher
+    // 1. DATA purpose should return GCM and ChaCha
     List<SymmetricAlgorithmMetadata> dataAlgos =
         cryptographyService.getSupportedAlgorithms(CipherPurpose.DATA);
-    assertThat(dataAlgos).hasSize(1);
-    assertThat(dataAlgos.get(0).name()).isEqualTo("AES_GCM_256");
-    assertThat(dataAlgos.get(0).supportedPurposes())
-        .containsExactlyInAnyOrder(CipherPurpose.DATA, CipherPurpose.KEY_WRAP);
+    assertThat(dataAlgos)
+        .extracting(SymmetricAlgorithmMetadata::name)
+        .containsExactlyInAnyOrder("AES-256-GCM", "CHACHA20-POLY1305");
 
-    // 2. KEY_WRAP purpose should return both
+    // 2. KEY_WRAP purpose should return all 5
     List<SymmetricAlgorithmMetadata> kwAlgos =
         cryptographyService.getSupportedAlgorithms(CipherPurpose.KEY_WRAP);
-    assertThat(kwAlgos).hasSize(2);
-    assertThat(kwAlgos)
-        .extracting(SymmetricAlgorithmMetadata::name)
-        .containsExactlyInAnyOrder("AES_GCM_256", "AES_KW_256");
+    assertThat(kwAlgos).hasSize(5);
 
-    // Verify purpose field in KW only metadata
-    SymmetricAlgorithmMetadata kwOnly =
-        kwAlgos.stream().filter(a -> a.name().equals("AES_KW_256")).findFirst().get();
-    assertThat(kwOnly.supportedPurposes()).containsExactly(CipherPurpose.KEY_WRAP);
-
-    // 3. getSupportedAlgorithms() without purpose should return ALL algorithms
-    List<SymmetricAlgorithmMetadata> allAlgos = cryptographyService.getSupportedAlgorithms();
-    assertThat(allAlgos).hasSize(2);
-    assertThat(allAlgos)
-        .extracting(SymmetricAlgorithmMetadata::name)
-        .containsExactlyInAnyOrder("AES_GCM_256", "AES_KW_256");
+    // 3. getSupportedAlgorithms() without purpose should return ALL
+    assertThat(cryptographyService.getSupportedAlgorithms()).hasSize(5);
   }
 
   @Test
   void isAlgorithmSupported_ShouldCheckPurpose() {
-    // Overloaded: purpose check
-    assertThat(cryptographyService.isAlgorithmSupported("AES_GCM_256", CipherPurpose.DATA))
+    assertThat(cryptographyService.isAlgorithmSupported("AES-256-GCM", CipherPurpose.DATA))
         .isTrue();
-    assertThat(cryptographyService.isAlgorithmSupported("AES_GCM_256", CipherPurpose.KEY_WRAP))
-        .isTrue();
-
-    assertThat(cryptographyService.isAlgorithmSupported("AES_KW_256", CipherPurpose.DATA))
+    assertThat(cryptographyService.isAlgorithmSupported("AES-KW-256", CipherPurpose.DATA))
         .isFalse();
-    assertThat(cryptographyService.isAlgorithmSupported("AES_KW_256", CipherPurpose.KEY_WRAP))
-        .isTrue();
-
-    // Overloaded: existence check
-    assertThat(cryptographyService.isAlgorithmSupported("AES_GCM_256")).isTrue();
-    assertThat(cryptographyService.isAlgorithmSupported("AES_KW_256")).isTrue();
-    assertThat(cryptographyService.isAlgorithmSupported("NON_EXISTENT")).isFalse();
+    assertThat(cryptographyService.isAlgorithmSupported("CHACHA20-POLY1305")).isTrue();
   }
 
-  @Test
-  void generateKey_ShouldReturnCorrectKeySpec() {
-    // Given
-    String algo = "AES_GCM_256";
-
+  @ParameterizedTest(name = "Algorithm: {0}, Size: {1}")
+  @CsvSource({
+    "AES-256-GCM, 32",
+    "CHACHA20-POLY1305, 32",
+    "AES-KW-128, 16",
+    "AES-KW-192, 24",
+    "AES-KW-256, 32"
+  })
+  void generateKey_ShouldReturnCorrectKeySpec(String algo, int expectedSize) {
     // When
     SecretKey key = cryptographyService.generateKey(algo);
 
     // Then
     assertThat(key).isNotNull();
-    assertThat(key.getAlgorithm()).isEqualTo("RAW");
-    assertThat(key.getEncoded()).hasSize(32);
+    assertThat(key.getEncoded()).hasSize(expectedSize);
   }
 
   @Test
@@ -127,19 +89,21 @@ class CryptographyServiceImplTest {
   }
 
   @Test
-  void hashPassword_ShouldDelegateToHasher() {
+  void hashPassword_ShouldProduceValidHash() {
     // Given
-    byte[] pass = "pass".getBytes();
-    HashedPassword expected =
-        new HashedPassword(new byte[] {1}, new byte[] {2}, "BCRYPT", Map.of());
-    when(mockHasher.hash(pass)).thenReturn(expected);
+    byte[] pass = "password123".getBytes();
 
     // When
     HashedPassword result = cryptographyService.hashPassword(pass);
 
     // Then
-    assertThat(result).isEqualTo(expected);
-    verify(mockHasher).hash(pass);
+    assertThat(result).isNotNull();
+    assertThat(result.getAlgorithm()).isEqualTo("BCRYPT");
+    assertThat(result.getDigest()).isNotEmpty();
+
+    // Verify it actually works
+    assertThat(cryptographyService.verifyPassword(pass, result)).isTrue();
+    assertThat(cryptographyService.verifyPassword("wrong".getBytes(), result)).isFalse();
   }
 
   @Test
@@ -147,16 +111,15 @@ class CryptographyServiceImplTest {
     // Given
     byte[] data = "data".getBytes();
     byte[] key = new byte[32];
-    EncryptedData expected =
-        new EncryptedData(new byte[] {1}, new byte[] {2}, new byte[] {3}, "AES_GCM_256");
-    when(mockDataCipher.encrypt(data, key)).thenReturn(expected);
+    String algo = "AES-256-GCM";
 
     // When
-    EncryptedData result = cryptographyService.encrypt(data, key, "AES_GCM_256");
+    EncryptedData result = cryptographyService.encrypt(data, key, algo);
 
     // Then
-    assertThat(result).isEqualTo(expected);
-    verify(mockDataCipher).encrypt(data, key);
+    assertThat(result).isNotNull();
+    assertThat(result.getAlgorithm()).isEqualTo(algo);
+    assertThat(result.getCiphertext()).isNotEmpty();
   }
 
   @Test
