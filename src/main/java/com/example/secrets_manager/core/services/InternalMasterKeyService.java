@@ -9,8 +9,8 @@ import com.example.secrets_manager.core.models.MasterKeyState;
 import com.example.secrets_manager.core.models.search.MasterKeySearchCriteria;
 import jakarta.persistence.EntityNotFoundException;
 import java.util.List;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -20,14 +20,10 @@ import org.springframework.transaction.annotation.Transactional;
  */
 @Service
 @Slf4j
+@RequiredArgsConstructor
 public class InternalMasterKeyService {
 
   private final MasterKeyRepository masterKeyRepository;
-
-  @Autowired
-  public InternalMasterKeyService(MasterKeyRepository masterKeyRepository) {
-    this.masterKeyRepository = masterKeyRepository;
-  }
 
   /** Lists master keys based on the provided search criteria. Internal use only. */
   @Transactional(readOnly = true)
