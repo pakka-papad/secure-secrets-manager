@@ -133,6 +133,30 @@ ALTER TABLE sm.tasks ADD CONSTRAINT tasks_initiator_user_id_fk FOREIGN KEY (init
 ALTER TABLE sm.tasks ADD CONSTRAINT tasks_initiator_audit_seq_id_fk FOREIGN KEY (initiator_audit_seq_id) REFERENCES sm.audit_logs(seq_id);
 ALTER TABLE sm.tasks ADD CONSTRAINT tasks_parent_task_id_fk FOREIGN KEY (parent_task_id) REFERENCES sm.tasks(id);
 
+CREATE TABLE IF NOT EXISTS sm.worker_registry (
+    id UUID PRIMARY KEY,
+    last_heartbeat TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp()
+);
+
+CREATE TABLE IF NOT EXISTS sm.task_assignments (
+    task_id UUID PRIMARY KEY,
+    worker_id UUID NOT NULL,
+    assigned_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp()
+);
+
+ALTER TABLE sm.task_assignments ADD CONSTRAINT task_assignments_task_id_fk FOREIGN KEY (task_id) REFERENCES sm.tasks(id);
+ALTER TABLE sm.task_assignments ADD CONSTRAINT task_assignments_worker_id_fk FOREIGN KEY (worker_id) REFERENCES sm.worker_registry(id);
+
+-- Automated Maintenance: Cleanup stale worker records (30 days)
+-- Requires pg_cron extension
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pg_cron') THEN
+        PERFORM cron.schedule('cleanup-dead-workers', '0 0 * * *', 
+          'DELETE FROM sm.worker_registry WHERE last_heartbeat < (NOW() - INTERVAL ''30 days'')');
+    END IF;
+END $$;
+
 CREATE TABLE IF NOT EXISTS sm.system_locks (
     lock_name VARCHAR(255) PRIMARY KEY,
     description TEXT NULL

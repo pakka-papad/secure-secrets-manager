@@ -1,6 +1,6 @@
-package com.example.secrets_manager.core.data.entities;
+package com.example.secrets_manager.tasks.data.entities;
 
-import com.example.secrets_manager.core.data.CoreDataConstants;
+import com.example.secrets_manager.tasks.data.TaskDataConstants;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -18,7 +18,7 @@ import org.hibernate.annotations.UuidGenerator;
 import org.hibernate.type.SqlTypes;
 
 @Entity
-@Table(name = CoreDataConstants.TABLE_TASKS, schema = CoreDataConstants.SCHEMA_NAME)
+@Table(name = TaskDataConstants.TABLE_TASKS, schema = TaskDataConstants.SCHEMA_NAME)
 @Data
 @Builder
 @NoArgsConstructor

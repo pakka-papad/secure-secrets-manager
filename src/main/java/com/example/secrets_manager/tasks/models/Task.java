@@ -1,4 +1,4 @@
-package com.example.secrets_manager.core.models;
+package com.example.secrets_manager.tasks.models;
 
 import java.time.Instant;
 import java.util.UUID;
@@ -7,6 +7,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+/** Domain model for a system-wide background task. */
 @Data
 @Builder
 @NoArgsConstructor
@@ -19,10 +20,12 @@ public class Task {
   private Instant createdAt;
   private Instant startedAt;
   private Instant completedAt;
-  private String type;
-  private String taskInput;
-  private String state;
-  private String stateExtraInfo;
-  private String taskOutput;
-  private String metadata;
+
+  private TaskType type;
+  private TaskState state;
+
+  private TaskInput input;
+  private TaskOutput output;
+  private TaskStateExtraInfo stateExtraInfo;
+  private String metadata; // Generic JSON metadata
 }
