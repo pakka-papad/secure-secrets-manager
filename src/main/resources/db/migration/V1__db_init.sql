@@ -153,7 +153,7 @@ DO $$
 BEGIN
     IF EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pg_cron') THEN
         PERFORM cron.schedule('cleanup-dead-workers', '0 0 * * *', 
-          'DELETE FROM sm.worker_registry WHERE last_heartbeat < (NOW() - INTERVAL ''30 days'')');
+          'DELETE FROM sm.worker_registry WHERE last_heartbeat < (clock_timestamp() - INTERVAL ''30 days'')');
     END IF;
 END $$;
 
