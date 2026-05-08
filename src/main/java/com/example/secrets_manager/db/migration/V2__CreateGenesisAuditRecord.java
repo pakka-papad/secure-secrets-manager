@@ -23,6 +23,7 @@ import org.flywaydb.core.api.migration.Context;
 public class V2__CreateGenesisAuditRecord extends BaseJavaMigration {
 
   private static final String SYSTEM_USER_ID = "00000000-0000-0000-0000-000000000000";
+  private static final String GENESIS_CORRELATION_ID = "00000000-0000-0000-0000-000000000000";
   private static final AuditAction GENESIS_ACTION = AuditAction.GENESIS;
   public static final byte[] GENESIS_PREV_HASH = new byte[32]; // For SHA-256 (all zeros)
 
@@ -46,6 +47,7 @@ public class V2__CreateGenesisAuditRecord extends BaseJavaMigration {
     AuditLog genesisLog =
         AuditLog.builder()
             .actorUserId(UUID.fromString(SYSTEM_USER_ID))
+            .correlationId(UUID.fromString(GENESIS_CORRELATION_ID))
             .action(GENESIS_ACTION)
             .createdAt(createdAt)
             .prevHash(GENESIS_PREV_HASH)
@@ -56,13 +58,14 @@ public class V2__CreateGenesisAuditRecord extends BaseJavaMigration {
 
     // 3. Save the record using a raw JDBC PreparedStatement.
     String sql =
-        "INSERT INTO sm.audit_logs (actor_user_id, action, created_at, prev_hash, data_hash) VALUES (?, ?, ?, ?, ?)";
+        "INSERT INTO sm.audit_logs (actor_user_id, correlation_id, action, created_at, prev_hash, data_hash) VALUES (?, ?, ?, ?, ?, ?)";
     try (PreparedStatement statement = context.getConnection().prepareStatement(sql)) {
       statement.setObject(1, genesisLog.getActorUserId());
-      statement.setString(2, genesisLog.getAction().name());
-      statement.setTimestamp(3, Timestamp.from(genesisLog.getCreatedAt()));
-      statement.setBytes(4, genesisLog.getPrevHash());
-      statement.setBytes(5, dataHash);
+      statement.setObject(2, genesisLog.getCorrelationId());
+      statement.setString(3, genesisLog.getAction().name());
+      statement.setTimestamp(4, Timestamp.from(genesisLog.getCreatedAt()));
+      statement.setBytes(5, genesisLog.getPrevHash());
+      statement.setBytes(6, dataHash);
       statement.execute();
     }
 

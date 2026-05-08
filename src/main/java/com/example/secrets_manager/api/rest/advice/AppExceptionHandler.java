@@ -2,6 +2,7 @@ package com.example.secrets_manager.api.rest.advice;
 
 import com.example.secrets_manager.api.rest.dto.ErrorResponse;
 import com.example.secrets_manager.core.services.exceptions.InvalidTokenException;
+import com.example.secrets_manager.tracing.MissingCorrelationContextException;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.Instant;
@@ -94,6 +95,21 @@ public class AppExceptionHandler {
             .path(request.getRequestURI())
             .build();
     return new ResponseEntity<>(errorResponse, HttpStatus.BAD_REQUEST);
+  }
+
+  @ExceptionHandler(MissingCorrelationContextException.class)
+  public ResponseEntity<ErrorResponse> handleMissingCorrelationContextException(
+      MissingCorrelationContextException ex, HttpServletRequest request) {
+    log.error("Mandatory tracing context missing at path: {}", request.getRequestURI(), ex);
+    var errorResponse =
+        ErrorResponse.builder()
+            .timestamp(Instant.now())
+            .status(HttpStatus.INTERNAL_SERVER_ERROR.value()) // 500
+            .error(HttpStatus.INTERNAL_SERVER_ERROR.getReasonPhrase())
+            .messages(List.of("A system error occurred."))
+            .path(request.getRequestURI())
+            .build();
+    return new ResponseEntity<>(errorResponse, HttpStatus.INTERNAL_SERVER_ERROR);
   }
 
   @ExceptionHandler(PessimisticLockingFailureException.class)

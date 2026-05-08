@@ -1,5 +1,7 @@
 package com.example.secrets_manager.security;
 
+import com.example.secrets_manager.tracing.CorrelationFilter;
+import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -15,20 +17,13 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 @Configuration
 @EnableWebSecurity
 @EnableMethodSecurity
+@RequiredArgsConstructor
 public class SecurityConfig {
 
   private final JwtAuthEntryPoint unauthorizedHandler;
   private final JwtAuthenticationFilter jwtAuthenticationFilter;
+  private final CorrelationFilter correlationFilter;
   private final CryptoAuthenticationProvider cryptoAuthenticationProvider;
-
-  public SecurityConfig(
-      JwtAuthEntryPoint unauthorizedHandler,
-      JwtAuthenticationFilter jwtAuthenticationFilter,
-      CryptoAuthenticationProvider cryptoAuthenticationProvider) {
-    this.unauthorizedHandler = unauthorizedHandler;
-    this.jwtAuthenticationFilter = jwtAuthenticationFilter;
-    this.cryptoAuthenticationProvider = cryptoAuthenticationProvider;
-  }
 
   @Bean
   public AuthenticationManager authenticationManager(
@@ -56,6 +51,8 @@ public class SecurityConfig {
             )
         .authenticationProvider(cryptoAuthenticationProvider); // Register custom provider
 
+    // CorrelationFilter must run very early to ensure tracing is active for all subsequent filters
+    http.addFilterBefore(correlationFilter, UsernamePasswordAuthenticationFilter.class);
     http.addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
     return http.build();

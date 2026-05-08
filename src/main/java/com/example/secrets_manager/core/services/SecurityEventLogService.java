@@ -4,6 +4,8 @@ import com.example.secrets_manager.core.data.converters.SecurityEventLogEntityCo
 import com.example.secrets_manager.core.data.repositories.SecurityEventLogRepository;
 import com.example.secrets_manager.core.models.SecurityEventLog;
 import com.example.secrets_manager.core.models.SecurityEventLogPayload;
+import com.example.secrets_manager.tracing.CorrelationContext;
+import com.example.secrets_manager.tracing.MissingCorrelationContextException;
 import java.time.Instant;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -26,14 +28,25 @@ public class SecurityEventLogService {
    *
    * @param payload The SecurityEventLogPayload containing the event details.
    * @return The persisted SecurityEventLog model.
+   * @throws MissingCorrelationContextException if no correlation ID is found in payload or context.
    */
   @Transactional(propagation = Propagation.REQUIRES_NEW)
   public SecurityEventLog save(SecurityEventLogPayload payload) {
+    // Resolve Correlation ID (Strict Enforcement)
+    final var correlationId =
+        payload.getCorrelationId() != null
+            ? payload.getCorrelationId()
+            : CorrelationContext.get()
+                .orElseThrow(
+                    () ->
+                        new MissingCorrelationContextException(
+                            "Security event cannot be saved without a Correlation ID. Traceability is mandatory."));
+
     var event =
         SecurityEventLog.builder()
             .actorUserId(payload.getActorUserId())
             .action(payload.getAction())
-            .correlationId(payload.getCorrelationId())
+            .correlationId(correlationId)
             .targetUserId(payload.getTargetUserId())
             .targetGroupId(payload.getTargetGroupId())
             .targetSecretId(payload.getTargetSecretId())

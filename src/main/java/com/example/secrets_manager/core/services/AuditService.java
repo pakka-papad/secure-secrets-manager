@@ -7,6 +7,8 @@ import com.example.secrets_manager.core.models.AuditLog;
 import com.example.secrets_manager.core.models.AuditLogPayload;
 import com.example.secrets_manager.core.models.SystemLockName;
 import com.example.secrets_manager.crypto.CryptographyService;
+import com.example.secrets_manager.tracing.CorrelationContext;
+import com.example.secrets_manager.tracing.MissingCorrelationContextException;
 import java.time.Instant;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -39,13 +41,24 @@ public class AuditService {
    *
    * @param payload The AuditLogPayload containing the details of the audit event.
    * @return The persisted AuditLog model, complete with its seqId and calculated hashes.
+   * @throws MissingCorrelationContextException if no correlation ID is found in payload or context.
    */
   @Transactional
   public AuditLog save(AuditLogPayload payload) {
-    // --- 1. Acquire exclusive lock to serialize chain access ---
+    // Resolve Correlation ID (Strict Enforcement)
+    final var correlationId =
+        payload.getCorrelationId() != null
+            ? payload.getCorrelationId()
+            : CorrelationContext.get()
+                .orElseThrow(
+                    () ->
+                        new MissingCorrelationContextException(
+                            "Audit log cannot be saved without a Correlation ID. Traceability is mandatory."));
+
+    // Acquire exclusive lock to serialize chain access
     systemLockService.acquireExclusiveLock(SystemLockName.AUDIT_LOG_CHAIN);
 
-    // --- 2. Fetch the latest record to determine the previous hash ---
+    // Fetch the latest record to determine the previous hash
     // This now expects the genesis record to exist and will fail if it doesn't.
     AuditLogEntity lastLog =
         auditLogRepository
@@ -55,12 +68,12 @@ public class AuditService {
                     new IllegalStateException(
                         "Audit log genesis record is missing. The chain cannot be continued."));
 
-    // --- 3. Construct the full AuditLog model from the payload ---
+    // Construct the full AuditLog model from the payload
     AuditLog logData =
         AuditLog.builder()
             .actorUserId(payload.getActorUserId())
             .action(payload.getAction())
-            .correlationId(payload.getCorrelationId())
+            .correlationId(correlationId)
             .targetUserId(payload.getTargetUserId())
             .targetGroupId(payload.getTargetGroupId())
             .targetSecretId(payload.getTargetSecretId())
@@ -70,11 +83,11 @@ public class AuditService {
             .prevHash(lastLog.getDataHash())
             .build();
 
-    // --- 4. Calculate the data hash for the NEW record ---
+    // Calculate the data hash for the NEW record
     byte[] dataHash = cryptographyService.createDataHash(logData);
     logData.setDataHash(dataHash);
 
-    // --- 5. Convert to entity and save ---
+    // Convert to entity and save
     AuditLogEntity entityToSave = AuditLogEntityConverter.fromModel(logData);
     AuditLogEntity savedEntity = auditLogRepository.save(entityToSave);
 

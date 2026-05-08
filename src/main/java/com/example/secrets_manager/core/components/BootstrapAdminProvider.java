@@ -5,10 +5,12 @@ import com.example.secrets_manager.core.models.UserCreationPayload;
 import com.example.secrets_manager.core.models.UserRole;
 import com.example.secrets_manager.core.services.UserService;
 import com.example.secrets_manager.core.utils.CoreUtils;
+import com.example.secrets_manager.tracing.CorrelationContext;
 import java.util.EnumSet;
 import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
+import org.hibernate.id.uuid.UuidVersion7Strategy;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
@@ -62,6 +64,14 @@ public class BootstrapAdminProvider {
         "No administrators found. Initializing system with bootstrap account: {}",
         initialAdminUsername);
 
+    // Generate a fresh UUIDv7 for this specific bootstrap run
+    final var bootstrapCorrelationId = UuidVersion7Strategy.INSTANCE.generateUuid(null);
+
+    // Wrap the entire bootstrap process in a Correlation Context
+    CorrelationContext.runWithId(bootstrapCorrelationId, this::executeBootstrap);
+  }
+
+  private void executeBootstrap() {
     try {
       // 1. Establish a temporary administrative Security Context
       // We "act" as the system user and grant ourselves ROLE_ADMIN to satisfy UserService

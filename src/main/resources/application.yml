@@ -16,6 +16,13 @@ spring:
       - classpath:db/migration
       - classpath:com/example/secrets_manager/db/migration
 
+logging:
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] [%X{correlationId}] %-5level %logger{36} - %msg%n"
+
+tracing:
+    trust-external-id: false
+
 jwt:
   secret-key:
     public: ${JWT_PUBLIC_KEY}

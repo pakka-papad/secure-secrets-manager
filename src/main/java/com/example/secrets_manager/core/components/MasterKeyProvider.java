@@ -5,6 +5,7 @@ import com.example.secrets_manager.core.models.MasterKeyState;
 import com.example.secrets_manager.core.models.search.MasterKeySearchCriteria;
 import com.example.secrets_manager.core.services.InternalMasterKeyService;
 import com.example.secrets_manager.crypto.CryptographyService;
+import com.example.secrets_manager.tracing.CorrelationContext;
 import jakarta.annotation.PostConstruct;
 import java.util.Base64;
 import java.util.EnumSet;
@@ -17,6 +18,7 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
+import org.hibernate.id.uuid.UuidVersion7Strategy;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.env.ConfigurableEnvironment;
@@ -58,6 +60,12 @@ public class MasterKeyProvider {
 
   @PostConstruct
   public void init() {
+    // Generate a fresh UUIDv7 for this specific initialization run
+    final var masterKeyInitId = UuidVersion7Strategy.INSTANCE.generateUuid(null);
+    CorrelationContext.runWithId(masterKeyInitId, this::performInit);
+  }
+
+  private void performInit() {
     // 1. Fetch entire DB registry once to build a lookup map
     final var requiredKeys =
         internalMasterKeyService.listMasterKeys(
