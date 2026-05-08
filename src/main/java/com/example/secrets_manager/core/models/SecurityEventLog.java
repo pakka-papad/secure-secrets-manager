@@ -13,6 +13,7 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class SecurityEventLog {
   private UUID id;
+  private UUID correlationId;
   private Instant createdAt;
   private UUID actorUserId;
   private SecurityEvent action;

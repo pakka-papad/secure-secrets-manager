@@ -13,6 +13,7 @@ import lombok.NoArgsConstructor;
 public class AuditLogPayload {
   private UUID actorUserId;
   private AuditAction action;
+  private UUID correlationId;
   private UUID targetUserId;
   private UUID targetGroupId;
   private UUID targetSecretId;

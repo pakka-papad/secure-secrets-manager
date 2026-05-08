@@ -14,9 +14,9 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class Task {
   private UUID id;
+  private UUID correlationId;
   private UUID parentTaskId;
   private UUID initiatorUserId;
-  private Long initiatorAuditSeqId;
   private Instant createdAt;
   private Instant startedAt;
   private Instant completedAt;

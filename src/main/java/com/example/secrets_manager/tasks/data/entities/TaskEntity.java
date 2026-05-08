@@ -26,9 +26,9 @@ import org.hibernate.type.SqlTypes;
 public class TaskEntity {
 
   public static final String COL_ID = "id";
+  public static final String COL_CORRELATION_ID = "correlation_id";
   public static final String COL_PARENT_TASK_ID = "parent_task_id";
   public static final String COL_INITIATOR_USER_ID = "initiator_user_id";
-  public static final String COL_INITIATOR_AUDIT_SEQ_ID = "initiator_audit_seq_id";
   public static final String COL_CREATED_AT = "created_at";
   public static final String COL_STARTED_AT = "started_at";
   public static final String COL_COMPLETED_AT = "completed_at";
@@ -45,14 +45,14 @@ public class TaskEntity {
   @Column(name = COL_ID)
   private UUID id;
 
+  @Column(name = COL_CORRELATION_ID, nullable = false, updatable = false)
+  private UUID correlationId;
+
   @Column(name = COL_PARENT_TASK_ID)
   private UUID parentTaskId;
 
   @Column(name = COL_INITIATOR_USER_ID, nullable = false)
   private UUID initiatorUserId;
-
-  @Column(name = COL_INITIATOR_AUDIT_SEQ_ID, nullable = false)
-  private Long initiatorAuditSeqId;
 
   @Column(name = COL_CREATED_AT, nullable = false, updatable = false)
   private Instant createdAt;

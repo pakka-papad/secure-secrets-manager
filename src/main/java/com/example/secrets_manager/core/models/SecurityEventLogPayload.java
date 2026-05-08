@@ -13,6 +13,7 @@ import lombok.NoArgsConstructor;
 public class SecurityEventLogPayload {
   private UUID actorUserId;
   private SecurityEvent action;
+  private UUID correlationId;
   private UUID targetUserId;
   private UUID targetGroupId;
   private UUID targetSecretId;

@@ -60,6 +60,7 @@ public class AuditService {
         AuditLog.builder()
             .actorUserId(payload.getActorUserId())
             .action(payload.getAction())
+            .correlationId(payload.getCorrelationId())
             .targetUserId(payload.getTargetUserId())
             .targetGroupId(payload.getTargetGroupId())
             .targetSecretId(payload.getTargetSecretId())

@@ -28,9 +28,9 @@ public class TaskEntityConverter {
 
     return Task.builder()
         .id(entity.getId())
+        .correlationId(entity.getCorrelationId())
         .parentTaskId(entity.getParentTaskId())
         .initiatorUserId(entity.getInitiatorUserId())
-        .initiatorAuditSeqId(entity.getInitiatorAuditSeqId())
         .createdAt(entity.getCreatedAt())
         .startedAt(entity.getStartedAt())
         .completedAt(entity.getCompletedAt())
@@ -50,9 +50,9 @@ public class TaskEntityConverter {
 
     return TaskEntity.builder()
         .id(model.getId())
+        .correlationId(model.getCorrelationId())
         .parentTaskId(model.getParentTaskId())
         .initiatorUserId(model.getInitiatorUserId())
-        .initiatorAuditSeqId(model.getInitiatorAuditSeqId())
         .createdAt(model.getCreatedAt())
         .startedAt(model.getStartedAt())
         .completedAt(model.getCompletedAt())
@@ -74,7 +74,7 @@ public class TaskEntityConverter {
     } catch (JsonProcessingException e) {
       log.error(
           "Failed to deserialize task payload to {}: {}", type.getSimpleName(), e.getMessage());
-      return null; // For discovery/listing, we might prefer partial data over a crash
+      return null;
     }
   }
 

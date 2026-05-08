@@ -77,6 +77,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_sm_secrets_active_group_name ON sm.secrets 
 CREATE TABLE IF NOT EXISTS sm.audit_logs(
     seq_id BIGSERIAL PRIMARY KEY,
     cause_seq_id BIGINT NULL,
+    correlation_id UUID NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     actor_user_id UUID NOT NULL,
     action VARCHAR(31) NOT NULL,
@@ -94,9 +95,11 @@ ALTER TABLE sm.audit_logs ADD CONSTRAINT audit_logs_target_user_id_fk FOREIGN KE
 ALTER TABLE sm.audit_logs ADD CONSTRAINT audit_logs_target_group_id_fk FOREIGN KEY (target_group_id) REFERENCES sm.secret_groups(id);
 ALTER TABLE sm.audit_logs ADD CONSTRAINT audit_logs_target_secret_id_fk FOREIGN KEY (target_secret_id) REFERENCES sm.secrets(id);
 ALTER TABLE sm.audit_logs ADD CONSTRAINT audit_logs_target_master_key_version_fk FOREIGN KEY (target_master_key_version) REFERENCES sm.master_keys(version);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_correlation_id ON sm.audit_logs (correlation_id);
 
 CREATE TABLE IF NOT EXISTS sm.security_event_logs(
     id UUID PRIMARY KEY DEFAULT uuidv7(),
+    correlation_id UUID NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     actor_user_id UUID NULL,
     action VARCHAR(31) NOT NULL,
@@ -112,12 +115,13 @@ ALTER TABLE sm.security_event_logs ADD CONSTRAINT security_event_logs_target_use
 ALTER TABLE sm.security_event_logs ADD CONSTRAINT security_event_logs_target_group_id_fk FOREIGN KEY (target_group_id) REFERENCES sm.secret_groups(id);
 ALTER TABLE sm.security_event_logs ADD CONSTRAINT security_event_logs_target_secret_id_fk FOREIGN KEY (target_secret_id) REFERENCES sm.secrets(id);
 ALTER TABLE sm.security_event_logs ADD CONSTRAINT security_event_logs_target_master_key_version_fk FOREIGN KEY (target_master_key_version) REFERENCES sm.master_keys(version);
+CREATE INDEX IF NOT EXISTS idx_security_event_logs_correlation_id ON sm.security_event_logs (correlation_id);
 
 CREATE TABLE IF NOT EXISTS sm.tasks(
     id UUID PRIMARY KEY DEFAULT uuidv7(),
+    correlation_id UUID NOT NULL,
     parent_task_id UUID,
     initiator_user_id UUID NOT NULL,
-    initiator_audit_seq_id BIGINT NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     started_at TIMESTAMPTZ,
     completed_at TIMESTAMPTZ,
@@ -130,8 +134,8 @@ CREATE TABLE IF NOT EXISTS sm.tasks(
 );
 
 ALTER TABLE sm.tasks ADD CONSTRAINT tasks_initiator_user_id_fk FOREIGN KEY (initiator_user_id) REFERENCES sm.users(id);
-ALTER TABLE sm.tasks ADD CONSTRAINT tasks_initiator_audit_seq_id_fk FOREIGN KEY (initiator_audit_seq_id) REFERENCES sm.audit_logs(seq_id);
 ALTER TABLE sm.tasks ADD CONSTRAINT tasks_parent_task_id_fk FOREIGN KEY (parent_task_id) REFERENCES sm.tasks(id);
+CREATE INDEX IF NOT EXISTS idx_tasks_correlation_id ON sm.tasks (correlation_id);
 
 CREATE TABLE IF NOT EXISTS sm.worker_registry (
     id UUID PRIMARY KEY,

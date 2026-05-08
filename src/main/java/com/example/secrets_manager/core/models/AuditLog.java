@@ -15,6 +15,7 @@ import lombok.ToString;
 public class AuditLog {
   private Long seqId;
   private Long causeSeqId;
+  private UUID correlationId;
   private Instant createdAt;
   private UUID actorUserId;
   private AuditAction action;

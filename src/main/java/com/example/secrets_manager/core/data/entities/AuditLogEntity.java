@@ -27,6 +27,7 @@ public class AuditLogEntity {
   public static final String COL_SEQ_ID = "seq_id";
   public static final String COL_CAUSE_SEQ_ID = "cause_seq_id";
   public static final String COL_CREATED_AT = "created_at";
+  public static final String COL_CORRELATION_ID = "correlation_id";
   public static final String COL_ACTOR_USER_ID = "actor_user_id";
   public static final String COL_ACTION = "action";
   public static final String COL_TARGET_USER_ID = "target_user_id";
@@ -47,6 +48,9 @@ public class AuditLogEntity {
 
   @Column(name = COL_CREATED_AT, nullable = false, updatable = false)
   private Instant createdAt;
+
+  @Column(name = COL_CORRELATION_ID, nullable = false, updatable = false)
+  private UUID correlationId;
 
   @Column(name = COL_ACTOR_USER_ID, nullable = false)
   private UUID actorUserId;
