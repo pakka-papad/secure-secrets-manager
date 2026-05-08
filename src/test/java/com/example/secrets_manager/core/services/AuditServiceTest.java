@@ -12,6 +12,9 @@ import com.example.secrets_manager.core.models.AuditLog;
 import com.example.secrets_manager.core.models.AuditLogPayload;
 import com.example.secrets_manager.core.models.SystemLockName;
 import com.example.secrets_manager.crypto.CryptographyService;
+import com.example.secrets_manager.tracing.CorrelationContext;
+import com.example.secrets_manager.tracing.MissingCorrelationContextException;
+import com.example.secrets_manager.tracing.WithCorrelationId;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -31,8 +34,11 @@ class AuditServiceTest {
   @InjectMocks private AuditService auditService;
 
   @Test
+  @WithCorrelationId
   void save_ShouldChainLogCorrectly() {
     // Given
+    UUID correlationId = CorrelationContext.get().orElseThrow();
+
     UUID actorId = UUID.randomUUID();
     AuditLogPayload payload =
         AuditLogPayload.builder().actorUserId(actorId).action(AuditAction.USER_CREATE).build();
@@ -58,6 +64,7 @@ class AuditServiceTest {
 
     // Then
     assertThat(result.getSeqId()).isEqualTo(101L);
+    assertThat(result.getCorrelationId()).isEqualTo(correlationId);
     assertThat(result.getPrevHash()).isEqualTo(lastDataHash);
     assertThat(result.getDataHash()).isEqualTo(newDataHash);
 
@@ -66,9 +73,47 @@ class AuditServiceTest {
     ArgumentCaptor<AuditLog> logCaptor = ArgumentCaptor.forClass(AuditLog.class);
     verify(cryptographyService).createDataHash(logCaptor.capture());
     assertThat(logCaptor.getValue().getPrevHash()).isEqualTo(lastDataHash);
+    assertThat(logCaptor.getValue().getCorrelationId()).isEqualTo(correlationId);
   }
 
   @Test
+  @WithCorrelationId
+  void save_WithExplicitCorrelationIdInPayload_ShouldUsePayloadId() {
+    // Given
+    UUID payloadCid = UUID.randomUUID();
+
+    AuditLogPayload payload =
+        AuditLogPayload.builder()
+            .actorUserId(UUID.randomUUID())
+            .action(AuditAction.USER_CREATE)
+            .correlationId(payloadCid)
+            .build();
+
+    AuditLogEntity lastLog = AuditLogEntity.builder().seqId(100L).dataHash(new byte[0]).build();
+    when(auditLogRepository.findTopByOrderBySeqIdDesc()).thenReturn(Optional.of(lastLog));
+    when(auditLogRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+    // When
+    AuditLog result = auditService.save(payload);
+
+    // Then
+    assertThat(result.getCorrelationId()).isEqualTo(payloadCid);
+  }
+
+  @Test
+  void save_WithoutCorrelationId_ShouldThrowMissingCorrelationContextException() {
+    // Given - ensure context is empty
+    CorrelationContext.clear();
+    AuditLogPayload payload = new AuditLogPayload();
+
+    // When & Then
+    assertThatThrownBy(() -> auditService.save(payload))
+        .isInstanceOf(MissingCorrelationContextException.class)
+        .hasMessageContaining("without a Correlation ID");
+  }
+
+  @Test
+  @WithCorrelationId
   void save_WhenGenesisMissing_ShouldThrowException() {
     when(auditLogRepository.findTopByOrderBySeqIdDesc()).thenReturn(Optional.empty());
 
