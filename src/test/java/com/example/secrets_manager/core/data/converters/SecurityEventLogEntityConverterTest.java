@@ -15,11 +15,13 @@ class SecurityEventLogEntityConverterTest {
   void toModel_ShouldMapAllFieldsCorrectly() {
     // Given
     UUID id = UUID.randomUUID();
+    UUID correlationId = UUID.randomUUID();
     UUID actorId = UUID.randomUUID();
     Instant now = Instant.now();
     SecurityEventLogEntity entity =
         SecurityEventLogEntity.builder()
             .id(id)
+            .correlationId(correlationId)
             .createdAt(now)
             .actorUserId(actorId)
             .action("LOGIN_FAILED")
@@ -32,6 +34,7 @@ class SecurityEventLogEntityConverterTest {
     // Then
     assertThat(model).isNotNull();
     assertThat(model.getId()).isEqualTo(id);
+    assertThat(model.getCorrelationId()).isEqualTo(correlationId);
     assertThat(model.getActorUserId()).isEqualTo(actorId);
     assertThat(model.getAction()).isEqualTo(SecurityEvent.LOGIN_FAILED);
     assertThat(model.getCreatedAt()).isEqualTo(now);
@@ -41,11 +44,13 @@ class SecurityEventLogEntityConverterTest {
   void fromModel_ShouldMapAllFieldsCorrectly() {
     // Given
     UUID id = UUID.randomUUID();
+    UUID correlationId = UUID.randomUUID();
     UUID actorId = UUID.randomUUID();
     Instant now = Instant.now();
     SecurityEventLog model =
         SecurityEventLog.builder()
             .id(id)
+            .correlationId(correlationId)
             .createdAt(now)
             .actorUserId(actorId)
             .action(SecurityEvent.ACCESS_DENIED)
@@ -58,6 +63,7 @@ class SecurityEventLogEntityConverterTest {
     // Then
     assertThat(entity).isNotNull();
     assertThat(entity.getId()).isEqualTo(id);
+    assertThat(entity.getCorrelationId()).isEqualTo(correlationId);
     assertThat(entity.getActorUserId()).isEqualTo(actorId);
     assertThat(entity.getAction()).isEqualTo("ACCESS_DENIED");
     assertThat(entity.getCreatedAt()).isEqualTo(now);
