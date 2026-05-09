@@ -6,8 +6,11 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.slf4j.MDC;
 
 class CorrelationContextTest {
+
+  private static final String MDC_KEY = "correlationId";
 
   @AfterEach
   void tearDown() {
@@ -19,13 +22,15 @@ class CorrelationContextTest {
     UUID id = UUID.randomUUID();
     CorrelationContext.set(id);
     assertThat(CorrelationContext.get()).isPresent().contains(id);
+    assertThat(MDC.get(MDC_KEY)).isEqualTo(id.toString());
   }
 
   @Test
-  void clear_ShouldRemoveId() {
+  void clear_ShouldRemoveIdAndMDC() {
     CorrelationContext.set(UUID.randomUUID());
     CorrelationContext.clear();
     assertThat(CorrelationContext.get()).isEmpty();
+    assertThat(MDC.get(MDC_KEY)).isNull();
   }
 
   @Test
@@ -36,9 +41,11 @@ class CorrelationContextTest {
         id,
         () -> {
           assertThat(CorrelationContext.get()).isPresent().contains(id);
+          assertThat(MDC.get(MDC_KEY)).isEqualTo(id.toString());
         });
 
     assertThat(CorrelationContext.get()).isEmpty();
+    assertThat(MDC.get(MDC_KEY)).isNull();
   }
 
   @Test
@@ -55,6 +62,7 @@ class CorrelationContextTest {
         .isInstanceOf(RuntimeException.class);
 
     assertThat(CorrelationContext.get()).isEmpty();
+    assertThat(MDC.get(MDC_KEY)).isNull();
   }
 
   @Test
@@ -66,10 +74,12 @@ class CorrelationContextTest {
             id,
             () -> {
               assertThat(CorrelationContext.get()).isPresent().contains(id);
+              assertThat(MDC.get(MDC_KEY)).isEqualTo(id.toString());
               return "success";
             });
 
     assertThat(result).isEqualTo("success");
     assertThat(CorrelationContext.get()).isEmpty();
+    assertThat(MDC.get(MDC_KEY)).isNull();
   }
 }
