@@ -9,24 +9,21 @@ import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.stereotype.Service;
 
 /**
- * Orchestrator for asynchronous task execution. Submits tasks to the thread pool and delegates to
- * the decentralized lifecycle handlers.
+ * Orchestrator for asynchronous task execution. Submits tasks to the thread pool and dispatches
+ * them to their respective handlers.
  */
 @Service
 @Slf4j
 public class TaskExecutorService {
 
   private final TaskHandlerRegistry handlerRegistry;
-  private final TaskAssignmentService assignmentService;
   private final ThreadPoolTaskExecutor taskExecutor;
 
   @Autowired
   public TaskExecutorService(
       TaskHandlerRegistry handlerRegistry,
-      TaskAssignmentService assignmentService,
       @Qualifier("taskExecutor") ThreadPoolTaskExecutor taskExecutor) {
     this.handlerRegistry = handlerRegistry;
-    this.assignmentService = assignmentService;
     this.taskExecutor = taskExecutor;
   }
 
@@ -35,41 +32,19 @@ public class TaskExecutorService {
     // Wrap the background thread in the same Correlation Context as the initiator.
     // This ensures end-to-end traceability across thread boundaries.
     taskExecutor.execute(
-        () ->
-            CorrelationContext.runWithId(
-                task.getCorrelationId(), () -> executeDecentralizedLifecycle(task)));
+        () -> CorrelationContext.runWithId(task.getCorrelationId(), () -> dispatchToHandler(task)));
   }
 
-  /** Orchestrates the execution sequence using the decentralized handler logic. */
-  private void executeDecentralizedLifecycle(Task task) {
-    var handler =
-        handlerRegistry
-            .getHandler(task.getType())
-            .orElseThrow(() -> new IllegalStateException("No handler for " + task.getType()));
-
-    try {
-      // 1. Framework Pre-Execute (Heartbeat, State Change)
-      handler.runPreExecute(task);
-
-      // Distributed Guard: Verify we still own it
-      if (!assignmentService.isAssignmentStillValid(task.getId())) {
-        log.warn("Lost assignment for task {}. Aborting logic.", task.getId());
-        return;
-      }
-
-      // 2. Core Logic
-      var output = handler.execute(task.getInput());
-
-      // 3. Framework Success (Mark Completed)
-      handler.runPostExecuteSuccess(task, output);
-
-    } catch (Exception e) {
-      log.error("Execution failed for task {}", task.getId(), e);
-      // 4. Framework Failure (Mark Failed)
-      handler.runPostExecuteFailure(task, e);
-    } finally {
-      // 5. Framework Cleanup (Release Assignment)
-      handler.runCleanup(task);
+  /** Finds the correct handler and delegates the full execution lifecycle to it. */
+  private void dispatchToHandler(Task task) {
+    final var handler = handlerRegistry.getHandler(task.getType());
+    if (handler.isPresent()) {
+      handler.get().run(task);
+    } else {
+      log.error(
+          "CRITICAL: No handler found for task type: {}. Task ID: {}",
+          task.getType(),
+          task.getId());
     }
   }
 }

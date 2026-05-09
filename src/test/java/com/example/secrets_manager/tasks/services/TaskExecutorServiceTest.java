@@ -1,7 +1,6 @@
 package com.example.secrets_manager.tasks.services;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 import com.example.secrets_manager.tasks.models.Task;
@@ -24,15 +23,14 @@ import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 class TaskExecutorServiceTest {
 
   @Mock private TaskHandlerRegistry handlerRegistry;
-  @Mock private TaskAssignmentService assignmentService;
   @Mock private ThreadPoolTaskExecutor taskExecutor;
-  @Mock private TaskHandler<?, ?> taskHandler;
+  @Mock private TaskHandler taskHandler;
 
   private TaskExecutorService executorService;
 
   @BeforeEach
   void setUp() {
-    executorService = new TaskExecutorService(handlerRegistry, assignmentService, taskExecutor);
+    executorService = new TaskExecutorService(handlerRegistry, taskExecutor);
   }
 
   @AfterEach
@@ -41,7 +39,7 @@ class TaskExecutorServiceTest {
   }
 
   @Test
-  void submitTask_ShouldPropagateTraceToBackgroundThread() throws Exception {
+  void submitTask_ShouldPropagateTraceToBackgroundThread() {
     // Given
     UUID correlationId = UUID.randomUUID();
     Task task =
@@ -51,13 +49,11 @@ class TaskExecutorServiceTest {
             .type(TaskType.MASTER_KEY_MIGRATION)
             .build();
 
-    when(handlerRegistry.getHandler(task.getType()))
-        .thenReturn((Optional) Optional.of(taskHandler));
-    when(assignmentService.isAssignmentStillValid(task.getId())).thenReturn(true);
+    when(handlerRegistry.getHandler(task.getType())).thenReturn(Optional.of(taskHandler));
 
-    // Track context state during execution
-    final var capturedCid = new AtomicReference<>();
-    final var capturedMdc = new AtomicReference<>();
+    // Track context state during execution inside the background worker
+    final AtomicReference<UUID> capturedCid = new AtomicReference<>();
+    final AtomicReference<String> capturedMdc = new AtomicReference<>();
 
     doAnswer(
             inv -> {
@@ -66,7 +62,7 @@ class TaskExecutorServiceTest {
               return null;
             })
         .when(taskHandler)
-        .runPreExecute(task);
+        .run(task);
 
     ArgumentCaptor<Runnable> runnableCaptor = ArgumentCaptor.forClass(Runnable.class);
 
@@ -88,9 +84,7 @@ class TaskExecutorServiceTest {
     assertThat(CorrelationContext.get()).isEmpty();
     assertThat(MDC.get("correlationId")).isNull();
 
-    // To truly verify that the context was set DURING execution, we would need to mock the handler
-    // to check the context.
-    verify(taskHandler).runPreExecute(task);
-    verify(taskHandler).execute(any());
+    // Verify that the dispatcher correctly delegated to the handler
+    verify(taskHandler).run(task);
   }
 }

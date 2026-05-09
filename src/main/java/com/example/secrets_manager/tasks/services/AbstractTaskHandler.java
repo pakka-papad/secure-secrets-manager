@@ -15,60 +15,101 @@ import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Abstract base for TaskHandlers using the "Strict Template Method" pattern with Fencing and
- * Events.
+ * Events. Manages type-safe execution and lifecycle transitions.
+ *
+ * @param <I> The input payload type.
+ * @param <O> The output payload type.
  */
 @Slf4j
 @RequiredArgsConstructor
 public abstract class AbstractTaskHandler<I extends TaskInput, O extends TaskOutput>
-    implements TaskHandler<I, O> {
+    implements TaskHandler {
 
   protected final TaskRepository taskRepository;
   protected final TaskAssignmentService assignmentService;
   protected final TaskEntityConverter taskConverter;
   protected final ApplicationEventPublisher eventPublisher;
 
-  // --- Final Template Methods (Framework Core) ---
-
+  /**
+   * Implementation of the core lifecycle orchestration. Orchestrates the transition from PENDING to
+   * RUNNING, execution of business logic, and final state persistence.
+   */
   @Override
+  public final void run(Task task) {
+    try {
+      // Framework Pre-Execute (Heartbeat, State Change)
+      runPreExecute(task);
+
+      // Distributed Guard: Verify we still own it before entering core logic
+      if (!assignmentService.isAssignmentStillValid(task.getId())) {
+        log.warn("Lost assignment for task {}. Aborting logic.", task.getId());
+        return;
+      }
+
+      // Core Logic: Delegate to subclass with an explicit, functional context channel
+      final var context = createTaskContext(task);
+      final var output = execute(context);
+
+      // Framework Success: Persist final output and mark COMPLETED
+      runPostExecuteSuccess(task, output);
+
+    } catch (Exception e) {
+      log.error("Execution failed for task {}", task.getId(), e);
+      // Framework Failure: Persist error state and mark FAILED
+      runPostExecuteFailure(task, e);
+    } finally {
+      // Framework Cleanup: Release local and remote assignments
+      runCleanup(task);
+    }
+  }
+
+  /**
+   * The core business logic to be implemented by specific task handlers.
+   *
+   * @param context The context providing access to task metadata and progress reporting.
+   * @return The final output of the task.
+   */
+  protected abstract O execute(TaskContext<I> context) throws Exception;
+
+  // --- Internal Framework Lifecycle Logic ---
+
   @Transactional
-  public final void runPreExecute(Task task) {
-    // 1. Register in local registry via Event
+  protected final void runPreExecute(Task task) {
+    // Register in local registry via Event
     eventPublisher.publishEvent(new TaskStartedEvent(task.getId()));
 
-    // 2. Mandatory Framework Logic (State Update)
+    // Mandatory Framework Logic: Initialize start time and state
     task.setState(TaskState.RUNNING);
     task.setStartedAt(Instant.now());
 
     persistStateWithFencing(task);
 
-    // 3. Delegate to optional subclass hook
+    // Delegate to optional subclass hook
     onPreExecute(task);
   }
 
-  @Override
   @Transactional
-  public final void runPostExecuteSuccess(Task task, O output) {
-    // 1. Mandatory Framework Logic
+  protected final void runPostExecuteSuccess(Task task, O output) {
+    // Mandatory Framework Logic: Record output and completion time
     task.setState(TaskState.COMPLETED);
     task.setCompletedAt(Instant.now());
     task.setOutput(output);
 
     persistStateWithFencing(task);
 
-    // 2. Delegate to optional subclass hook
+    // Delegate to optional subclass hook
     onPostExecuteSuccess(task, output);
   }
 
-  @Override
   @Transactional
-  public final void runPostExecuteFailure(Task task, Exception originalException) {
-    // 1. If the original failure was already an eviction, we abort immediately
+  protected final void runPostExecuteFailure(Task task, Exception originalException) {
+    // If the original failure was already an eviction, we abort immediately
     if (originalException instanceof TaskAssignmentEvictedException) {
       log.error("Task {} failed due to eviction. Aborting all logic.", task.getId());
       return;
     }
 
-    // 2. Mandatory Framework Logic: Try to persist the FAILED state
+    // Mandatory Framework Logic: Try to persist the FAILED state
     task.setState(TaskState.FAILED);
     task.setCompletedAt(Instant.now());
 
@@ -85,13 +126,11 @@ public abstract class AbstractTaskHandler<I extends TaskInput, O extends TaskOut
       log.error("Database error while persisting failure for task {}.", task.getId(), dbEx);
     }
 
-    // 3. Delegate to optional subclass hook
-    // ONLY if we were not evicted (meaning the persistStateWithFencing call succeeded)
+    // Delegate to optional subclass hook (only if not evicted)
     onPostExecuteFailure(task, originalException);
   }
 
-  @Override
-  public final void runCleanup(Task task) {
+  protected final void runCleanup(Task task) {
     // Stage 1: Unregister locally (Silent the heartbeat immediately)
     try {
       eventPublisher.publishEvent(new TaskStoppedEvent(task.getId()));
@@ -115,8 +154,8 @@ public abstract class AbstractTaskHandler<I extends TaskInput, O extends TaskOut
   }
 
   /**
-   * Performs an atomic save-and-verify. Throws TaskAssignmentEvictedException if the worker no
-   * longer owns the task.
+   * Performs an atomic save-and-verify against the database. Throws TaskAssignmentEvictedException
+   * if the worker no longer owns the task.
    */
   protected void persistStateWithFencing(Task task) {
     var entity = taskConverter.fromModel(task);
@@ -138,7 +177,19 @@ public abstract class AbstractTaskHandler<I extends TaskInput, O extends TaskOut
     }
   }
 
-  // --- Protected Hooks ---
+  /** Creates a synchronous progress-reporting channel for the given task. */
+  @SuppressWarnings("unchecked")
+  private TaskContext<I> createTaskContext(Task task) {
+    return new TaskContext<>(
+        task.getId(),
+        (I) task.getInput(),
+        progressInfo -> {
+          task.setStateExtraInfo(progressInfo);
+          persistStateWithFencing(task);
+        });
+  }
+
+  // --- Protected Hooks (Optional override by subclasses) ---
 
   protected void onPreExecute(Task task) {}
 
