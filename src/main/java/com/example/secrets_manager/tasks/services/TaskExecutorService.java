@@ -1,6 +1,7 @@
 package com.example.secrets_manager.tasks.services;
 
 import com.example.secrets_manager.tasks.models.Task;
+import com.example.secrets_manager.tracing.CorrelationContext;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -31,7 +32,12 @@ public class TaskExecutorService {
 
   /** Submits a task for asynchronous background execution. */
   public void submitTask(Task task) {
-    taskExecutor.execute(() -> executeDecentralizedLifecycle(task));
+    // Wrap the background thread in the same Correlation Context as the initiator.
+    // This ensures end-to-end traceability across thread boundaries.
+    taskExecutor.execute(
+        () ->
+            CorrelationContext.runWithId(
+                task.getCorrelationId(), () -> executeDecentralizedLifecycle(task)));
   }
 
   /** Orchestrates the execution sequence using the decentralized handler logic. */
