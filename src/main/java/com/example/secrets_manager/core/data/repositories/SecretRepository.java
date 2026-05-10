@@ -14,7 +14,10 @@ import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.jpa.repository.QueryHints;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 @Repository
@@ -27,6 +30,12 @@ public interface SecretRepository
    */
   @EntityGraph(attributePaths = {"group", "masterKey"})
   Optional<SecretEntity> findByIdAndDeletedAtIsNull(UUID id);
+
+  /** Finds a secret by ID and acquires a pessimistic write lock. */
+  @Lock(LockModeType.PESSIMISTIC_WRITE)
+  @QueryHints({@QueryHint(name = "jakarta.persistence.lock.timeout", value = "5000")})
+  @EntityGraph(attributePaths = {"group", "masterKey"})
+  Optional<SecretEntity> findAndLockByIdAndDeletedAtIsNull(UUID id);
 
   /** Finds all active secrets in a group with pre-fetched metadata. */
   @EntityGraph(attributePaths = {"group", "masterKey"})
@@ -45,6 +54,42 @@ public interface SecretRepository
       UUID groupId, String secretName);
 
   long countByGroupIdAndDeletedAtIsNull(UUID groupId);
+
+  /**
+   * Finds IDs of active secrets that are protected by a master key version older than the specified
+   * target version. Used for background migration tasks.
+   */
+  @Query(
+      "SELECT s.id FROM SecretEntity s WHERE s.masterKeyVersion < :version AND s.deletedAt IS NULL")
+  List<UUID> findSecretIdsByMasterKeyVersionLessThan(
+      @Param("version") int version, Pageable pageable);
+
+  /**
+   * Performs an atomic re-wrap update of a secret's DEK, strictly fenced by task assignment. The
+   * update only succeeds if the specified worker still owns the task.
+   */
+  @Modifying(clearAutomatically = true, flushAutomatically = true)
+  @Query(
+      value =
+          """
+      UPDATE sm.secrets s
+      SET dek_ciphertext = :dek, dek_nonce = :nonce, dek_auth_tag = :tag,
+          master_key_version = :mkVersion, modified_at = clock_timestamp()
+      WHERE s.id = :secretId
+      AND EXISTS (
+          SELECT 1 FROM sm.task_assignments ta
+          WHERE ta.task_id = :taskId AND ta.worker_id = :workerId
+      )
+      """,
+      nativeQuery = true)
+  int updateSecretFenced(
+      @Param("secretId") UUID secretId,
+      @Param("taskId") UUID taskId,
+      @Param("workerId") UUID workerId,
+      @Param("dek") byte[] dek,
+      @Param("nonce") byte[] nonce,
+      @Param("tag") byte[] tag,
+      @Param("mkVersion") int mkVersion);
 
   /** Overrides standard findAll to ensure associated metadata is pre-fetched during searches. */
   @Override

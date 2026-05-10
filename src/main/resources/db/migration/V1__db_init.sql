@@ -72,6 +72,7 @@ CREATE TABLE IF NOT EXISTS sm.secrets(
 
 ALTER TABLE sm.secrets ADD CONSTRAINT secrets_group_id_fk FOREIGN KEY (group_id) REFERENCES sm.secret_groups(id);
 ALTER TABLE sm.secrets ADD CONSTRAINT secrets_master_key_version_fk FOREIGN KEY (master_key_version) REFERENCES sm.master_keys(version);
+CREATE INDEX IF NOT EXISTS idx_secrets_master_key_version ON sm.secrets (master_key_version);
 CREATE UNIQUE INDEX IF NOT EXISTS uq_sm_secrets_active_group_name ON sm.secrets (group_id, secret_name) WHERE deleted_at IS NULL;
 
 CREATE TABLE IF NOT EXISTS sm.audit_logs(

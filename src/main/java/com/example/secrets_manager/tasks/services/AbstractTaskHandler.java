@@ -8,6 +8,7 @@ import com.example.secrets_manager.tasks.models.events.TaskStoppedEvent;
 import com.example.secrets_manager.tasks.services.exceptions.TaskAssignmentEvictedException;
 import com.example.secrets_manager.tasks.utils.TaskUtils;
 import java.time.Instant;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
@@ -29,6 +30,29 @@ public abstract class AbstractTaskHandler<I extends TaskInput, O extends TaskOut
   protected final TaskAssignmentService assignmentService;
   protected final TaskEntityConverter taskConverter;
   protected final ApplicationEventPublisher eventPublisher;
+
+  /** Standard reasons for manually aborting a task lifecycle. */
+  protected enum AbortReason {
+    /** The worker lost its assignment (evicted by another node or heartbeat timeout). */
+    EVICTED
+  }
+
+  /**
+   * Standardized way for subclasses to immediately halt task execution.
+   *
+   * @param reason The reason for the abort.
+   * @param taskId The ID of the task being aborted.
+   * @throws TaskAssignmentEvictedException if reason is EVICTED.
+   * @throws RuntimeException for other failure reasons.
+   */
+  protected final void abort(AbortReason reason, UUID taskId) {
+    // Immediate silence: remove from local registry to stop the heartbeat
+    eventPublisher.publishEvent(new TaskStoppedEvent(taskId));
+
+    if (reason == AbortReason.EVICTED) {
+      throw new TaskAssignmentEvictedException(taskId);
+    }
+  }
 
   /**
    * Implementation of the core lifecycle orchestration. Orchestrates the transition from PENDING to
@@ -171,9 +195,7 @@ public abstract class AbstractTaskHandler<I extends TaskInput, O extends TaskOut
             entity.getStateExtraInfo());
 
     if (updated == 0) {
-      // Immediate silence: remove from local registry before throwing
-      eventPublisher.publishEvent(new TaskStoppedEvent(task.getId()));
-      throw new TaskAssignmentEvictedException(task.getId());
+      abort(AbortReason.EVICTED, entity.getId());
     }
   }
 
