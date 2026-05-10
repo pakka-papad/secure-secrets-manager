@@ -1,6 +1,7 @@
 package com.example.secrets_manager.core.data.repositories;
 
 import com.example.secrets_manager.core.data.entities.MasterKeyEntity;
+import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
@@ -30,4 +31,8 @@ public interface MasterKeyRepository
    */
   @Query("SELECT MAX(m.version) FROM MasterKeyEntity m")
   Optional<Integer> findMaxVersion();
+
+  /** Finds all master key versions with the specified status. */
+  @Query("SELECT m.version FROM MasterKeyEntity m WHERE m.status = :status")
+  List<Integer> findVersionsByStatus(String status);
 }

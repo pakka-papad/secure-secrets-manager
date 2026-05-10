@@ -7,8 +7,13 @@ import static org.mockito.Mockito.*;
 
 import com.example.secrets_manager.core.data.entities.MasterKeyEntity;
 import com.example.secrets_manager.core.data.repositories.MasterKeyRepository;
+import com.example.secrets_manager.core.models.AuditAction;
+import com.example.secrets_manager.core.models.AuditLogPayload;
 import com.example.secrets_manager.core.models.MasterKeyState;
+import com.example.secrets_manager.core.models.events.MasterKeyPromotedEvent;
 import com.example.secrets_manager.core.models.search.MasterKeySearchCriteria;
+import com.example.secrets_manager.security.WithMockAppUser;
+import com.example.secrets_manager.tracing.WithCorrelationId;
 import jakarta.persistence.EntityNotFoundException;
 import java.util.List;
 import java.util.Optional;
@@ -18,12 +23,15 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.jpa.domain.Specification;
 
 @ExtendWith(MockitoExtension.class)
 class InternalMasterKeyServiceTest {
 
   @Mock private MasterKeyRepository masterKeyRepository;
+  @Mock private AuditService auditService;
+  @Mock private ApplicationEventPublisher eventPublisher;
 
   @InjectMocks private InternalMasterKeyService internalMasterKeyService;
 
@@ -108,29 +116,44 @@ class InternalMasterKeyServiceTest {
   }
 
   @Test
-  void promoteNewKeyInternal_ShouldRetireOldAndSaveNew() {
+  @WithMockAppUser
+  @WithCorrelationId
+  void promoteNewKeyInternal_ShouldRetireOldAuditAndPublishEvent() {
     // Given
     int newVersion = 2;
     String algo = "CHACHA20-POLY1305";
+    List<Integer> currentlyActive = List.of(1);
 
+    when(masterKeyRepository.findVersionsByStatus(MasterKeyState.ACTIVE.name()))
+        .thenReturn(currentlyActive);
     when(masterKeyRepository.save(any(MasterKeyEntity.class))).thenAnswer(i -> i.getArgument(0));
 
     // When
     var result = internalMasterKeyService.promoteNewKeyInternal(newVersion, algo);
 
     // Then
-    // 1. Verify old keys were retired
     verify(masterKeyRepository)
         .updateStatusByStatus(MasterKeyState.RETIRED.name(), MasterKeyState.ACTIVE.name());
 
-    // 2. Verify new key was saved as ACTIVE
     ArgumentCaptor<MasterKeyEntity> captor = ArgumentCaptor.forClass(MasterKeyEntity.class);
     verify(masterKeyRepository).save(captor.capture());
     assertThat(captor.getValue().getVersion()).isEqualTo(newVersion);
     assertThat(captor.getValue().getStatus()).isEqualTo(MasterKeyState.ACTIVE.name());
     assertThat(captor.getValue().getEncryptAlgo()).isEqualTo(algo);
 
-    // 3. Verify returned model
+    ArgumentCaptor<AuditLogPayload> auditCaptor = ArgumentCaptor.forClass(AuditLogPayload.class);
+    verify(auditService).save(auditCaptor.capture());
+    assertThat(auditCaptor.getValue().getAction()).isEqualTo(AuditAction.MASTER_KEY_PROMOTED);
+    assertThat(auditCaptor.getValue().getTargetMasterKeyVersion()).isEqualTo(newVersion);
+    assertThat(auditCaptor.getValue().getDetails()).contains("1");
+
+    ArgumentCaptor<MasterKeyPromotedEvent> eventCaptor =
+        ArgumentCaptor.forClass(MasterKeyPromotedEvent.class);
+    verify(eventPublisher).publishEvent(eventCaptor.capture());
+    assertThat(eventCaptor.getValue().newVersion()).isEqualTo(newVersion);
+    assertThat(eventCaptor.getValue().algorithm()).isEqualTo(algo);
+    assertThat(eventCaptor.getValue().retiredVersions()).isEqualTo(currentlyActive);
+
     assertThat(result.getVersion()).isEqualTo(newVersion);
     assertThat(result.getStatus()).isEqualTo(MasterKeyState.ACTIVE);
   }

@@ -1,12 +1,14 @@
 package com.example.secrets_manager.security;
 
 import com.example.secrets_manager.core.models.UserRole;
+import com.example.secrets_manager.core.utils.CoreUtils;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -22,6 +24,24 @@ public final class SecurityUtils {
 
   private SecurityUtils() {
     // Prevent instantiation
+  }
+
+  /**
+   * Executes a task within a temporary system-level security context. Clears the context
+   * automatically after execution.
+   */
+  public static void runAsSystem(Runnable action) {
+    try {
+      var systemAuth =
+          new UsernamePasswordAuthenticationToken(
+              CoreUtils.SYSTEM_USER_ID.toString(),
+              null,
+              List.of(new SimpleGrantedAuthority(prefixRole(UserRole.ADMIN))));
+      SecurityContextHolder.getContext().setAuthentication(systemAuth);
+      action.run();
+    } finally {
+      SecurityContextHolder.clearContext();
+    }
   }
 
   /** Retrieves the authenticated user's ID from the current security context. */

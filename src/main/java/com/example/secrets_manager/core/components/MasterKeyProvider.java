@@ -5,6 +5,7 @@ import com.example.secrets_manager.core.models.MasterKeyState;
 import com.example.secrets_manager.core.models.search.MasterKeySearchCriteria;
 import com.example.secrets_manager.core.services.InternalMasterKeyService;
 import com.example.secrets_manager.crypto.CryptographyService;
+import com.example.secrets_manager.security.SecurityUtils;
 import com.example.secrets_manager.tracing.CorrelationContext;
 import jakarta.annotation.PostConstruct;
 import java.util.Base64;
@@ -16,10 +17,10 @@ import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.hibernate.id.uuid.UuidVersion7Strategy;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.env.ConfigurableEnvironment;
 import org.springframework.core.env.EnumerablePropertySource;
@@ -35,6 +36,7 @@ import org.springframework.stereotype.Component;
  */
 @Component
 @Slf4j
+@RequiredArgsConstructor
 public class MasterKeyProvider {
 
   private final Map<Integer, byte[]> masterKeys = new ConcurrentHashMap<>();
@@ -48,16 +50,6 @@ public class MasterKeyProvider {
   // Case-insensitive pattern to match keys like "MASTER_KEY__V1"
   private static final Pattern MASTER_KEY_PATTERN = Pattern.compile("(?i)MASTER_KEY__V(\\d+)");
 
-  @Autowired
-  public MasterKeyProvider(
-      CryptographyService cryptographyService,
-      InternalMasterKeyService internalMasterKeyService,
-      ConfigurableEnvironment environment) {
-    this.cryptographyService = cryptographyService;
-    this.internalMasterKeyService = internalMasterKeyService;
-    this.environment = environment;
-  }
-
   @PostConstruct
   public void init() {
     // Generate a fresh UUIDv7 for this specific initialization run
@@ -66,7 +58,7 @@ public class MasterKeyProvider {
   }
 
   private void performInit() {
-    // 1. Fetch entire DB registry once to build a lookup map
+    // Fetch entire DB registry once to build a lookup map
     final var requiredKeys =
         internalMasterKeyService.listMasterKeys(
             MasterKeySearchCriteria.builder()
@@ -78,13 +70,13 @@ public class MasterKeyProvider {
 
     int currentMaxDbVersion = internalMasterKeyService.getHighestMasterKeyVersion();
 
-    // 2. Discover matching keys across all Spring Property Sources
+    // Discover matching keys across all Spring Property Sources
     Map<Integer, String> discoveredKeys = scanForMasterKeys();
 
     Integer highestNewVersion = null;
     byte[] highestNewKeyBytes = null;
 
-    // 3. Process discovered keys
+    // Process discovered keys
     for (Map.Entry<Integer, String> entry : discoveredKeys.entrySet()) {
       int version = entry.getKey();
       String base64Value = entry.getValue();
@@ -101,7 +93,7 @@ public class MasterKeyProvider {
       }
     }
 
-    // 4. Validation: Ensure all ACTIVE/RETIRED keys from DB are now in memory
+    // Validation: Ensure all ACTIVE/RETIRED keys from DB are now in memory
     for (var dbKey : requiredKeys) {
       if (!this.masterKeys.containsKey(dbKey.getVersion())) {
         throw new IllegalStateException(
@@ -111,14 +103,18 @@ public class MasterKeyProvider {
       }
     }
 
-    // 5. Atomic Promotion (if new key found)
+    // Atomic Promotion (if new key found)
     if (highestNewVersion != null) {
-      internalMasterKeyService.promoteNewKeyInternal(highestNewVersion, defaultAlgorithm);
+      // Ensure system security context for the service call
+      final var versionToPromote = highestNewVersion;
+      final var algorithmToUse = defaultAlgorithm;
+      SecurityUtils.runAsSystem(
+          () -> internalMasterKeyService.promoteNewKeyInternal(versionToPromote, algorithmToUse));
       this.masterKeys.put(highestNewVersion, highestNewKeyBytes);
     }
 
     if (this.masterKeys.isEmpty()) {
-      throw new IllegalStateException("FATAL: No valid master keys found. System cannot operate.");
+      throw new IllegalStateException("FATAL: No valid master keys found.");
     }
 
     log.info(
