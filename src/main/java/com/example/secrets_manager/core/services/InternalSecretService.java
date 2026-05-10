@@ -1,7 +1,6 @@
 package com.example.secrets_manager.core.services;
 
 import com.example.secrets_manager.core.components.MasterKeyProvider;
-import com.example.secrets_manager.core.data.entities.SecretEntity;
 import com.example.secrets_manager.core.data.repositories.SecretRepository;
 import com.example.secrets_manager.core.models.AuditAction;
 import com.example.secrets_manager.core.models.AuditLogPayload;

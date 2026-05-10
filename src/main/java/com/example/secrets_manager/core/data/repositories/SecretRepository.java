@@ -91,6 +91,12 @@ public interface SecretRepository
       @Param("tag") byte[] tag,
       @Param("mkVersion") int mkVersion);
 
+  /**
+   * Checks if any active secrets exist that are protected by a master key version older than the
+   * specified target. Uses short-circuiting EXISTS logic.
+   */
+  boolean existsByMasterKeyVersionLessThanAndDeletedAtIsNull(int version);
+
   /** Overrides standard findAll to ensure associated metadata is pre-fetched during searches. */
   @Override
   @EntityGraph(attributePaths = {"group", "masterKey"})

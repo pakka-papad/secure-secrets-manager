@@ -1,5 +1,6 @@
 package com.example.secrets_manager.core.listeners;
 
+import com.example.secrets_manager.core.data.repositories.SecretRepository;
 import com.example.secrets_manager.core.models.events.MasterKeyPromotedEvent;
 import com.example.secrets_manager.tasks.models.TaskType;
 import com.example.secrets_manager.tasks.models.masterkeymigration.MasterKeyMigrationInput;
@@ -19,13 +20,24 @@ import org.springframework.stereotype.Component;
 public class MasterKeyLifecycleListener {
 
   private final TaskService taskService;
+  private final SecretRepository secretRepository;
 
   /**
-   * Responds to a master key promotion by scheduling a background migration task. This listener
-   * runs in the same transaction as the promotion, ensuring atomicity.
+   * Responds to a master key promotion by scheduling a background migration task if work exists.
+   * This listener runs in the same transaction as the promotion, ensuring atomicity.
    */
   @EventListener
   public void onMasterKeyPromoted(MasterKeyPromotedEvent event) {
+    final var workExists =
+        secretRepository.existsByMasterKeyVersionLessThanAndDeletedAtIsNull(event.newVersion());
+
+    if (!workExists) {
+      log.info(
+          "No secrets require migration to v{}. Skipping background task creation.",
+          event.newVersion());
+      return;
+    }
+
     log.info(
         "Reacting to Master Key Promotion v{}. Scheduling background migration...",
         event.newVersion());
