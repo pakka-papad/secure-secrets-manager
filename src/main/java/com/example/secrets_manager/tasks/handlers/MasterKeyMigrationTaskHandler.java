@@ -1,4 +1,4 @@
-package com.example.secrets_manager.tasks.services;
+package com.example.secrets_manager.tasks.handlers;
 
 import com.example.secrets_manager.core.data.repositories.SecretRepository;
 import com.example.secrets_manager.core.services.InternalSecretService;
@@ -9,6 +9,8 @@ import com.example.secrets_manager.tasks.models.TaskType;
 import com.example.secrets_manager.tasks.models.masterkeymigration.MasterKeyMigrationExtraInfo;
 import com.example.secrets_manager.tasks.models.masterkeymigration.MasterKeyMigrationInput;
 import com.example.secrets_manager.tasks.models.masterkeymigration.MasterKeyMigrationOutput;
+import com.example.secrets_manager.tasks.services.AbstractTaskHandler;
+import com.example.secrets_manager.tasks.services.TaskAssignmentService;
 import com.example.secrets_manager.tasks.services.exceptions.TaskAssignmentEvictedException;
 import java.util.HashMap;
 import java.util.List;
