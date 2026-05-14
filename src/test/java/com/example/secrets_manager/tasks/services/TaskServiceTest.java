@@ -9,20 +9,28 @@ import com.example.secrets_manager.security.SecurityUtils;
 import com.example.secrets_manager.security.WithMockAppUser;
 import com.example.secrets_manager.tasks.data.converters.TaskEntityConverter;
 import com.example.secrets_manager.tasks.data.entities.TaskEntity;
+import com.example.secrets_manager.tasks.data.repositories.TaskInfo;
 import com.example.secrets_manager.tasks.data.repositories.TaskRepository;
-import com.example.secrets_manager.tasks.models.Task;
-import com.example.secrets_manager.tasks.models.TaskType;
+import com.example.secrets_manager.tasks.models.*;
 import com.example.secrets_manager.tracing.CorrelationContext;
 import com.example.secrets_manager.tracing.MissingCorrelationContextException;
 import com.example.secrets_manager.tracing.WithCorrelationId;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import jakarta.persistence.EntityNotFoundException;
+import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
+import java.util.function.Function;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.security.core.context.SecurityContextHolder;
 
 @ExtendWith(MockitoExtension.class)
@@ -107,5 +115,63 @@ class TaskServiceTest {
     SecurityContextHolder.clearContext();
     assertThatThrownBy(() -> taskService.createTask(TaskType.MASTER_KEY_MIGRATION, null))
         .isInstanceOf(NullPointerException.class);
+  }
+
+  @Test
+  @WithMockAppUser(roles = "ADMIN")
+  @SuppressWarnings("unchecked")
+  void listTasks_ShouldReturnProjectedPage() {
+    // Given
+    TaskSearchCriteria criteria = TaskSearchCriteria.builder().build();
+    Pageable pageable = Pageable.ofSize(10);
+    TaskInfo mockInfo = mock(TaskInfo.class);
+    Page<TaskInfo> page = new PageImpl<>(List.of(mockInfo));
+
+    // Fix ambiguous findBy call
+    when(taskRepository.findBy(any(Specification.class), any(Function.class))).thenReturn(page);
+
+    // When
+    var result = taskService.listTasks(criteria, pageable);
+
+    // Then
+    assertThat(result).isNotNull();
+    assertThat(result.getContent()).hasSize(1);
+    verify(taskRepository).findBy(any(Specification.class), any(Function.class));
+  }
+
+  @Test
+  @WithMockAppUser(roles = "ADMIN")
+  void getTaskById_ShouldReturnModel_WhenExists() {
+    // Given
+    UUID taskId = UUID.randomUUID();
+    TaskEntity entity =
+        TaskEntity.builder()
+            .id(taskId)
+            .type(TaskType.MASTER_KEY_MIGRATION.name())
+            .state(TaskState.PENDING.name())
+            .correlationId(UUID.randomUUID())
+            .initiatorUserId(UUID.randomUUID())
+            .build();
+
+    when(taskRepository.findById(taskId)).thenReturn(Optional.of(entity));
+
+    // When
+    Task result = taskService.getTaskById(taskId);
+
+    // Then
+    assertThat(result).isNotNull();
+    assertThat(result.getId()).isEqualTo(taskId);
+  }
+
+  @Test
+  @WithMockAppUser(roles = "ADMIN")
+  void getTaskById_ShouldThrowNotFound_WhenMissing() {
+    // Given
+    UUID taskId = UUID.randomUUID();
+    when(taskRepository.findById(taskId)).thenReturn(Optional.empty());
+
+    // When & Then
+    assertThatThrownBy(() -> taskService.getTaskById(taskId))
+        .isInstanceOf(EntityNotFoundException.class);
   }
 }
