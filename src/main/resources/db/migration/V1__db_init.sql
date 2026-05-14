@@ -137,6 +137,8 @@ CREATE TABLE IF NOT EXISTS sm.tasks(
 ALTER TABLE sm.tasks ADD CONSTRAINT tasks_initiator_user_id_fk FOREIGN KEY (initiator_user_id) REFERENCES sm.users(id);
 ALTER TABLE sm.tasks ADD CONSTRAINT tasks_parent_task_id_fk FOREIGN KEY (parent_task_id) REFERENCES sm.tasks(id);
 CREATE INDEX IF NOT EXISTS idx_tasks_correlation_id ON sm.tasks (correlation_id);
+CREATE INDEX IF NOT EXISTS idx_tasks_state_id_desc ON sm.tasks (state, id DESC);
+CREATE INDEX IF NOT EXISTS idx_tasks_type_id_desc ON sm.tasks (type, id DESC);
 
 CREATE TABLE IF NOT EXISTS sm.worker_registry (
     id UUID PRIMARY KEY,
