@@ -56,6 +56,25 @@ class TaskAssignmentServiceTest {
   }
 
   @Test
+  void claimTask_SimultaneousRace_OnlyOneShouldSucceed() {
+    // Given
+    UUID taskId = UUID.randomUUID();
+
+    // First attempt succeeds
+    when(assignmentRepository.atomicClaim(taskId, TaskUtils.WORKER_ID)).thenReturn(1);
+    boolean firstResult = assignmentService.claimTask(taskId);
+
+    // Second attempt fails because row already exists/updated
+    when(assignmentRepository.atomicClaim(taskId, TaskUtils.WORKER_ID)).thenReturn(0);
+    boolean secondResult = assignmentService.claimTask(taskId);
+
+    // Then
+    assertThat(firstResult).isTrue();
+    assertThat(secondResult).isFalse();
+    verify(assignmentRepository, times(2)).atomicClaim(eq(taskId), any());
+  }
+
+  @Test
   void reclaimTask_ShouldDeleteAndThenClaim() {
     // Given
     UUID taskId = UUID.randomUUID();

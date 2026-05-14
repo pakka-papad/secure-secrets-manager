@@ -78,6 +78,18 @@ class WorkerServiceTest {
   }
 
   @Test
+  void sendHeartbeat_ShouldReactImmediatelyToTaskStopped() {
+    // Given: Tasks were active, but now they are gone
+    when(localTaskRegistry.hasActiveTasks()).thenReturn(false);
+
+    // When
+    service.sendHeartbeat();
+
+    // Then: No DB update should happen
+    verify(workerRepository, never()).upsertHeartbeat(any());
+  }
+
+  @Test
   void cleanup_ShouldDeleteWorkerRow() {
     // When
     service.cleanup();

@@ -82,4 +82,20 @@ class CorrelationFilterTest {
     assertThat(newId).isNotNull();
     assertThat(UUID.fromString(newId)).isNotNull();
   }
+
+  @Test
+  void doFilter_ShouldNeverLeakBetweenRequests_OnSameThread() throws ServletException, IOException {
+    // First Request
+    filter.doFilter(request, response, filterChain);
+    String id1 = response.getHeader("X-Correlation-ID");
+
+    // Second Request (same filter instance, same thread)
+    MockHttpServletRequest request2 = new MockHttpServletRequest();
+    MockHttpServletResponse response2 = new MockHttpServletResponse();
+    filter.doFilter(request2, response2, filterChain);
+    String id2 = response2.getHeader("X-Correlation-ID");
+
+    assertThat(id1).isNotEqualTo(id2);
+    assertThat(CorrelationContext.get()).isEmpty();
+  }
 }
