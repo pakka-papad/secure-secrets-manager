@@ -8,6 +8,7 @@ import java.util.function.Consumer;
  * task metadata and specific execution logic.
  *
  * @param <I> The specific TaskInput type.
+ * @param <E> The specific TaskStateExtraInfo type.
  */
-public record TaskContext<I extends TaskInput>(
-    UUID taskId, I input, Consumer<TaskStateExtraInfo> progressUpdater) {}
+public record TaskContext<I extends TaskInput, E extends TaskStateExtraInfo>(
+    UUID taskId, I input, Consumer<E> progressUpdater) {}

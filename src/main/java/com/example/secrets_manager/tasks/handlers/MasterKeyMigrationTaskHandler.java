@@ -28,7 +28,8 @@ import org.springframework.stereotype.Component;
 @Component
 @Slf4j
 public class MasterKeyMigrationTaskHandler
-    extends AbstractTaskHandler<MasterKeyMigrationInput, MasterKeyMigrationOutput> {
+    extends AbstractTaskHandler<
+        MasterKeyMigrationInput, MasterKeyMigrationOutput, MasterKeyMigrationExtraInfo> {
 
   private static final int BATCH_SIZE = 50;
   private static final int MAX_ERROR_DETAILS = 10;
@@ -54,8 +55,8 @@ public class MasterKeyMigrationTaskHandler
   }
 
   @Override
-  public MasterKeyMigrationOutput execute(TaskContext<MasterKeyMigrationInput> context)
-      throws Exception {
+  public MasterKeyMigrationOutput execute(
+      TaskContext<MasterKeyMigrationInput, MasterKeyMigrationExtraInfo> context) throws Exception {
     final int targetMkVersion = context.input().getTargetMasterKeyVersion();
     log.info(
         "Starting master key migration to version v{} for task {}",

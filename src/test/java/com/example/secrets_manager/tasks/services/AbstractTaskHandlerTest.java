@@ -163,7 +163,10 @@ class AbstractTaskHandlerTest {
     }
   }
 
-  private static class TestHandler extends AbstractTaskHandler<TestInput, TestOutput> {
+  private static class TestExtraInfo implements TaskStateExtraInfo {}
+
+  private static class TestHandler
+      extends AbstractTaskHandler<TestInput, TestOutput, TestExtraInfo> {
     private TestOutput executeResult;
     private Exception executeException;
     private boolean executeCalled = false;
@@ -194,7 +197,7 @@ class AbstractTaskHandlerTest {
     }
 
     @Override
-    protected TestOutput execute(TaskContext<TestInput> context) throws Exception {
+    protected TestOutput execute(TaskContext<TestInput, TestExtraInfo> context) throws Exception {
       this.executeCalled = true;
       if (executeException != null) throw executeException;
       return executeResult;

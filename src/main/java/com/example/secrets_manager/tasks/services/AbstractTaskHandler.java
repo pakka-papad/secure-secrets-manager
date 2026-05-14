@@ -20,10 +20,12 @@ import org.springframework.transaction.annotation.Transactional;
  *
  * @param <I> The input payload type.
  * @param <O> The output payload type.
+ * @param <E> The progress update (extra info) type.
  */
 @Slf4j
 @RequiredArgsConstructor
-public abstract class AbstractTaskHandler<I extends TaskInput, O extends TaskOutput>
+public abstract class AbstractTaskHandler<
+        I extends TaskInput, O extends TaskOutput, E extends TaskStateExtraInfo>
     implements TaskHandler {
 
   protected final TaskRepository taskRepository;
@@ -93,7 +95,7 @@ public abstract class AbstractTaskHandler<I extends TaskInput, O extends TaskOut
    * @param context The context providing access to task metadata and progress reporting.
    * @return The final output of the task.
    */
-  protected abstract O execute(TaskContext<I> context) throws Exception;
+  protected abstract O execute(TaskContext<I, E> context) throws Exception;
 
   // --- Internal Framework Lifecycle Logic ---
 
@@ -201,7 +203,7 @@ public abstract class AbstractTaskHandler<I extends TaskInput, O extends TaskOut
 
   /** Creates a synchronous progress-reporting channel for the given task. */
   @SuppressWarnings("unchecked")
-  private TaskContext<I> createTaskContext(Task task) {
+  protected final TaskContext<I, E> createTaskContext(Task task) {
     return new TaskContext<>(
         task.getId(),
         (I) task.getInput(),

@@ -64,7 +64,7 @@ class MasterKeyMigrationTaskHandlerTest {
     UUID taskId = UUID.randomUUID();
     int targetVersion = 2;
     var input = new MasterKeyMigrationInput(targetVersion);
-    var context = new TaskContext<>(taskId, input, (Consumer) progressUpdater);
+    var context = new TaskContext<>(taskId, input, progressUpdater);
 
     UUID secretId1 = UUID.randomUUID();
     UUID secretId2 = UUID.randomUUID();
@@ -95,7 +95,7 @@ class MasterKeyMigrationTaskHandlerTest {
     UUID taskId = UUID.randomUUID();
     int targetVersion = 2;
     var input = new MasterKeyMigrationInput(targetVersion);
-    var context = new TaskContext<>(taskId, input, (Consumer) progressUpdater);
+    var context = new TaskContext<>(taskId, input, progressUpdater);
 
     UUID secretId1 = UUID.randomUUID();
     UUID secretId2 = UUID.randomUUID();
@@ -126,7 +126,7 @@ class MasterKeyMigrationTaskHandlerTest {
     UUID taskId = UUID.randomUUID();
     int targetVersion = 2;
     var input = new MasterKeyMigrationInput(targetVersion);
-    var context = new TaskContext<>(taskId, input, (Consumer) progressUpdater);
+    var context = new TaskContext<>(taskId, input, progressUpdater);
 
     UUID secretId1 = UUID.randomUUID();
 
