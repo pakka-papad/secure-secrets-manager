@@ -9,6 +9,6 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo;
 @JsonSubTypes({
   @JsonSubTypes.Type(
       value = MasterKeyMigrationExtraInfo.class,
-      name = "MASTER_KEY_MIGRATION_EXTRA_INFO")
+      name = TaskTypeConstants.MK_MIGRATION_EXTRA_INFO)
 })
 public interface TaskStateExtraInfo {}

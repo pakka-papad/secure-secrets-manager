@@ -1,6 +1,7 @@
 package com.example.secrets_manager.tasks.models.masterkeymigration;
 
 import com.example.secrets_manager.tasks.models.TaskInput;
+import com.example.secrets_manager.tasks.models.TaskTypeConstants;
 import com.fasterxml.jackson.annotation.JsonTypeName;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -12,7 +13,7 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@JsonTypeName("MASTER_KEY_MIGRATION_INPUT")
+@JsonTypeName(TaskTypeConstants.MK_MIGRATION_INPUT)
 public class MasterKeyMigrationInput implements TaskInput {
   private int targetMasterKeyVersion;
 }

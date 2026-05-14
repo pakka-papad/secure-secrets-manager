@@ -7,6 +7,8 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo;
 /** Base interface for all task output payloads. */
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "type")
 @JsonSubTypes({
-  @JsonSubTypes.Type(value = MasterKeyMigrationOutput.class, name = "MASTER_KEY_MIGRATION_OUTPUT")
+  @JsonSubTypes.Type(
+      value = MasterKeyMigrationOutput.class,
+      name = TaskTypeConstants.MK_MIGRATION_OUTPUT)
 })
 public interface TaskOutput {}
