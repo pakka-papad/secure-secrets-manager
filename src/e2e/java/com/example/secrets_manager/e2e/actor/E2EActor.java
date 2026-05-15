@@ -1,9 +1,11 @@
 package com.example.secrets_manager.e2e.actor;
 
+import com.example.secrets_manager.e2e.client.AdminTestClient;
 import com.example.secrets_manager.e2e.client.SecretClient;
 import com.example.secrets_manager.e2e.client.SecretGroupAuthorizationClient;
 import com.example.secrets_manager.e2e.client.SecretGroupClient;
 import com.example.secrets_manager.e2e.client.SystemMetadataClient;
+import com.example.secrets_manager.e2e.client.TaskClient;
 import com.example.secrets_manager.e2e.client.UserClient;
 
 public class E2EActor {
@@ -15,6 +17,8 @@ public class E2EActor {
   private SecretClient secretClient;
   private SecretGroupAuthorizationClient secretGroupAuthorizationClient;
   private SystemMetadataClient systemMetadataClient;
+  private TaskClient taskClient;
+  private AdminTestClient adminTestClient;
 
   public E2EActor(String token, String username, String password) {
     this.token = token;
@@ -55,6 +59,20 @@ public class E2EActor {
       systemMetadataClient = new SystemMetadataClient(token);
     }
     return systemMetadataClient;
+  }
+
+  public TaskClient tasks() {
+    if (taskClient == null) {
+      taskClient = new TaskClient(token);
+    }
+    return taskClient;
+  }
+
+  public AdminTestClient test() {
+    if (adminTestClient == null) {
+      adminTestClient = new AdminTestClient(token);
+    }
+    return adminTestClient;
   }
 
   public String getToken() {

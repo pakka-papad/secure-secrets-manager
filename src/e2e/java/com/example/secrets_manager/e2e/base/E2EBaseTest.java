@@ -9,11 +9,13 @@ import java.util.TimeZone;
 import org.junit.jupiter.api.BeforeEach;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.PostgreSQLContainer;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@ActiveProfiles("test")
 public abstract class E2EBaseTest {
 
   static PostgreSQLContainer<?> postgres =
@@ -70,6 +72,10 @@ public abstract class E2EBaseTest {
 
     // 5. Disable Rate Limiting for E2E speed
     registry.add("bucket4j.enabled", () -> false);
+
+    // 6. Speed up Task Polling
+    registry.add("task.poll.pending-ms", () -> 1000);
+    registry.add("task.poll.stale-ms", () -> 1000);
   }
 
   @LocalServerPort private int port;
