@@ -44,4 +44,11 @@ public interface TaskAssignmentRepository extends JpaRepository<TaskAssignmentEn
     String intervalStr = threshold.getSeconds() + " seconds";
     return _findStaleTaskIds(intervalStr, limit);
   }
+
+  /**
+   * Deletes an assignment only if it belongs to the specified worker. This provides a "Fencing"
+   * mechanism during task release.
+   */
+  @Modifying(clearAutomatically = true, flushAutomatically = true)
+  void deleteByTaskIdAndWorkerId(@Param("taskId") UUID taskId, @Param("workerId") UUID workerId);
 }

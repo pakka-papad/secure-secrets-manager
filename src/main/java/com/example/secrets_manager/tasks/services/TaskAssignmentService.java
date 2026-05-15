@@ -57,6 +57,6 @@ public class TaskAssignmentService {
   /** Removes the assignment upon completion or failure. */
   @Transactional
   public void releaseTask(UUID taskId) {
-    assignmentRepository.deleteById(taskId);
+    assignmentRepository.deleteByTaskIdAndWorkerId(taskId, TaskUtils.WORKER_ID);
   }
 }

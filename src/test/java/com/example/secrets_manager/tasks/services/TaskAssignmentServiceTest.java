@@ -132,6 +132,6 @@ class TaskAssignmentServiceTest {
     assignmentService.releaseTask(taskId);
 
     // Then
-    verify(assignmentRepository).deleteById(taskId);
+    verify(assignmentRepository).deleteByTaskIdAndWorkerId(taskId, TaskUtils.WORKER_ID);
   }
 }
