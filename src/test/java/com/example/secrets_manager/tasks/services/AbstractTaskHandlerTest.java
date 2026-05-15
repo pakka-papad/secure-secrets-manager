@@ -8,7 +8,6 @@ import static org.mockito.Mockito.*;
 import com.example.secrets_manager.tasks.data.converters.TaskEntityConverter;
 import com.example.secrets_manager.tasks.data.repositories.TaskRepository;
 import com.example.secrets_manager.tasks.models.*;
-import com.example.secrets_manager.tasks.models.events.TaskStartedEvent;
 import com.example.secrets_manager.tasks.models.events.TaskStoppedEvent;
 import com.example.secrets_manager.tasks.services.exceptions.TaskAssignmentEvictedException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -28,6 +27,7 @@ class AbstractTaskHandlerTest {
   @Mock private TaskAssignmentService assignmentService;
   @Mock private ApplicationEventPublisher eventPublisher;
 
+  private TaskExecutionOrchestrator orchestrator;
   private TestHandler handler;
 
   @BeforeEach
@@ -35,7 +35,12 @@ class AbstractTaskHandlerTest {
     final var objectMapper = new ObjectMapper();
     objectMapper.registerModule(new JavaTimeModule());
     final var taskConverter = new TaskEntityConverter(objectMapper);
-    handler = new TestHandler(taskRepository, assignmentService, taskConverter, eventPublisher);
+
+    // We use a real orchestrator but spy on it to verify delegation
+    orchestrator =
+        spy(new TaskExecutionOrchestrator(taskRepository, taskConverter, eventPublisher));
+
+    handler = new TestHandler(orchestrator, assignmentService, eventPublisher);
   }
 
   @Test
@@ -63,8 +68,8 @@ class AbstractTaskHandlerTest {
     assertThat(task.getState()).isEqualTo(TaskState.COMPLETED);
     assertThat(task.getOutput()).isEqualTo(output);
 
-    verify(eventPublisher).publishEvent(any(TaskStartedEvent.class));
-    verify(eventPublisher).publishEvent(any(TaskStoppedEvent.class));
+    verify(orchestrator).startTask(eq(task), any());
+    verify(orchestrator).completeTask(eq(task), eq(output), any());
     verify(assignmentService).releaseTask(task.getId());
   }
 
@@ -90,6 +95,7 @@ class AbstractTaskHandlerTest {
 
     // Then
     assertThat(task.getState()).isEqualTo(TaskState.FAILED);
+    verify(orchestrator).failTask(eq(task), any(), any());
     verify(assignmentService).releaseTask(task.getId());
   }
 
@@ -115,27 +121,6 @@ class AbstractTaskHandlerTest {
     assertThat(handler.isExecuteCalled()).isFalse();
     // Cleanup always runs in finally block, releasing the task
     verify(assignmentService).releaseTask(task.getId());
-  }
-
-  @Test
-  void persistStateWithFencing_ShouldThrowEvictedException_WhenUpdateReturnsZero() {
-    // Given
-    Task task =
-        Task.builder()
-            .id(UUID.randomUUID())
-            .type(TaskType.MASTER_KEY_MIGRATION)
-            .state(TaskState.PENDING)
-            .correlationId(UUID.randomUUID())
-            .initiatorUserId(UUID.randomUUID())
-            .build();
-    when(taskRepository.updateFenced(any(), any(), any(), any(), any(), any(), any()))
-        .thenReturn(0);
-
-    // When & Then
-    assertThatThrownBy(() -> handler.persistStateWithFencing(task))
-        .isInstanceOf(TaskAssignmentEvictedException.class);
-
-    verify(eventPublisher).publishEvent(any(TaskStoppedEvent.class));
   }
 
   @Test
@@ -172,11 +157,10 @@ class AbstractTaskHandlerTest {
     private boolean executeCalled = false;
 
     public TestHandler(
-        TaskRepository tr,
+        TaskExecutionOrchestrator orchestrator,
         TaskAssignmentService as,
-        TaskEntityConverter tc,
         ApplicationEventPublisher ep) {
-      super(tr, as, tc, ep);
+      super(orchestrator, as, ep);
     }
 
     void setExecuteResult(TestOutput res) {

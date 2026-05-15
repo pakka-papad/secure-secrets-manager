@@ -57,12 +57,18 @@ public interface SecretRepository
 
   /**
    * Finds IDs of active secrets that are protected by a master key version older than the specified
-   * target version. Used for background migration tasks.
+   * target version. Supports keyset pagination via lastId for robust batch processing.
    */
   @Query(
-      "SELECT s.id FROM SecretEntity s WHERE s.masterKeyVersion < :version AND s.deletedAt IS NULL")
+      """
+      SELECT s.id FROM SecretEntity s
+      WHERE s.masterKeyVersion < :version
+      AND (:lastId IS NULL OR s.id > :lastId)
+      AND s.deletedAt IS NULL
+      ORDER BY s.id ASC
+      """)
   List<UUID> findSecretIdsByMasterKeyVersionLessThan(
-      @Param("version") int version, Pageable pageable);
+      @Param("version") int version, @Param("lastId") UUID lastId, Pageable pageable);
 
   /**
    * Performs an atomic re-wrap update of a secret's DEK, strictly fenced by task assignment. The

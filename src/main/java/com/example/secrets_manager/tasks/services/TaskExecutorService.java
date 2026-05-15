@@ -1,5 +1,6 @@
 package com.example.secrets_manager.tasks.services;
 
+import com.example.secrets_manager.security.SecurityUtils;
 import com.example.secrets_manager.tasks.models.Task;
 import com.example.secrets_manager.tracing.CorrelationContext;
 import lombok.extern.slf4j.Slf4j;
@@ -39,7 +40,7 @@ public class TaskExecutorService {
   private void dispatchToHandler(Task task) {
     final var handler = handlerRegistry.getHandler(task.getType());
     if (handler.isPresent()) {
-      handler.get().run(task);
+      SecurityUtils.runAsSystem(() -> handler.get().run(task));
     } else {
       log.error(
           "CRITICAL: No handler found for task type: {}. Task ID: {}",

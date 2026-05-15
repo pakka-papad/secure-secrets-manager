@@ -41,8 +41,8 @@ public interface TaskRepository
               + "SET state = :state, "
               + "    started_at = :startedAt, "
               + "    completed_at = :completedAt, "
-              + "    task_output = :taskOutput, "
-              + "    state_extra_info = :stateExtraInfo "
+              + "    task_output = CAST(:taskOutput AS jsonb), "
+              + "    state_extra_info = CAST(:stateExtraInfo AS jsonb) "
               + "WHERE id = :taskId AND "
               + "EXISTS (SELECT 1 FROM sm.task_assignments ta WHERE ta.task_id = :taskId AND ta.worker_id = :workerId)",
       nativeQuery = true)

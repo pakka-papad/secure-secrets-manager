@@ -2,8 +2,6 @@ package com.example.secrets_manager.tasks.handlers;
 
 import com.example.secrets_manager.core.data.repositories.SecretRepository;
 import com.example.secrets_manager.core.services.InternalSecretService;
-import com.example.secrets_manager.tasks.data.converters.TaskEntityConverter;
-import com.example.secrets_manager.tasks.data.repositories.TaskRepository;
 import com.example.secrets_manager.tasks.models.TaskContext;
 import com.example.secrets_manager.tasks.models.TaskType;
 import com.example.secrets_manager.tasks.models.masterkeymigration.MasterKeyMigrationExtraInfo;
@@ -11,6 +9,7 @@ import com.example.secrets_manager.tasks.models.masterkeymigration.MasterKeyMigr
 import com.example.secrets_manager.tasks.models.masterkeymigration.MasterKeyMigrationOutput;
 import com.example.secrets_manager.tasks.services.AbstractTaskHandler;
 import com.example.secrets_manager.tasks.services.TaskAssignmentService;
+import com.example.secrets_manager.tasks.services.TaskExecutionOrchestrator;
 import com.example.secrets_manager.tasks.services.exceptions.TaskAssignmentEvictedException;
 import java.util.HashMap;
 import java.util.List;
@@ -20,6 +19,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Component;
+import org.springframework.util.CollectionUtils;
 
 /**
  * Task handler for background master key migrations. Re-wraps all active secrets with a new active
@@ -38,13 +38,12 @@ public class MasterKeyMigrationTaskHandler
   private final InternalSecretService internalSecretService;
 
   public MasterKeyMigrationTaskHandler(
-      TaskRepository taskRepository,
+      TaskExecutionOrchestrator orchestrator,
       TaskAssignmentService assignmentService,
-      TaskEntityConverter taskConverter,
       ApplicationEventPublisher eventPublisher,
       SecretRepository secretRepository,
       InternalSecretService internalSecretService) {
-    super(taskRepository, assignmentService, taskConverter, eventPublisher);
+    super(orchestrator, assignmentService, eventPublisher);
     this.secretRepository = secretRepository;
     this.internalSecretService = internalSecretService;
   }
@@ -68,12 +67,13 @@ public class MasterKeyMigrationTaskHandler
     final Map<UUID, String> errorDetails = new HashMap<>();
 
     List<UUID> secretIds;
+    UUID lastId = null;
 
     do {
 
       secretIds =
           secretRepository.findSecretIdsByMasterKeyVersionLessThan(
-              targetMkVersion, PageRequest.of(0, BATCH_SIZE));
+              targetMkVersion, lastId, PageRequest.of(0, BATCH_SIZE));
 
       for (UUID secretId : secretIds) {
         try {
@@ -91,6 +91,11 @@ public class MasterKeyMigrationTaskHandler
             errorDetails.put(secretId, e.getMessage());
           }
         }
+      }
+
+      // Maintain Keyset Pagination pointer
+      if (!CollectionUtils.isEmpty(secretIds)) {
+        lastId = secretIds.get(secretIds.size() - 1);
       }
 
       // Report Progress via the provided context channel

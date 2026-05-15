@@ -8,14 +8,13 @@ import static org.mockito.Mockito.*;
 
 import com.example.secrets_manager.core.data.repositories.SecretRepository;
 import com.example.secrets_manager.core.services.InternalSecretService;
-import com.example.secrets_manager.tasks.data.converters.TaskEntityConverter;
-import com.example.secrets_manager.tasks.data.repositories.TaskRepository;
 import com.example.secrets_manager.tasks.models.TaskContext;
 import com.example.secrets_manager.tasks.models.TaskType;
 import com.example.secrets_manager.tasks.models.masterkeymigration.MasterKeyMigrationExtraInfo;
 import com.example.secrets_manager.tasks.models.masterkeymigration.MasterKeyMigrationInput;
 import com.example.secrets_manager.tasks.models.masterkeymigration.MasterKeyMigrationOutput;
 import com.example.secrets_manager.tasks.services.TaskAssignmentService;
+import com.example.secrets_manager.tasks.services.TaskExecutionOrchestrator;
 import com.example.secrets_manager.tasks.services.exceptions.TaskAssignmentEvictedException;
 import java.util.List;
 import java.util.UUID;
@@ -31,9 +30,8 @@ import org.springframework.data.domain.Pageable;
 @ExtendWith(MockitoExtension.class)
 class MasterKeyMigrationTaskHandlerTest {
 
-  @Mock private TaskRepository taskRepository;
+  @Mock private TaskExecutionOrchestrator orchestrator;
   @Mock private TaskAssignmentService assignmentService;
-  @Mock private TaskEntityConverter taskConverter;
   @Mock private ApplicationEventPublisher eventPublisher;
   @Mock private SecretRepository secretRepository;
   @Mock private InternalSecretService internalSecretService;
@@ -45,9 +43,8 @@ class MasterKeyMigrationTaskHandlerTest {
   void setUp() {
     handler =
         new MasterKeyMigrationTaskHandler(
-            taskRepository,
+            orchestrator,
             assignmentService,
-            taskConverter,
             eventPublisher,
             secretRepository,
             internalSecretService);
@@ -71,7 +68,7 @@ class MasterKeyMigrationTaskHandlerTest {
 
     // Mock two batches: first has 2 secrets, second is empty
     when(secretRepository.findSecretIdsByMasterKeyVersionLessThan(
-            eq(targetVersion), any(Pageable.class)))
+            eq(targetVersion), any(), any(Pageable.class)))
         .thenReturn(List.of(secretId1, secretId2))
         .thenReturn(List.of());
 
@@ -101,7 +98,7 @@ class MasterKeyMigrationTaskHandlerTest {
     UUID secretId2 = UUID.randomUUID();
 
     when(secretRepository.findSecretIdsByMasterKeyVersionLessThan(
-            eq(targetVersion), any(Pageable.class)))
+            eq(targetVersion), any(), any(Pageable.class)))
         .thenReturn(List.of(secretId1, secretId2))
         .thenReturn(List.of());
 
@@ -131,7 +128,7 @@ class MasterKeyMigrationTaskHandlerTest {
     UUID secretId1 = UUID.randomUUID();
 
     when(secretRepository.findSecretIdsByMasterKeyVersionLessThan(
-            eq(targetVersion), any(Pageable.class)))
+            eq(targetVersion), any(), any(Pageable.class)))
         .thenReturn(List.of(secretId1));
 
     // Simulate eviction during the service call
