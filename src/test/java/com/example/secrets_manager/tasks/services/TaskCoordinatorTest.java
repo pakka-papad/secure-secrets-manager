@@ -5,6 +5,7 @@ import static org.mockito.Mockito.*;
 import com.example.secrets_manager.tasks.data.converters.TaskEntityConverter;
 import com.example.secrets_manager.tasks.data.entities.TaskEntity;
 import com.example.secrets_manager.tasks.data.repositories.TaskAssignmentRepository;
+import com.example.secrets_manager.tasks.data.repositories.TaskCandidate;
 import com.example.secrets_manager.tasks.data.repositories.TaskRepository;
 import com.example.secrets_manager.tasks.models.TaskState;
 import com.example.secrets_manager.tasks.models.TaskType;
@@ -28,6 +29,7 @@ class TaskCoordinatorTest {
   @Mock private TaskAssignmentRepository assignmentRepository;
   @Mock private TaskAssignmentService assignmentService;
   @Mock private TaskExecutorService executorService;
+  @Mock private TaskHandlerRegistry handlerRegistry;
 
   private TaskCoordinator coordinator;
 
@@ -43,22 +45,30 @@ class TaskCoordinatorTest {
             assignmentRepository,
             assignmentService,
             executorService,
-            taskConverter);
+            taskConverter,
+            handlerRegistry);
     ReflectionTestUtils.setField(coordinator, "batchSize", 50);
+    ReflectionTestUtils.setField(coordinator, "candidateLimit", 200);
     ReflectionTestUtils.setField(coordinator, "stalenessThreshold", Duration.ofSeconds(60));
   }
 
   @Test
-  void pollPendingTasks_ShouldClaimAndSubmitTasks() {
+  void pollPendingTasks_ShouldClaimAndSubmitTasks_WhenSupported() {
     // Given
     UUID taskId = UUID.randomUUID();
-    when(taskRepository.findPendingTaskIds(TaskState.PENDING.name(), 50))
-        .thenReturn(List.of(taskId));
+    String type = TaskType.MASTER_KEY_MIGRATION.name();
+    TaskCandidate candidate = mock(TaskCandidate.class);
+    when(candidate.getId()).thenReturn(taskId);
+    when(candidate.getType()).thenReturn(type);
+
+    when(taskRepository.findPendingCandidates(TaskState.PENDING.name(), 200))
+        .thenReturn(List.of(candidate));
+    when(handlerRegistry.isSupported(type)).thenReturn(true);
     when(assignmentService.claimTask(taskId)).thenReturn(true);
 
     TaskEntity entity = new TaskEntity();
     entity.setId(taskId);
-    entity.setType(TaskType.MASTER_KEY_MIGRATION.name());
+    entity.setType(type);
     entity.setState(TaskState.PENDING.name());
     when(taskRepository.findById(taskId)).thenReturn(Optional.of(entity));
 
@@ -70,11 +80,37 @@ class TaskCoordinatorTest {
   }
 
   @Test
+  void pollPendingTasks_ShouldSkip_WhenNotSupported() {
+    // Given
+    UUID taskId = UUID.randomUUID();
+    String type = "UNKNOWN_TYPE";
+    TaskCandidate candidate = mock(TaskCandidate.class);
+    when(candidate.getType()).thenReturn(type);
+
+    when(taskRepository.findPendingCandidates(TaskState.PENDING.name(), 200))
+        .thenReturn(List.of(candidate));
+    when(handlerRegistry.isSupported(type)).thenReturn(false);
+
+    // When
+    coordinator.pollPendingTasks();
+
+    // Then
+    verify(assignmentService, never()).claimTask(any());
+    verify(executorService, never()).submitTask(any());
+  }
+
+  @Test
   void pollPendingTasks_ShouldNotSubmit_IfClaimFails() {
     // Given
     UUID taskId = UUID.randomUUID();
-    when(taskRepository.findPendingTaskIds(TaskState.PENDING.name(), 50))
-        .thenReturn(List.of(taskId));
+    String type = TaskType.MASTER_KEY_MIGRATION.name();
+    TaskCandidate candidate = mock(TaskCandidate.class);
+    when(candidate.getId()).thenReturn(taskId);
+    when(candidate.getType()).thenReturn(type);
+
+    when(taskRepository.findPendingCandidates(TaskState.PENDING.name(), 200))
+        .thenReturn(List.of(candidate));
+    when(handlerRegistry.isSupported(type)).thenReturn(true);
     when(assignmentService.claimTask(taskId)).thenReturn(false);
 
     // When
@@ -85,16 +121,22 @@ class TaskCoordinatorTest {
   }
 
   @Test
-  void pollStaleTasks_ShouldReclaimAndSubmitTasks() {
+  void pollStaleTasks_ShouldReclaimAndSubmitTasks_WhenSupported() {
     // Given
     UUID taskId = UUID.randomUUID();
-    when(assignmentRepository.findStaleTaskIds(any(Duration.class), eq(50)))
-        .thenReturn(List.of(taskId));
+    String type = TaskType.MASTER_KEY_MIGRATION.name();
+    TaskCandidate candidate = mock(TaskCandidate.class);
+    when(candidate.getId()).thenReturn(taskId);
+    when(candidate.getType()).thenReturn(type);
+
+    when(assignmentRepository.findStaleCandidates(any(Duration.class), eq(200)))
+        .thenReturn(List.of(candidate));
+    when(handlerRegistry.isSupported(type)).thenReturn(true);
     when(assignmentService.reclaimTask(taskId)).thenReturn(true);
 
     TaskEntity entity = new TaskEntity();
     entity.setId(taskId);
-    entity.setType(TaskType.MASTER_KEY_MIGRATION.name());
+    entity.setType(type);
     entity.setState(TaskState.PENDING.name());
     when(taskRepository.findById(taskId)).thenReturn(Optional.of(entity));
 

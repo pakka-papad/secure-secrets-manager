@@ -26,23 +26,28 @@ public interface TaskAssignmentRepository extends JpaRepository<TaskAssignmentEn
       nativeQuery = true)
   int atomicClaim(@Param("taskId") UUID taskId, @Param("workerId") UUID workerId);
 
-  /** Internal native query to find stale task IDs using PostgreSQL interval syntax. */
+  /** Internal native query to find stale task candidates using PostgreSQL interval syntax. */
   @Query(
       value =
-          "SELECT ta.task_id FROM sm.task_assignments ta "
-              + "JOIN sm.worker_registry w ON ta.worker_id = w.id "
-              + "WHERE w.last_heartbeat < (clock_timestamp() - CAST(:intervalStr AS interval)) "
-              + "LIMIT :limit",
+          """
+          SELECT ta.task_id as id, t.type as type
+          FROM sm.task_assignments ta
+          JOIN sm.worker_registry w ON ta.worker_id = w.id
+          JOIN sm.tasks t ON ta.task_id = t.id
+          WHERE w.last_heartbeat < (clock_timestamp() - CAST(:intervalStr AS interval))
+          LIMIT :limit
+          """,
       nativeQuery = true)
-  List<UUID> _findStaleTaskIds(@Param("intervalStr") String intervalStr, @Param("limit") int limit);
+  List<TaskCandidate> _findStaleCandidates(
+      @Param("intervalStr") String intervalStr, @Param("limit") int limit);
 
-  /** Finds IDs of tasks assigned to workers whose heartbeat is older than the given Duration. */
-  default List<UUID> findStaleTaskIds(Duration threshold, int limit) {
+  /** Finds candidates of tasks assigned to workers whose heartbeat is older than the threshold. */
+  default List<TaskCandidate> findStaleCandidates(Duration threshold, int limit) {
     if (threshold == null) {
       return List.of();
     }
     String intervalStr = threshold.getSeconds() + " seconds";
-    return _findStaleTaskIds(intervalStr, limit);
+    return _findStaleCandidates(intervalStr, limit);
   }
 
   /**

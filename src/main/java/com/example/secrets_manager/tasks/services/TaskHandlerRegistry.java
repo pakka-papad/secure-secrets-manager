@@ -34,4 +34,14 @@ public class TaskHandlerRegistry {
   public Optional<TaskHandler> getHandler(TaskType type) {
     return Optional.ofNullable(handlers.get(type));
   }
+
+  /** Checks if the current worker has a registered handler for the given task type name. */
+  public boolean isSupported(String typeName) {
+    try {
+      TaskType type = TaskType.valueOf(typeName);
+      return handlers.containsKey(type);
+    } catch (IllegalArgumentException | NullPointerException e) {
+      return false;
+    }
+  }
 }

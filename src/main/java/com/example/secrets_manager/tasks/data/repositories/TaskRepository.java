@@ -16,17 +16,18 @@ public interface TaskRepository
     extends JpaRepository<TaskEntity, UUID>, JpaSpecificationExecutor<TaskEntity> {
 
   /**
-   * Finds IDs of tasks in the given state that haven't finished yet. Ordered by ID (UUIDv7 ensures
-   * chronological order) with a limit.
+   * Finds candidates for tasks in the given state that haven't finished yet. Ordered by ID (UUIDv7
+   * ensures chronological order) with a limit.
    */
   @Query(
       value =
-          "SELECT id FROM sm.tasks "
+          "SELECT id, type FROM sm.tasks "
               + "WHERE state = :state AND completed_at IS NULL "
               + "ORDER BY id ASC "
               + "LIMIT :limit",
       nativeQuery = true)
-  List<UUID> findPendingTaskIds(@Param("state") String state, @Param("limit") int limit);
+  List<TaskCandidate> findPendingCandidates(
+      @Param("state") String state, @Param("limit") int limit);
 
   /**
    * Atomically updates task state and payloads ONLY if the given worker still owns the assignment.
