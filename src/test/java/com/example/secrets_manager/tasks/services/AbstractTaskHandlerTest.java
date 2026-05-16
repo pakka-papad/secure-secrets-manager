@@ -8,7 +8,6 @@ import static org.mockito.Mockito.*;
 import com.example.secrets_manager.tasks.data.converters.TaskEntityConverter;
 import com.example.secrets_manager.tasks.data.repositories.TaskRepository;
 import com.example.secrets_manager.tasks.models.*;
-import com.example.secrets_manager.tasks.models.events.TaskStoppedEvent;
 import com.example.secrets_manager.tasks.services.exceptions.TaskAssignmentEvictedException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
@@ -124,7 +123,7 @@ class AbstractTaskHandlerTest {
   }
 
   @Test
-  void abort_ShouldPublishEventAndThrowCorrectException() {
+  void abort_ShouldThrowCorrectException() {
     // Given
     Task task = Task.builder().id(UUID.randomUUID()).build();
 
@@ -132,8 +131,6 @@ class AbstractTaskHandlerTest {
     assertThatThrownBy(
             () -> handler.callAbort(AbstractTaskHandler.AbortReason.EVICTED, task.getId()))
         .isInstanceOf(TaskAssignmentEvictedException.class);
-
-    verify(eventPublisher).publishEvent(any(TaskStoppedEvent.class));
   }
 
   // --- Test Support Classes ---

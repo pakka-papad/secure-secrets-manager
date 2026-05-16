@@ -39,12 +39,8 @@ public abstract class AbstractTaskHandler<
    * @param reason The reason for the abort.
    * @param taskId The ID of the task being aborted.
    * @throws TaskAssignmentEvictedException if reason is EVICTED.
-   * @throws RuntimeException for other failure reasons.
    */
   protected final void abort(AbortReason reason, UUID taskId) {
-    // Immediate silence: remove from local registry to stop the heartbeat
-    eventPublisher.publishEvent(new TaskStoppedEvent(taskId));
-
     if (reason == AbortReason.EVICTED) {
       throw new TaskAssignmentEvictedException(taskId);
     }

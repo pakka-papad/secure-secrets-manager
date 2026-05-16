@@ -4,7 +4,6 @@ import com.example.secrets_manager.tasks.data.converters.TaskEntityConverter;
 import com.example.secrets_manager.tasks.data.repositories.TaskRepository;
 import com.example.secrets_manager.tasks.models.*;
 import com.example.secrets_manager.tasks.models.events.TaskStartedEvent;
-import com.example.secrets_manager.tasks.models.events.TaskStoppedEvent;
 import com.example.secrets_manager.tasks.services.exceptions.TaskAssignmentEvictedException;
 import com.example.secrets_manager.tasks.utils.TaskUtils;
 import java.time.Instant;
@@ -111,8 +110,6 @@ public class TaskExecutionOrchestrator {
             entity.getStateExtraInfo());
 
     if (updated == 0) {
-      // Immediate silence for the local worker before throwing
-      eventPublisher.publishEvent(new TaskStoppedEvent(task.getId()));
       throw new TaskAssignmentEvictedException(task.getId());
     }
   }
