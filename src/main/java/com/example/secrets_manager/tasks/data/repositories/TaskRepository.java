@@ -45,6 +45,7 @@ public interface TaskRepository
               + "    task_output = CAST(:taskOutput AS jsonb), "
               + "    state_extra_info = CAST(:stateExtraInfo AS jsonb) "
               + "WHERE id = :taskId AND "
+              + "state != 'CANCELLED' AND "
               + "EXISTS (SELECT 1 FROM sm.task_assignments ta WHERE ta.task_id = :taskId AND ta.worker_id = :workerId)",
       nativeQuery = true)
   int updateFenced(
@@ -55,4 +56,21 @@ public interface TaskRepository
       @Param("completedAt") Instant completedAt,
       @Param("taskOutput") String taskOutput,
       @Param("stateExtraInfo") String stateExtraInfo);
+
+  /**
+   * Atomically transitions a task to CANCELLED state if it is not already in a terminal state.
+   *
+   * @return Number of rows updated (1 if success, 0 if task was already terminal).
+   */
+  @Modifying(clearAutomatically = true, flushAutomatically = true)
+  @Query(
+      value =
+          """
+      UPDATE sm.tasks
+      SET state = 'CANCELLED',
+          completed_at = clock_timestamp()
+      WHERE id = :taskId AND state IN ('PENDING', 'RUNNING')
+      """,
+      nativeQuery = true)
+  int signalCancellation(@Param("taskId") UUID taskId);
 }

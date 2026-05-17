@@ -84,7 +84,9 @@ public interface SecretRepository
       WHERE s.id = :secretId
       AND EXISTS (
           SELECT 1 FROM sm.task_assignments ta
+          JOIN sm.tasks t ON ta.task_id = t.id
           WHERE ta.task_id = :taskId AND ta.worker_id = :workerId
+          AND t.state != 'CANCELLED'
       )
       """,
       nativeQuery = true)
