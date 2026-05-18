@@ -57,4 +57,44 @@ class MasterKeyMigrationE2ETest extends E2EBaseTest {
     final var finalTask = admin.tasks().getTask(taskId);
     assertThat(finalTask.getOutput()).isNotNull();
   }
+
+  @Test
+  void cancelPendingMigration_ShouldPreventExecution() {
+    final var admin = actors.asAnyAdmin();
+
+    // 1. Setup: Create some secrets under V2
+    final var groupId = admin.secretGroups().create("cancel-test", "AES-256-GCM").getId();
+    admin.secrets().create(groupId, "target-secret", "sensitive-value");
+
+    // 2. Trigger: Promote to Master Key V3
+    admin.test().triggerMasterKeyPromotion(3);
+
+    // 3. Discovery: Find the PENDING task
+    // We use a small wait to ensure the event was processed but the poller (1s interval)
+    // likely hasn't claimed it yet if we are quick.
+    final var tasks =
+        await()
+            .atMost(Duration.ofSeconds(5))
+            .until(
+                () ->
+                    admin
+                        .tasks()
+                        .listTasks(
+                            Map.of(
+                                "types",
+                                TaskType.MASTER_KEY_MIGRATION.name(),
+                                "states",
+                                TaskState.PENDING.name()))
+                        .getItems(),
+                items -> !items.isEmpty());
+
+    final var taskId = tasks.get(0).getId();
+
+    // 4. Action: Cancel immediately
+    final var cancelledTask = admin.tasks().cancelTask(taskId);
+
+    // 5. Assert: Task state must be CANCELLED and it must never have started
+    assertThat(cancelledTask.getState()).isEqualTo(TaskState.CANCELLED);
+    assertThat(cancelledTask.getStartedAt()).isNull();
+  }
 }

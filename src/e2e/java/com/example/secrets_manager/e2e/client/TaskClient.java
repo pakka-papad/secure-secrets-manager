@@ -27,6 +27,18 @@ public class TaskClient {
     return getTaskRaw(taskId).then().statusCode(200).extract().as(TaskDetailedResponse.class);
   }
 
+  public TaskDetailedResponse cancelTask(UUID taskId) {
+    return given()
+        .header("Authorization", "Bearer " + token)
+        .pathParam("taskId", taskId)
+        .when()
+        .post("/api/v1/admin/tasks/{taskId}/cancel")
+        .then()
+        .statusCode(200)
+        .extract()
+        .as(TaskDetailedResponse.class);
+  }
+
   public Response getTaskRaw(UUID taskId) {
     return given()
         .header("Authorization", "Bearer " + token)

@@ -1,3 +1,6 @@
+import org.gradle.api.tasks.testing.TestDescriptor
+import org.gradle.api.tasks.testing.TestOutputEvent
+
 plugins {
 	id 'java'
 	id 'org.springframework.boot' version '4.0.1'
@@ -72,13 +75,64 @@ configurations {
     e2eRuntimeOnly.extendsFrom testRuntimeOnly
 }
 
-tasks.register('e2eTest', Test) {
-	description = 'Runs the end-to-end tests.'
-	group = 'verification'
-	testClassesDirs = sourceSets.e2e.output.classesDirs
-	classpath = sourceSets.e2e.runtimeClasspath
-	useJUnitPlatform()
-	maxParallelForks = 1
+// Dynamic E2E Group Discovery
+def findE2EGroups() {
+    def e2eBaseDir = file("src/e2e/java/com/example/secrets_manager/e2e")
+    def groups = []
+    def excludedGroups = ['base'] // Packages to skip (containing non-runnable base classes)
+
+    if (e2eBaseDir.exists()) {
+        e2eBaseDir.eachDirRecurse { dir ->
+            // A leaf group is any directory containing at least one *Test.java file
+            if (dir.list().any { it.endsWith("Test.java") }) {
+                def relPath = e2eBaseDir.toPath().relativize(dir.toPath()).toString().replace(File.separator, ".")
+                if (!excludedGroups.contains(relPath)) {
+                    groups << relPath
+                }
+            }
+        }
+    }
+    return groups
+}
+
+// Dynamically register a Test task for each identified group
+findE2EGroups().each { groupPath ->
+    def taskName = "e2eGroup_${groupPath.replace('.', '_')}"
+    tasks.register(taskName, Test) {
+        group = 'verification'
+        description = "Runs E2E tests for the '${groupPath}' group."
+        testClassesDirs = sourceSets.e2e.output.classesDirs
+        classpath = sourceSets.e2e.runtimeClasspath
+        useJUnitPlatform()
+        filter {
+            includeTestsMatching "com.example.secrets_manager.e2e.${groupPath}.*"
+        }
+
+        // REDIRECTION: Use the onOutput listener to capture forked JVM streams into a file
+        File logFile = layout.buildDirectory.file("test-results/e2eGroups/${taskName}.log").get().asFile
+        doFirst {
+            logFile.parentFile.mkdirs()
+            logFile.text = "" // Initialize/Clear file
+        }
+        onOutput { TestDescriptor descriptor, TestOutputEvent event ->
+            logFile.append(event.message)
+        }
+
+        // Force a fresh JVM and Container for this entire group
+        maxParallelForks = 1
+        testLogging {
+            events "passed", "skipped", "failed"
+            // Keep console clean; detailed output is in the log files
+            showStandardStreams = false
+            exceptionFormat = 'full'
+        }
+    }
+}
+
+tasks.register('e2eTest') {
+    description = 'Alias for running all E2E groups.'
+    group = 'verification'
+    dependsOn tasks.matching { it.name.startsWith("e2eGroup_") }
 }
 
 tasks.named('test') {
