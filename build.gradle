@@ -1,6 +1,3 @@
-import org.gradle.api.tasks.testing.TestDescriptor
-import org.gradle.api.tasks.testing.TestOutputEvent
-
 plugins {
 	id 'java'
 	id 'org.springframework.boot' version '4.0.1'
@@ -106,16 +103,6 @@ findE2EGroups().each { groupPath ->
         useJUnitPlatform()
         filter {
             includeTestsMatching "com.example.secrets_manager.e2e.${groupPath}.*"
-        }
-
-        // REDIRECTION: Use the onOutput listener to capture forked JVM streams into a file
-        File logFile = layout.buildDirectory.file("test-results/e2eGroups/${taskName}.log").get().asFile
-        doFirst {
-            logFile.parentFile.mkdirs()
-            logFile.text = "" // Initialize/Clear file
-        }
-        onOutput { TestDescriptor descriptor, TestOutputEvent event ->
-            logFile.append(event.message)
         }
 
         // Force a fresh JVM and Container for this entire group
