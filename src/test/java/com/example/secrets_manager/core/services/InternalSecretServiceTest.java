@@ -16,7 +16,10 @@ import com.example.secrets_manager.crypto.impl.AesGcmSymmetricCipher;
 import com.example.secrets_manager.crypto.impl.AesKw256SymmetricCipher;
 import com.example.secrets_manager.crypto.impl.CryptographyServiceImpl;
 import com.example.secrets_manager.security.WithMockAppUser;
+import com.example.secrets_manager.tasks.services.TaskExecutionOrchestrator;
 import com.example.secrets_manager.tasks.services.exceptions.TaskAssignmentEvictedException;
+import com.example.secrets_manager.tasks.services.exceptions.TaskCancelledException;
+import com.example.secrets_manager.tasks.services.exceptions.TaskFencedUpdateFailedException;
 import com.example.secrets_manager.tasks.utils.TaskUtils;
 import com.example.secrets_manager.tracing.WithCorrelationId;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -33,6 +36,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 class InternalSecretServiceTest {
 
   @Mock private SecretRepository secretRepository;
+  @Mock private TaskExecutionOrchestrator taskOrchestrator;
   @Mock private MasterKeyProvider masterKeyProvider;
   @Mock private InternalMasterKeyService internalMasterKeyService;
   @Mock private AuditService auditService;
@@ -53,6 +57,7 @@ class InternalSecretServiceTest {
     service =
         new InternalSecretService(
             secretRepository,
+            taskOrchestrator,
             cryptographyService,
             masterKeyProvider,
             internalMasterKeyService,
@@ -62,7 +67,8 @@ class InternalSecretServiceTest {
   @Test
   @WithMockAppUser
   @WithCorrelationId
-  void upgradeMasterKey_ShouldThrowEvictedException_WhenHardFenceFails() throws Exception {
+  void upgradeMasterKey_ShouldThrowCancelledException_WhenHardFenceFailsDueToCancellation()
+      throws Exception {
     // Given
     UUID secretId = UUID.randomUUID();
     UUID taskId = UUID.randomUUID();
@@ -101,9 +107,120 @@ class InternalSecretServiceTest {
             eq(secretId), eq(taskId), any(), any(), any(), any(), eq(targetVersion)))
         .thenReturn(0);
 
+    // Orchestrator should throw TaskCancelledException
+    doThrow(new TaskCancelledException(taskId)).when(taskOrchestrator).verifyFence(taskId);
+
+    // When & Then
+    assertThatThrownBy(() -> service.upgradeMasterKey(secretId, targetVersion, taskId))
+        .isInstanceOf(TaskCancelledException.class);
+
+    // Verify that NO audit log was saved because the transaction should roll back
+    verify(auditService, never()).save(any());
+  }
+
+  @Test
+  @WithMockAppUser
+  @WithCorrelationId
+  void upgradeMasterKey_ShouldThrowEvictedException_WhenHardFenceFailsDueToEviction()
+      throws Exception {
+    // Given
+    UUID secretId = UUID.randomUUID();
+    UUID taskId = UUID.randomUUID();
+    int targetVersion = 2;
+
+    byte[] oldMkBytes = new byte[32];
+    byte[] newMkBytes = new byte[32];
+    byte[] rawDek = new byte[32];
+
+    var dekEnvelope = cryptographyService.encrypt(rawDek, oldMkBytes, "AES-KW-256");
+
+    SecretGroupEntity group = SecretGroupEntity.builder().encryptAlgo("AES-256-GCM").build();
+    SecretEntity entity =
+        SecretEntity.builder()
+            .id(secretId)
+            .masterKeyVersion(1)
+            .group(group)
+            .dekCiphertext(dekEnvelope.getCiphertext())
+            .dekNonce(dekEnvelope.getNonce())
+            .dekAuthTag(dekEnvelope.getAuthTag())
+            .build();
+
+    when(secretRepository.findAndLockByIdAndDeletedAtIsNull(secretId))
+        .thenReturn(Optional.of(entity));
+
+    when(internalMasterKeyService.getMasterKeyMetadata(1))
+        .thenReturn(MasterKey.builder().version(1).encryptAlgo("AES-KW-256").build());
+    when(internalMasterKeyService.getMasterKeyMetadata(2))
+        .thenReturn(MasterKey.builder().version(2).encryptAlgo("AES-KW-256").build());
+
+    when(masterKeyProvider.getMasterKey(1)).thenReturn(oldMkBytes);
+    when(masterKeyProvider.getMasterKey(2)).thenReturn(newMkBytes);
+
+    when(secretRepository.updateSecretFenced(
+            eq(secretId), eq(taskId), any(), any(), any(), any(), eq(targetVersion)))
+        .thenReturn(0);
+
+    // Orchestrator should throw TaskAssignmentEvictedException
+    doThrow(new TaskAssignmentEvictedException(taskId)).when(taskOrchestrator).verifyFence(taskId);
+
     // When & Then
     assertThatThrownBy(() -> service.upgradeMasterKey(secretId, targetVersion, taskId))
         .isInstanceOf(TaskAssignmentEvictedException.class);
+
+    verify(auditService, never()).save(any());
+  }
+
+  @Test
+  @WithMockAppUser
+  @WithCorrelationId
+  void
+      upgradeMasterKey_ShouldThrowTaskFencedUpdateFailedException_WhenHardFenceFailsDueToIntegrity()
+          throws Exception {
+    // Given
+    UUID secretId = UUID.randomUUID();
+    UUID taskId = UUID.randomUUID();
+    int targetVersion = 2;
+
+    byte[] oldMkBytes = new byte[32];
+    byte[] newMkBytes = new byte[32];
+    byte[] rawDek = new byte[32];
+
+    var dekEnvelope = cryptographyService.encrypt(rawDek, oldMkBytes, "AES-KW-256");
+
+    SecretGroupEntity group = SecretGroupEntity.builder().encryptAlgo("AES-256-GCM").build();
+    SecretEntity entity =
+        SecretEntity.builder()
+            .id(secretId)
+            .masterKeyVersion(1)
+            .group(group)
+            .dekCiphertext(dekEnvelope.getCiphertext())
+            .dekNonce(dekEnvelope.getNonce())
+            .dekAuthTag(dekEnvelope.getAuthTag())
+            .build();
+
+    when(secretRepository.findAndLockByIdAndDeletedAtIsNull(secretId))
+        .thenReturn(Optional.of(entity));
+
+    when(internalMasterKeyService.getMasterKeyMetadata(1))
+        .thenReturn(MasterKey.builder().version(1).encryptAlgo("AES-KW-256").build());
+    when(internalMasterKeyService.getMasterKeyMetadata(2))
+        .thenReturn(MasterKey.builder().version(2).encryptAlgo("AES-KW-256").build());
+
+    when(masterKeyProvider.getMasterKey(1)).thenReturn(oldMkBytes);
+    when(masterKeyProvider.getMasterKey(2)).thenReturn(newMkBytes);
+
+    when(secretRepository.updateSecretFenced(
+            eq(secretId), eq(taskId), any(), any(), any(), any(), eq(targetVersion)))
+        .thenReturn(0);
+
+    // Orchestrator should throw TaskFencedUpdateFailedException
+    doThrow(new TaskFencedUpdateFailedException(taskId, "Paradox"))
+        .when(taskOrchestrator)
+        .verifyFence(taskId);
+
+    // When & Then
+    assertThatThrownBy(() -> service.upgradeMasterKey(secretId, targetVersion, taskId))
+        .isInstanceOf(TaskFencedUpdateFailedException.class);
 
     verify(auditService, never()).save(any());
   }

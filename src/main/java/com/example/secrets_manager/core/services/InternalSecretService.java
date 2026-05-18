@@ -9,7 +9,7 @@ import com.example.secrets_manager.crypto.CryptographyService;
 import com.example.secrets_manager.crypto.dto.EncryptedData;
 import com.example.secrets_manager.crypto.exception.CryptoOperationException;
 import com.example.secrets_manager.security.SecurityUtils;
-import com.example.secrets_manager.tasks.services.exceptions.TaskAssignmentEvictedException;
+import com.example.secrets_manager.tasks.services.TaskExecutionOrchestrator;
 import com.example.secrets_manager.tasks.utils.TaskUtils;
 import jakarta.persistence.EntityNotFoundException;
 import java.util.UUID;
@@ -28,6 +28,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class InternalSecretService {
 
   private final SecretRepository secretRepository;
+  private final TaskExecutionOrchestrator taskOrchestrator;
   private final CryptographyService cryptographyService;
   private final MasterKeyProvider masterKeyProvider;
   private final InternalMasterKeyService internalMasterKeyService;
@@ -100,7 +101,8 @@ public class InternalSecretService {
             targetMkVersion);
 
     if (updated == 0) {
-      throw new TaskAssignmentEvictedException(taskId);
+      // Delegate fence interpretation to the specialized orchestrator
+      taskOrchestrator.verifyFence(taskId);
     }
 
     // Record the maintenance event

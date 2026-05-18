@@ -23,6 +23,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -82,6 +83,21 @@ public class AdminTaskController {
   @GetMapping("/{taskId}")
   public ResponseEntity<TaskDetailedResponse> getTaskById(@PathVariable UUID taskId) {
     var task = taskService.getTaskById(taskId);
+    return ResponseEntity.ok(TaskResponseConverter.toDetailedResponse(task));
+  }
+
+  @Operation(summary = "Cancel a background task")
+  @ApiResponse(
+      responseCode = "200",
+      description = "Cancellation attempt completed. Returns latest task state.",
+      content = @Content(schema = @Schema(implementation = TaskDetailedResponse.class)))
+  @ApiResponse(responseCode = "401", description = "Unauthorized")
+  @ApiResponse(responseCode = "403", description = "Forbidden: Admin role required")
+  @ApiResponse(responseCode = "404", description = "Task not found")
+  @PreAuthorize("hasRole('ADMIN')")
+  @PostMapping("/{taskId}/cancel")
+  public ResponseEntity<TaskDetailedResponse> cancelTask(@PathVariable UUID taskId) {
+    var task = taskService.cancelTask(taskId);
     return ResponseEntity.ok(TaskResponseConverter.toDetailedResponse(task));
   }
 }

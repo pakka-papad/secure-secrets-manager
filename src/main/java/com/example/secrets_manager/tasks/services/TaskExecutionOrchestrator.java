@@ -5,8 +5,12 @@ import com.example.secrets_manager.tasks.data.repositories.TaskRepository;
 import com.example.secrets_manager.tasks.models.*;
 import com.example.secrets_manager.tasks.models.events.TaskStartedEvent;
 import com.example.secrets_manager.tasks.services.exceptions.TaskAssignmentEvictedException;
+import com.example.secrets_manager.tasks.services.exceptions.TaskCancelledException;
+import com.example.secrets_manager.tasks.services.exceptions.TaskFencedUpdateFailedException;
 import com.example.secrets_manager.tasks.utils.TaskUtils;
+import jakarta.persistence.EntityNotFoundException;
 import java.time.Instant;
+import java.util.UUID;
 import java.util.function.Consumer;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -25,6 +29,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class TaskExecutionOrchestrator {
 
   private final TaskRepository taskRepository;
+  private final TaskAssignmentService assignmentService;
   private final TaskEntityConverter taskConverter;
   private final ApplicationEventPublisher eventPublisher;
 
@@ -65,8 +70,12 @@ public class TaskExecutionOrchestrator {
    */
   @Transactional
   public void failTask(Task task, Exception e, Consumer<Exception> failureHook) {
-    if (e instanceof TaskAssignmentEvictedException) {
-      log.error("Task {} failed due to hard eviction. Skipping state persistence.", task.getId());
+    if (e instanceof TaskAssignmentEvictedException
+        || e instanceof TaskCancelledException
+        || e instanceof TaskFencedUpdateFailedException) {
+      log.error(
+          "Task {} failed due to hard fence violation (eviction, cancellation, or integrity failure). Skipping state persistence.",
+          task.getId());
       return;
     }
 
@@ -76,9 +85,11 @@ public class TaskExecutionOrchestrator {
     try {
       persistStateWithFencing(task);
       failureHook.accept(e);
-    } catch (TaskAssignmentEvictedException evictedEx) {
+    } catch (TaskAssignmentEvictedException
+        | TaskCancelledException
+        | TaskFencedUpdateFailedException fenceEx) {
       log.warn(
-          "Evicted while attempting to persist FAILED state for task {}. Aborting failure hooks.",
+          "Hard fence violation while attempting to persist FAILED state for task {}. Aborting failure hooks.",
           task.getId());
     } catch (Exception dbEx) {
       log.error("Database error while persisting failure for task {}.", task.getId(), dbEx);
@@ -93,8 +104,23 @@ public class TaskExecutionOrchestrator {
   }
 
   /**
-   * Performs an atomic save-and-verify against the database. Throws TaskAssignmentEvictedException
-   * if the worker no longer owns the task.
+   * Externally signals a task to cancel. This is an atomic operation that moves the task directly
+   * to CANCELLED state if it is not already terminal.
+   */
+  @Transactional
+  public void cancelTaskExternally(UUID taskId) {
+    int updated = taskRepository.signalCancellation(taskId);
+    if (updated == 1) {
+      log.info("Task {} was successfully cancelled externally.", taskId);
+    } else {
+      log.warn("Task {} could not be cancelled (likely already terminal).", taskId);
+    }
+  }
+
+  /**
+   * Performs an atomic save-and-verify against the database. Throws TaskAssignmentEvictedException,
+   * TaskCancelledException, or TaskFencedUpdateFailedException if the worker no longer owns the
+   * task, it was cancelled, or an integrity error occurred.
    */
   public void persistStateWithFencing(Task task) {
     var entity = taskConverter.fromModel(task);
@@ -110,7 +136,37 @@ public class TaskExecutionOrchestrator {
             entity.getStateExtraInfo());
 
     if (updated == 0) {
-      throw new TaskAssignmentEvictedException(task.getId());
+      verifyFence(task.getId());
     }
+  }
+
+  /**
+   * Post-mortem check to identify why a fenced update failed.
+   *
+   * @param taskId The ID of the task to verify.
+   * @throws TaskCancelledException if the task was cancelled.
+   * @throws TaskAssignmentEvictedException if the node lost its assignment.
+   * @throws TaskFencedUpdateFailedException if no visible fence was violated but the update still
+   *     failed.
+   */
+  public void verifyFence(UUID taskId) {
+    var current = taskRepository.findById(taskId).orElse(null);
+    if (current == null) {
+      throw new EntityNotFoundException("Task was deleted: " + taskId);
+    }
+
+    // State (Cancellation)
+    if (TaskState.CANCELLED.name().equals(current.getState())) {
+      throw new TaskCancelledException(taskId);
+    }
+
+    // Ownership (Eviction)
+    if (!assignmentService.isAssignmentStillValid(taskId)) {
+      throw new TaskAssignmentEvictedException(taskId);
+    }
+
+    // Fallback: Potential Paradox or Integrity Error
+    throw new TaskFencedUpdateFailedException(
+        taskId, "Fenced update rejected by database despite valid state and assignment.");
   }
 }

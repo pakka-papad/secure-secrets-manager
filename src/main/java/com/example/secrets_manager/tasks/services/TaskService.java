@@ -33,6 +33,7 @@ public class TaskService {
 
   private final TaskRepository taskRepository;
   private final TaskEntityConverter taskConverter;
+  private final TaskExecutionOrchestrator orchestrator;
 
   /**
    * Creates and persists a new background task.
@@ -118,5 +119,18 @@ public class TaskService {
         .findById(taskId)
         .map(taskConverter::toModel)
         .orElseThrow(() -> new EntityNotFoundException("Task not found with ID: " + taskId));
+  }
+
+  /**
+   * Signals a task to cancel. PENDING and RUNNING tasks are cancelled immediately.
+   *
+   * @param taskId The ID of the task to cancel.
+   * @return The latest state of the task after the cancellation attempt.
+   */
+  @Transactional
+  @PreAuthorize("hasRole('ADMIN')")
+  public Task cancelTask(UUID taskId) {
+    orchestrator.cancelTaskExternally(taskId);
+    return getTaskById(taskId);
   }
 }

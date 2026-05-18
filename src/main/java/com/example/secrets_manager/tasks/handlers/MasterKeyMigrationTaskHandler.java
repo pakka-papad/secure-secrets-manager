@@ -11,6 +11,8 @@ import com.example.secrets_manager.tasks.services.AbstractTaskHandler;
 import com.example.secrets_manager.tasks.services.TaskAssignmentService;
 import com.example.secrets_manager.tasks.services.TaskExecutionOrchestrator;
 import com.example.secrets_manager.tasks.services.exceptions.TaskAssignmentEvictedException;
+import com.example.secrets_manager.tasks.services.exceptions.TaskCancelledException;
+import com.example.secrets_manager.tasks.services.exceptions.TaskFencedUpdateFailedException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -84,6 +86,16 @@ public class MasterKeyMigrationTaskHandler
           // If we were evicted during the update, we must stop immediately
           log.error("Hard eviction detected for task {} during secret update.", context.taskId());
           abort(AbortReason.EVICTED, context.taskId());
+        } catch (TaskCancelledException e) {
+          // If we were cancelled during the update, stop immediately using framework abort
+          log.info(
+              "Graceful cancellation detected for task {} during secret update.", context.taskId());
+          abort(AbortReason.CANCELLED, context.taskId());
+        } catch (TaskFencedUpdateFailedException e) {
+          // If a paradox is detected, stop immediately using framework abort
+          log.error(
+              "Integrity failure detected for task {} during secret update.", context.taskId());
+          abort(AbortReason.INTEGRITY_FAILURE, context.taskId());
         } catch (Exception e) {
           log.error("Failed to migrate secret {}: {}", secretId, e.getMessage());
           failureCount++;

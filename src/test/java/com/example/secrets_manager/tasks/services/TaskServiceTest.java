@@ -37,6 +37,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 class TaskServiceTest {
 
   @Mock private TaskRepository taskRepository;
+  @Mock private TaskExecutionOrchestrator orchestrator;
 
   private TaskService taskService;
   private static final String TEST_USER_ID = "550e8400-e29b-41d4-a716-446655440000";
@@ -46,7 +47,7 @@ class TaskServiceTest {
     ObjectMapper objectMapper = new ObjectMapper();
     objectMapper.registerModule(new JavaTimeModule());
     TaskEntityConverter taskConverter = new TaskEntityConverter(objectMapper);
-    taskService = new TaskService(taskRepository, taskConverter);
+    taskService = new TaskService(taskRepository, taskConverter, orchestrator);
   }
 
   @Test
@@ -173,5 +174,30 @@ class TaskServiceTest {
     // When & Then
     assertThatThrownBy(() -> taskService.getTaskById(taskId))
         .isInstanceOf(EntityNotFoundException.class);
+  }
+
+  @Test
+  @WithMockAppUser(roles = "ADMIN")
+  void cancelTask_ShouldReturnLatestTask() {
+    // Given
+    UUID taskId = UUID.randomUUID();
+    TaskEntity entity =
+        TaskEntity.builder()
+            .id(taskId)
+            .type(TaskType.MASTER_KEY_MIGRATION.name())
+            .state(TaskState.CANCELLED.name())
+            .correlationId(UUID.randomUUID())
+            .initiatorUserId(UUID.randomUUID())
+            .build();
+
+    when(taskRepository.findById(taskId)).thenReturn(Optional.of(entity));
+
+    // When
+    Task result = taskService.cancelTask(taskId);
+
+    // Then
+    assertThat(result).isNotNull();
+    assertThat(result.getState()).isEqualTo(TaskState.CANCELLED);
+    verify(orchestrator).cancelTaskExternally(taskId);
   }
 }

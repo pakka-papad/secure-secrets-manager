@@ -3,6 +3,8 @@ package com.example.secrets_manager.tasks.services;
 import com.example.secrets_manager.tasks.models.*;
 import com.example.secrets_manager.tasks.models.events.TaskStoppedEvent;
 import com.example.secrets_manager.tasks.services.exceptions.TaskAssignmentEvictedException;
+import com.example.secrets_manager.tasks.services.exceptions.TaskCancelledException;
+import com.example.secrets_manager.tasks.services.exceptions.TaskFencedUpdateFailedException;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -30,7 +32,13 @@ public abstract class AbstractTaskHandler<
   /** Standard reasons for manually aborting a task lifecycle. */
   protected enum AbortReason {
     /** The worker lost its assignment (evicted by another node or heartbeat timeout). */
-    EVICTED
+    EVICTED,
+
+    /** The task was cancelled by an administrator. */
+    CANCELLED,
+
+    /** A database integrity failure or paradox occurred. */
+    INTEGRITY_FAILURE
   }
 
   /**
@@ -39,10 +47,17 @@ public abstract class AbstractTaskHandler<
    * @param reason The reason for the abort.
    * @param taskId The ID of the task being aborted.
    * @throws TaskAssignmentEvictedException if reason is EVICTED.
+   * @throws TaskCancelledException if reason is CANCELLED.
+   * @throws TaskFencedUpdateFailedException if reason is INTEGRITY_FAILURE.
    */
   protected final void abort(AbortReason reason, UUID taskId) {
     if (reason == AbortReason.EVICTED) {
       throw new TaskAssignmentEvictedException(taskId);
+    } else if (reason == AbortReason.CANCELLED) {
+      throw new TaskCancelledException(taskId);
+    } else if (reason == AbortReason.INTEGRITY_FAILURE) {
+      throw new TaskFencedUpdateFailedException(
+          taskId, "Task execution aborted due to database integrity failure.");
     }
   }
 

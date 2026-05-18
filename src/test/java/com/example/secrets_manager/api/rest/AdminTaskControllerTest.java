@@ -1,8 +1,10 @@
 package com.example.secrets_manager.api.rest;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -86,5 +88,31 @@ class AdminTaskControllerTest {
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.id").value(taskId.toString()))
         .andExpect(jsonPath("$.state").value("RUNNING"));
+  }
+
+  @Test
+  void cancelTask_ShouldReturnOk() throws Exception {
+    // Given
+    UUID taskId = UUID.randomUUID();
+    Task model =
+        Task.builder()
+            .id(taskId)
+            .type(TaskType.MASTER_KEY_MIGRATION)
+            .state(TaskState.CANCELLED)
+            .createdAt(Instant.now())
+            .initiatorUserId(UUID.randomUUID())
+            .correlationId(UUID.randomUUID())
+            .build();
+
+    when(taskService.cancelTask(taskId)).thenReturn(model);
+
+    // When & Then
+    mockMvc
+        .perform(post("/api/v1/admin/tasks/" + taskId + "/cancel"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.id").value(taskId.toString()))
+        .andExpect(jsonPath("$.state").value("CANCELLED"));
+
+    verify(taskService).cancelTask(taskId);
   }
 }

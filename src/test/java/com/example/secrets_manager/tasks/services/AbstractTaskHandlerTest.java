@@ -37,7 +37,9 @@ class AbstractTaskHandlerTest {
 
     // We use a real orchestrator but spy on it to verify delegation
     orchestrator =
-        spy(new TaskExecutionOrchestrator(taskRepository, taskConverter, eventPublisher));
+        spy(
+            new TaskExecutionOrchestrator(
+                taskRepository, assignmentService, taskConverter, eventPublisher));
 
     handler = new TestHandler(orchestrator, assignmentService, eventPublisher);
   }
@@ -110,8 +112,15 @@ class AbstractTaskHandlerTest {
             .initiatorUserId(UUID.randomUUID())
             .build();
     when(assignmentService.isAssignmentStillValid(task.getId())).thenReturn(false);
-    when(taskRepository.updateFenced(any(), any(), any(), any(), any(), any(), any()))
-        .thenReturn(1);
+    // Use doAnswer for startTask because it executes the preExecuteHook
+    doAnswer(
+            invocation -> {
+              Runnable hook = invocation.getArgument(1);
+              hook.run();
+              return null;
+            })
+        .when(orchestrator)
+        .startTask(any(), any());
 
     // When
     handler.run(task);
