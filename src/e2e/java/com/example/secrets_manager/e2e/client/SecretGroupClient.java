@@ -7,6 +7,7 @@ import com.example.secrets_manager.api.rest.dto.PagedResponse;
 import com.example.secrets_manager.api.rest.dto.SecretGroupResponse;
 import io.restassured.common.mapper.TypeRef;
 import io.restassured.http.ContentType;
+import io.restassured.response.Response;
 import java.util.Map;
 import java.util.UUID;
 
@@ -18,17 +19,21 @@ public class SecretGroupClient {
   }
 
   public SecretGroupResponse create(String name, String algorithm) {
-    return given()
-        .header("Authorization", "Bearer " + token)
-        .contentType(ContentType.JSON)
-        .body(Map.of("name", name, "encryptAlgo", algorithm))
-        .when()
-        .post("/api/v1/secret-groups")
+    return createRaw(name, algorithm)
         .then()
         .statusCode(201)
         .body("name", equalTo(name))
         .extract()
         .as(SecretGroupResponse.class);
+  }
+
+  public Response createRaw(String name, String algorithm) {
+    return given()
+        .header("Authorization", "Bearer " + token)
+        .contentType(ContentType.JSON)
+        .body(Map.of("name", name, "encryptAlgo", algorithm))
+        .when()
+        .post("/api/v1/secret-groups");
   }
 
   public SecretGroupResponse get(UUID id) {

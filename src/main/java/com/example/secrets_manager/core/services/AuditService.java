@@ -105,7 +105,7 @@ public class AuditService {
         PageRequest.of(
             pageable.getPageNumber(),
             pageable.getPageSize(),
-            Sort.by(Sort.Direction.DESC, AuditLogEntity.COL_SEQ_ID));
+            Sort.by(Sort.Direction.DESC, "seqId"));
 
     Specification<AuditLogEntity> spec = AuditLogSpecifications.withCriteria(criteria);
     return auditLogRepository.findBy(spec, q -> q.as(AuditLogInfo.class).page(sortedPageable));

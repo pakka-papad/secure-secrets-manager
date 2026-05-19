@@ -20,26 +20,19 @@ public final class SecurityEventLogSpecifications {
       List<Predicate> predicates = new ArrayList<>();
 
       if (criteria.getActorUserId() != null) {
-        predicates.add(
-            cb.equal(
-                root.get(SecurityEventLogEntity.COL_ACTOR_USER_ID), criteria.getActorUserId()));
+        predicates.add(cb.equal(root.get("actorUserId"), criteria.getActorUserId()));
       }
 
       if (criteria.getAction() != null) {
-        predicates.add(
-            cb.equal(root.get(SecurityEventLogEntity.COL_ACTION), criteria.getAction().name()));
+        predicates.add(cb.equal(root.get("action"), criteria.getAction().name()));
       }
 
       if (criteria.getStartTime() != null) {
-        predicates.add(
-            cb.greaterThanOrEqualTo(
-                root.get(SecurityEventLogEntity.COL_CREATED_AT), criteria.getStartTime()));
+        predicates.add(cb.greaterThanOrEqualTo(root.get("createdAt"), criteria.getStartTime()));
       }
 
       if (criteria.getEndTime() != null) {
-        predicates.add(
-            cb.lessThanOrEqualTo(
-                root.get(SecurityEventLogEntity.COL_CREATED_AT), criteria.getEndTime()));
+        predicates.add(cb.lessThanOrEqualTo(root.get("createdAt"), criteria.getEndTime()));
       }
 
       return cb.and(predicates.toArray(new Predicate[0]));

@@ -19,15 +19,12 @@ public final class TaskSpecifications {
       List<Predicate> predicates = new ArrayList<>();
 
       if (criteria.getTypes() != null && !criteria.getTypes().isEmpty()) {
-        predicates.add(
-            root.get(TaskEntity.COL_TYPE)
-                .in(criteria.getTypes().stream().map(Enum::name).toList()));
+        predicates.add(root.get("type").in(criteria.getTypes().stream().map(Enum::name).toList()));
       }
 
       if (criteria.getStates() != null && !criteria.getStates().isEmpty()) {
         predicates.add(
-            root.get(TaskEntity.COL_STATE)
-                .in(criteria.getStates().stream().map(Enum::name).toList()));
+            root.get("state").in(criteria.getStates().stream().map(Enum::name).toList()));
       }
 
       return cb.and(predicates.toArray(new Predicate[0]));

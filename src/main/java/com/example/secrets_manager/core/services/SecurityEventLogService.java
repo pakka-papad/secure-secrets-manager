@@ -83,7 +83,7 @@ public class SecurityEventLogService {
         PageRequest.of(
             pageable.getPageNumber(),
             pageable.getPageSize(),
-            Sort.by(Sort.Direction.DESC, SecurityEventLogEntity.COL_CREATED_AT));
+            Sort.by(Sort.Direction.DESC, "createdAt"));
 
     Specification<SecurityEventLogEntity> spec =
         SecurityEventLogSpecifications.withCriteria(criteria);

@@ -94,9 +94,7 @@ public class TaskService {
     // Force reverse chronological order using UUIDv7 property
     Pageable sortedPageable =
         PageRequest.of(
-            pageable.getPageNumber(),
-            pageable.getPageSize(),
-            Sort.by(Sort.Direction.DESC, TaskEntity.COL_ID));
+            pageable.getPageNumber(), pageable.getPageSize(), Sort.by(Sort.Direction.DESC, "id"));
 
     Specification<TaskEntity> spec = TaskSpecifications.withCriteria(criteria);
 

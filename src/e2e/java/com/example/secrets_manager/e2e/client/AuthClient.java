@@ -5,6 +5,7 @@ import static org.hamcrest.Matchers.notNullValue;
 
 import com.example.secrets_manager.core.models.AuthResponse;
 import io.restassured.http.ContentType;
+import io.restassured.response.Response;
 import java.util.Map;
 
 public class AuthClient {
@@ -14,17 +15,21 @@ public class AuthClient {
   }
 
   public AuthResponse loginExtended(String username, String password) {
-    return given()
-        .contentType(ContentType.URLENC)
-        .formParam("username", username)
-        .formParam("password", password)
-        .when()
-        .post("/api/v1/auth/login")
+    return loginRaw(username, password)
         .then()
         .statusCode(200)
         .body("access_token", notNullValue())
         .extract()
         .as(AuthResponse.class);
+  }
+
+  public Response loginRaw(String username, String password) {
+    return given()
+        .contentType(ContentType.URLENC)
+        .formParam("username", username)
+        .formParam("password", password)
+        .when()
+        .post("/api/v1/auth/login");
   }
 
   public AuthResponse refresh(String refreshToken) {
