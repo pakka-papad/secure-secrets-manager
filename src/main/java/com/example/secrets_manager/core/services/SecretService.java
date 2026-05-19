@@ -201,15 +201,14 @@ public class SecretService {
     return SecretEntityConverter.toModel(saved);
   }
 
-  /** Soft-deletes a secret. */
+  /** Soft-deletes a secret and scrubs cryptographic material. */
   @Transactional
   @PreAuthorize("@groupAuth.canDelete(principal, #groupId)")
   public void deleteSecret(UUID groupId, String secretName) {
     final var entity = getSecretOrThrow(groupId, secretName);
 
-    // Perform Soft Delete
-    entity.setDeletedAt(Instant.now());
-    secretRepository.save(entity);
+    // Perform Soft Delete via repository (triggers @SQLDelete for scrubbing)
+    secretRepository.delete(entity);
 
     audit(AuditAction.SECRET_DELETE, groupId, entity.getId());
   }

@@ -324,13 +324,8 @@ class UserServiceTest {
     userService.deleteUser(targetId);
 
     // Then
-    verify(userRepository).save(targetUser);
+    verify(userRepository).delete(targetUser);
     verify(eventPublisher).publishEvent(new UserDeletedEvent(targetId));
-    assertNotNull(targetUser.getDeletedAt());
-    assertThat(targetUser.getPwSalt()).isEmpty();
-    assertThat(targetUser.getPwDigest()).isEmpty();
-    assertThat(targetUser.getHashAlgo()).isEqualTo("SCRUBBED");
-    assertThat(targetUser.getHashParams()).isEqualTo("{}");
 
     ArgumentCaptor<AuditLogPayload> auditCaptor = ArgumentCaptor.forClass(AuditLogPayload.class);
     verify(auditService).save(auditCaptor.capture());

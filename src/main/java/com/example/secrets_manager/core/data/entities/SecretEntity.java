@@ -24,7 +24,9 @@ import org.hibernate.annotations.UuidGenerator;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@SQLDelete(sql = "UPDATE sm.secrets SET deleted_at = CURRENT_TIMESTAMP WHERE id = ?")
+@SQLDelete(
+    sql =
+        "UPDATE sm.secrets SET deleted_at = CURRENT_TIMESTAMP, value_ciphertext = '\\x', value_nonce = '\\x', value_auth_tag = '\\x', dek_ciphertext = '\\x', dek_nonce = '\\x', dek_auth_tag = '\\x' WHERE id = ?")
 public class SecretEntity {
 
   public static final String COL_ID = "id";

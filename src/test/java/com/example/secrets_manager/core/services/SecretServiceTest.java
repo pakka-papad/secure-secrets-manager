@@ -273,8 +273,7 @@ class SecretServiceTest {
     secretService.deleteSecret(groupId, name);
 
     // Then
-    assertThat(entity.getDeletedAt()).isNotNull();
-    verify(secretRepository).save(entity);
+    verify(secretRepository).delete(entity);
 
     ArgumentCaptor<AuditLogPayload> auditCaptor = ArgumentCaptor.forClass(AuditLogPayload.class);
     verify(auditService).save(auditCaptor.capture());

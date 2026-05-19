@@ -27,7 +27,9 @@ import org.hibernate.type.SqlTypes;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@SQLDelete(sql = "UPDATE sm.users SET deleted_at = CURRENT_TIMESTAMP WHERE id = ?")
+@SQLDelete(
+    sql =
+        "UPDATE sm.users SET deleted_at = CURRENT_TIMESTAMP, pw_salt = '\\x', pw_digest = '\\x', hash_algo = 'SCRUBBED', hash_params = '{}' WHERE id = ?")
 public class UserEntity {
 
   public static final String COL_ID = "id";
