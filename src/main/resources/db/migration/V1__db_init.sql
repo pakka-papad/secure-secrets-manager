@@ -77,7 +77,6 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_sm_secrets_active_group_name ON sm.secrets 
 
 CREATE TABLE IF NOT EXISTS sm.audit_logs(
     seq_id BIGSERIAL PRIMARY KEY,
-    cause_seq_id BIGINT NULL,
     correlation_id UUID NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     actor_user_id UUID NOT NULL,

@@ -13,7 +13,6 @@ public class AuditLogEntityConverter {
 
     return AuditLog.builder()
         .seqId(entity.getSeqId())
-        .causeSeqId(entity.getCauseSeqId())
         .correlationId(entity.getCorrelationId())
         .createdAt(entity.getCreatedAt())
         .actorUserId(entity.getActorUserId())
@@ -35,7 +34,6 @@ public class AuditLogEntityConverter {
 
     return AuditLogEntity.builder()
         .seqId(model.getSeqId())
-        .causeSeqId(model.getCauseSeqId())
         .correlationId(model.getCorrelationId())
         .createdAt(model.getCreatedAt())
         .actorUserId(model.getActorUserId())

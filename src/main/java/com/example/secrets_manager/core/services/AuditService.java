@@ -2,34 +2,37 @@ package com.example.secrets_manager.core.services;
 
 import com.example.secrets_manager.core.data.converters.AuditLogEntityConverter;
 import com.example.secrets_manager.core.data.entities.AuditLogEntity;
+import com.example.secrets_manager.core.data.repositories.AuditLogInfo;
 import com.example.secrets_manager.core.data.repositories.AuditLogRepository;
+import com.example.secrets_manager.core.data.repositories.AuditLogSpecifications;
 import com.example.secrets_manager.core.models.AuditLog;
 import com.example.secrets_manager.core.models.AuditLogPayload;
 import com.example.secrets_manager.core.models.SystemLockName;
+import com.example.secrets_manager.core.models.search.AuditLogSearchCriteria;
 import com.example.secrets_manager.crypto.CryptographyService;
 import com.example.secrets_manager.tracing.CorrelationContext;
 import com.example.secrets_manager.tracing.MissingCorrelationContextException;
+import jakarta.persistence.EntityNotFoundException;
 import java.time.Instant;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
+@Slf4j
+@RequiredArgsConstructor
 public class AuditService {
 
   private final AuditLogRepository auditLogRepository;
   private final SystemLockService systemLockService;
   private final CryptographyService cryptographyService;
-
-  @Autowired
-  public AuditService(
-      AuditLogRepository auditLogRepository,
-      SystemLockService systemLockService,
-      CryptographyService cryptographyService) {
-    this.auditLogRepository = auditLogRepository;
-    this.systemLockService = systemLockService;
-    this.cryptographyService = cryptographyService;
-  }
 
   /**
    * Persists an audit log event from a payload, handling cryptographic chaining and locking. This
@@ -92,5 +95,33 @@ public class AuditService {
     AuditLogEntity savedEntity = auditLogRepository.save(entityToSave);
 
     return AuditLogEntityConverter.toModel(savedEntity);
+  }
+
+  /** Retrieves a paginated list of audit logs based on criteria. Restricted to administrators. */
+  @Transactional(readOnly = true)
+  @PreAuthorize("hasRole('ADMIN')")
+  public Page<AuditLogInfo> listAuditLogs(AuditLogSearchCriteria criteria, Pageable pageable) {
+    Pageable sortedPageable =
+        PageRequest.of(
+            pageable.getPageNumber(),
+            pageable.getPageSize(),
+            Sort.by(Sort.Direction.DESC, AuditLogEntity.COL_SEQ_ID));
+
+    Specification<AuditLogEntity> spec = AuditLogSpecifications.withCriteria(criteria);
+    return auditLogRepository.findBy(spec, q -> q.as(AuditLogInfo.class).page(sortedPageable));
+  }
+
+  /**
+   * Retrieves the full details of a specific audit log by its sequence ID. Restricted to
+   * administrators.
+   */
+  @Transactional(readOnly = true)
+  @PreAuthorize("hasRole('ADMIN')")
+  public AuditLog getAuditLogById(Long seqId) {
+    return auditLogRepository
+        .findById(seqId)
+        .map(AuditLogEntityConverter::toModel)
+        .orElseThrow(
+            () -> new EntityNotFoundException("Audit log not found with sequence ID: " + seqId));
   }
 }

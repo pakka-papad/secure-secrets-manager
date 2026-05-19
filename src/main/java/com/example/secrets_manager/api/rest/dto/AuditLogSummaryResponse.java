@@ -1,18 +1,19 @@
-package com.example.secrets_manager.core.models;
+package com.example.secrets_manager.api.rest.dto;
 
+import com.example.secrets_manager.core.models.AuditAction;
 import java.time.Instant;
 import java.util.UUID;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import lombok.ToString;
 
+/** Basic information about an audit log entry for list views. */
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class AuditLog {
+public class AuditLogSummaryResponse {
   private Long seqId;
   private UUID correlationId;
   private Instant createdAt;
@@ -22,7 +23,4 @@ public class AuditLog {
   private UUID targetGroupId;
   private UUID targetSecretId;
   private Integer targetMasterKeyVersion;
-  private String details;
-  @ToString.Exclude private byte[] prevHash;
-  @ToString.Exclude private byte[] dataHash;
 }
