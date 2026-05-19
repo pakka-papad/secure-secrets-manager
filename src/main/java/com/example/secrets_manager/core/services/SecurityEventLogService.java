@@ -1,26 +1,36 @@
 package com.example.secrets_manager.core.services;
 
 import com.example.secrets_manager.core.data.converters.SecurityEventLogEntityConverter;
+import com.example.secrets_manager.core.data.entities.SecurityEventLogEntity;
+import com.example.secrets_manager.core.data.repositories.SecurityEventLogInfo;
 import com.example.secrets_manager.core.data.repositories.SecurityEventLogRepository;
+import com.example.secrets_manager.core.data.repositories.SecurityEventLogSpecifications;
 import com.example.secrets_manager.core.models.SecurityEventLog;
 import com.example.secrets_manager.core.models.SecurityEventLogPayload;
+import com.example.secrets_manager.core.models.search.SecurityEventSearchCriteria;
 import com.example.secrets_manager.tracing.CorrelationContext;
 import com.example.secrets_manager.tracing.MissingCorrelationContextException;
+import jakarta.persistence.EntityNotFoundException;
 import java.time.Instant;
-import org.springframework.beans.factory.annotation.Autowired;
+import java.util.UUID;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
+@Slf4j
+@RequiredArgsConstructor
 public class SecurityEventLogService {
 
   private final SecurityEventLogRepository securityEventLogRepository;
-
-  @Autowired
-  public SecurityEventLogService(SecurityEventLogRepository securityEventLogRepository) {
-    this.securityEventLogRepository = securityEventLogRepository;
-  }
 
   /**
    * Persists a security event in a brand-new transaction. This ensures the event is recorded even
@@ -59,5 +69,38 @@ public class SecurityEventLogService {
     var savedEntity = securityEventLogRepository.save(entityToSave);
 
     return SecurityEventLogEntityConverter.toModel(savedEntity);
+  }
+
+  /**
+   * Retrieves a paginated list of security events based on criteria. Restricted to administrators.
+   */
+  @Transactional(readOnly = true)
+  @PreAuthorize("hasRole('ADMIN')")
+  public Page<SecurityEventLogInfo> listSecurityEvents(
+      SecurityEventSearchCriteria criteria, Pageable pageable) {
+    // Force reverse chronological order by created time
+    Pageable sortedPageable =
+        PageRequest.of(
+            pageable.getPageNumber(),
+            pageable.getPageSize(),
+            Sort.by(Sort.Direction.DESC, SecurityEventLogEntity.COL_CREATED_AT));
+
+    Specification<SecurityEventLogEntity> spec =
+        SecurityEventLogSpecifications.withCriteria(criteria);
+    return securityEventLogRepository.findBy(
+        spec, q -> q.as(SecurityEventLogInfo.class).page(sortedPageable));
+  }
+
+  /**
+   * Retrieves the full details of a specific security event by its ID. Restricted to
+   * administrators.
+   */
+  @Transactional(readOnly = true)
+  @PreAuthorize("hasRole('ADMIN')")
+  public SecurityEventLog getSecurityEventById(UUID id) {
+    return securityEventLogRepository
+        .findById(id)
+        .map(SecurityEventLogEntityConverter::toModel)
+        .orElseThrow(() -> new EntityNotFoundException("Security event not found with ID: " + id));
   }
 }
