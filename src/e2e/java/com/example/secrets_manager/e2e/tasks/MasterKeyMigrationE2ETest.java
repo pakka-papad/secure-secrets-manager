@@ -7,6 +7,7 @@ import com.example.secrets_manager.e2e.base.E2EBaseTest;
 import com.example.secrets_manager.tasks.models.TaskState;
 import com.example.secrets_manager.tasks.models.TaskType;
 import java.time.Duration;
+import java.util.HashMap;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 
@@ -18,8 +19,12 @@ class MasterKeyMigrationE2ETest extends E2EBaseTest {
 
     // 1. Setup: Create some secrets under V1
     final var groupId = admin.secretGroups().create("migration-test", "AES-256-GCM").getId();
+    Map<String, String> expectedSecrets = new HashMap<>();
     for (int i = 1; i <= 5; i++) {
-      admin.secrets().create(groupId, "secret-" + i, "value-" + i);
+      String name = "secret-" + i;
+      String value = "value-" + i;
+      admin.secrets().create(groupId, name, value);
+      expectedSecrets.put(name, value);
     }
 
     // 2. Trigger: Promote to Master Key V2 (via internal test backdoor)
@@ -53,9 +58,17 @@ class MasterKeyMigrationE2ETest extends E2EBaseTest {
               assertThat(task.getState()).isEqualTo(TaskState.COMPLETED);
             });
 
-    // 5. Final integrity Check
+    // 5. Final integrity Check: Read back secrets and verify they can still be decrypted
     final var finalTask = admin.tasks().getTask(taskId);
     assertThat(finalTask.getOutput()).isNotNull();
+
+    expectedSecrets.forEach(
+        (name, expectedValue) -> {
+          var response = admin.secrets().getValue(groupId, name);
+          assertThat(response.getPlaintextValue())
+              .as("Secret '%s' decryption check", name)
+              .isEqualTo(expectedValue);
+        });
   }
 
   @Test
