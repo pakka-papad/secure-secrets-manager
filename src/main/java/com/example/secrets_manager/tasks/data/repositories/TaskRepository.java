@@ -43,7 +43,8 @@ public interface TaskRepository
               + "    started_at = :startedAt, "
               + "    completed_at = :completedAt, "
               + "    task_output = CAST(:taskOutput AS jsonb), "
-              + "    state_extra_info = CAST(:stateExtraInfo AS jsonb) "
+              + "    state_extra_info = CAST(:stateExtraInfo AS jsonb), "
+              + "    metadata = CAST(:metadata AS jsonb) "
               + "WHERE id = :taskId AND "
               + "state != 'CANCELLED' AND "
               + "EXISTS (SELECT 1 FROM sm.task_assignments ta WHERE ta.task_id = :taskId AND ta.worker_id = :workerId)",
@@ -55,7 +56,8 @@ public interface TaskRepository
       @Param("startedAt") Instant startedAt,
       @Param("completedAt") Instant completedAt,
       @Param("taskOutput") String taskOutput,
-      @Param("stateExtraInfo") String stateExtraInfo);
+      @Param("stateExtraInfo") String stateExtraInfo,
+      @Param("metadata") String metadata);
 
   /**
    * Atomically transitions a task to CANCELLED state if it is not already in a terminal state.

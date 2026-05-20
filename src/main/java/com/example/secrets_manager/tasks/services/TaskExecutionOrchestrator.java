@@ -66,10 +66,11 @@ public class TaskExecutionOrchestrator {
 
   /**
    * Marks the task as FAILED, persists the change with fencing, and executes the failure hook.
-   * Handles eviction cases gracefully.
+   * Handles eviction and cancellation cases gracefully.
    */
   @Transactional
   public void failTask(Task task, Exception e, Consumer<Exception> failureHook) {
+    // Only skip persistence for Hard Fence Violations (where we no longer own the task)
     if (e instanceof TaskAssignmentEvictedException
         || e instanceof TaskCancelledException
         || e instanceof TaskFencedUpdateFailedException) {
@@ -79,8 +80,11 @@ public class TaskExecutionOrchestrator {
       return;
     }
 
+    // For all other unrecoverable failures (including TaskExecutionException),
+    // mark the task as FAILED and capture the reason in metadata.
     task.setState(TaskState.FAILED);
     task.setCompletedAt(Instant.now());
+    task.setMetadata(String.format("{\"error\": \"%s\"}", e.getMessage()));
 
     try {
       persistStateWithFencing(task);
@@ -133,7 +137,8 @@ public class TaskExecutionOrchestrator {
             entity.getStartedAt(),
             entity.getCompletedAt(),
             entity.getTaskOutput(),
-            entity.getStateExtraInfo());
+            entity.getStateExtraInfo(),
+            entity.getMetadata());
 
     if (updated == 0) {
       verifyFence(task.getId());

@@ -4,6 +4,7 @@ import com.example.secrets_manager.tasks.models.*;
 import com.example.secrets_manager.tasks.models.events.TaskStoppedEvent;
 import com.example.secrets_manager.tasks.services.exceptions.TaskAssignmentEvictedException;
 import com.example.secrets_manager.tasks.services.exceptions.TaskCancelledException;
+import com.example.secrets_manager.tasks.services.exceptions.TaskExecutionException;
 import com.example.secrets_manager.tasks.services.exceptions.TaskFencedUpdateFailedException;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -38,7 +39,10 @@ public abstract class AbstractTaskHandler<
     CANCELLED,
 
     /** A database integrity failure or paradox occurred. */
-    INTEGRITY_FAILURE
+    INTEGRITY_FAILURE,
+
+    /** An unrecoverable domain-level failure occurred. */
+    FAILURE
   }
 
   /**
@@ -49,6 +53,7 @@ public abstract class AbstractTaskHandler<
    * @throws TaskAssignmentEvictedException if reason is EVICTED.
    * @throws TaskCancelledException if reason is CANCELLED.
    * @throws TaskFencedUpdateFailedException if reason is INTEGRITY_FAILURE.
+   * @throws TaskExecutionException if reason is FAILURE.
    */
   protected final void abort(AbortReason reason, UUID taskId) {
     if (reason == AbortReason.EVICTED) {
@@ -58,6 +63,9 @@ public abstract class AbstractTaskHandler<
     } else if (reason == AbortReason.INTEGRITY_FAILURE) {
       throw new TaskFencedUpdateFailedException(
           taskId, "Task execution aborted due to database integrity failure.");
+    } else {
+      throw new TaskExecutionException(
+          taskId, "Task execution aborted due to an unrecoverable failure.");
     }
   }
 

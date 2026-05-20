@@ -2,6 +2,7 @@ package com.example.secrets_manager.tasks.handlers;
 
 import com.example.secrets_manager.core.data.repositories.SecretRepository;
 import com.example.secrets_manager.core.services.InternalSecretService;
+import com.example.secrets_manager.core.services.exceptions.MasterKeyCompromisedException;
 import com.example.secrets_manager.tasks.models.TaskContext;
 import com.example.secrets_manager.tasks.models.TaskType;
 import com.example.secrets_manager.tasks.models.masterkeymigration.MasterKeyMigrationExtraInfo;
@@ -96,6 +97,13 @@ public class MasterKeyMigrationTaskHandler
           log.error(
               "Integrity failure detected for task {} during secret update.", context.taskId());
           abort(AbortReason.INTEGRITY_FAILURE, context.taskId());
+        } catch (MasterKeyCompromisedException e) {
+          // If we hit a compromised key, stop the entire migration
+          log.error(
+              "Stopping migration for task {}: Master Key v{} is compromised.",
+              context.taskId(),
+              e.getMasterKeyVersion());
+          abort(AbortReason.FAILURE, context.taskId());
         } catch (Exception e) {
           log.error("Failed to migrate secret {}: {}", secretId, e.getMessage());
           failureCount++;

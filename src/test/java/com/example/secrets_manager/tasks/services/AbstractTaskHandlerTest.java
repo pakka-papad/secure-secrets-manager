@@ -59,7 +59,7 @@ class AbstractTaskHandlerTest {
     handler.setExecuteResult(output);
 
     when(assignmentService.isAssignmentStillValid(task.getId())).thenReturn(true);
-    when(taskRepository.updateFenced(any(), any(), any(), any(), any(), any(), any()))
+    when(taskRepository.updateFenced(any(), any(), any(), any(), any(), any(), any(), any()))
         .thenReturn(1);
 
     // When
@@ -88,7 +88,7 @@ class AbstractTaskHandlerTest {
     handler.setExecuteException(new RuntimeException("Business error"));
 
     when(assignmentService.isAssignmentStillValid(task.getId())).thenReturn(true);
-    when(taskRepository.updateFenced(any(), any(), any(), any(), any(), any(), any()))
+    when(taskRepository.updateFenced(any(), any(), any(), any(), any(), any(), any(), any()))
         .thenReturn(1);
 
     // When
