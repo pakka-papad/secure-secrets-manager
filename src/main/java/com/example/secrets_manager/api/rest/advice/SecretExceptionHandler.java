@@ -1,6 +1,7 @@
 package com.example.secrets_manager.api.rest.advice;
 
 import com.example.secrets_manager.api.rest.dto.ErrorResponse;
+import com.example.secrets_manager.core.services.exceptions.MasterKeyCompromisedException;
 import com.example.secrets_manager.core.services.exceptions.SecretAlreadyExistsException;
 import com.example.secrets_manager.core.services.exceptions.SecretServiceException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -30,6 +31,20 @@ public class SecretExceptionHandler {
             .path(request.getRequestURI())
             .build();
     return new ResponseEntity<>(errorResponse, HttpStatus.CONFLICT);
+  }
+
+  @ExceptionHandler(MasterKeyCompromisedException.class)
+  public ResponseEntity<ErrorResponse> handleMasterKeyCompromisedException(
+      MasterKeyCompromisedException ex, HttpServletRequest request) {
+    var errorResponse =
+        ErrorResponse.builder()
+            .timestamp(Instant.now())
+            .status(HttpStatus.LOCKED.value())
+            .error(HttpStatus.LOCKED.getReasonPhrase())
+            .messages(List.of(ex.getMessage()))
+            .path(request.getRequestURI())
+            .build();
+    return new ResponseEntity<>(errorResponse, HttpStatus.LOCKED);
   }
 
   @ExceptionHandler(SecretServiceException.class)

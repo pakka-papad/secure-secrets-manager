@@ -8,7 +8,9 @@ import com.example.secrets_manager.core.data.repositories.SecretGroupRepository;
 import com.example.secrets_manager.core.data.repositories.SecretRepository;
 import com.example.secrets_manager.core.data.repositories.SecretSpecifications;
 import com.example.secrets_manager.core.models.*;
+import com.example.secrets_manager.core.models.MasterKeyState;
 import com.example.secrets_manager.core.models.search.SecretSearchCriteria;
+import com.example.secrets_manager.core.services.exceptions.MasterKeyCompromisedException;
 import com.example.secrets_manager.core.services.exceptions.SecretAlreadyExistsException;
 import com.example.secrets_manager.core.services.exceptions.SecretServiceException;
 import com.example.secrets_manager.core.utils.PaginationUtils;
@@ -109,6 +111,20 @@ public class SecretService {
 
     // 1. Load Master Key Metadata and Bytes
     final var mkMeta = internalMasterKeyService.getMasterKeyMetadata(entity.getMasterKeyVersion());
+
+    if (MasterKeyState.COMPROMISED.equals(mkMeta.getStatus())) {
+      log.error(
+          "Access blocked for secret {} in group {}: Master Key v{} is COMPROMISED.",
+          secretName,
+          groupId,
+          entity.getMasterKeyVersion());
+      throw new MasterKeyCompromisedException(
+          entity.getMasterKeyVersion(),
+          String.format(
+              "Secret '%s' cannot be accessed because it is protected by compromised Master Key v%d.",
+              secretName, entity.getMasterKeyVersion()));
+    }
+
     final var mkBytes = masterKeyProvider.getMasterKey(entity.getMasterKeyVersion());
 
     // 2. Unwrap the DEK

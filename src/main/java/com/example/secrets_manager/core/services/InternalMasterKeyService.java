@@ -8,6 +8,7 @@ import com.example.secrets_manager.core.models.AuditAction;
 import com.example.secrets_manager.core.models.AuditLogPayload;
 import com.example.secrets_manager.core.models.MasterKey;
 import com.example.secrets_manager.core.models.MasterKeyState;
+import com.example.secrets_manager.core.models.events.MasterKeyCompromisedEvent;
 import com.example.secrets_manager.core.models.events.MasterKeyPromotedEvent;
 import com.example.secrets_manager.core.models.search.MasterKeySearchCriteria;
 import com.example.secrets_manager.security.SecurityUtils;
@@ -91,6 +92,39 @@ public class InternalMasterKeyService {
 
     // Publish lifecycle event for side effects
     eventPublisher.publishEvent(new MasterKeyPromotedEvent(version, algorithm, retiredVersions));
+
+    return MasterKeyEntityConverter.toModel(saved);
+  }
+
+  /**
+   * Marks a specific master key version as compromised. This triggers immediate in-memory eviction
+   * of the key material and blocks its further use.
+   *
+   * @param version The version to mark as compromised.
+   * @return The updated MasterKey domain model.
+   */
+  @Transactional
+  public MasterKey markKeyAsCompromised(int version) {
+    var entity =
+        masterKeyRepository
+            .findById(version)
+            .orElseThrow(() -> new EntityNotFoundException("Master key not found: " + version));
+
+    entity.setStatus(MasterKeyState.COMPROMISED.name());
+    var saved = masterKeyRepository.save(entity);
+
+    log.warn("Master Key v{} has been marked as COMPROMISED.", version);
+
+    // Audit the event
+    auditService.save(
+        AuditLogPayload.builder()
+            .actorUserId(SecurityUtils.getAuthenticatedUserId())
+            .action(AuditAction.MASTER_KEY_COMPROMISED)
+            .targetMasterKeyVersion(version)
+            .build());
+
+    // Signal in-memory eviction
+    eventPublisher.publishEvent(new MasterKeyCompromisedEvent(version));
 
     return MasterKeyEntityConverter.toModel(saved);
   }

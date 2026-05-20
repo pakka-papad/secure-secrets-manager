@@ -2,6 +2,7 @@ package com.example.secrets_manager.core.components;
 
 import com.example.secrets_manager.core.models.MasterKey;
 import com.example.secrets_manager.core.models.MasterKeyState;
+import com.example.secrets_manager.core.models.events.MasterKeyCompromisedEvent;
 import com.example.secrets_manager.core.models.search.MasterKeySearchCriteria;
 import com.example.secrets_manager.core.services.InternalMasterKeyService;
 import com.example.secrets_manager.crypto.CryptographyService;
@@ -22,6 +23,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.hibernate.id.uuid.UuidVersion7Strategy;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.event.EventListener;
 import org.springframework.core.env.ConfigurableEnvironment;
 import org.springframework.core.env.EnumerablePropertySource;
 import org.springframework.core.env.PropertySource;
@@ -178,5 +180,11 @@ public class MasterKeyProvider {
     return masterKeys.keySet().stream()
         .max(Integer::compareTo)
         .orElseThrow(() -> new IllegalStateException("No active master key available."));
+  }
+
+  @EventListener
+  public void onMasterKeyCompromised(MasterKeyCompromisedEvent event) {
+    log.warn("Evicting compromised Master Key v{} from memory.", event.version());
+    this.masterKeys.remove(event.version());
   }
 }

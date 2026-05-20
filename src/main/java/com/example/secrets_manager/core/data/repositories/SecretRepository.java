@@ -57,12 +57,15 @@ public interface SecretRepository
 
   /**
    * Finds IDs of active secrets that are protected by a master key version older than the specified
-   * target version. Supports keyset pagination via lastId for robust batch processing.
+   * target version, and whose current master key is NOT compromised. Supports keyset pagination via
+   * lastId for robust batch processing.
    */
   @Query(
       """
       SELECT s.id FROM SecretEntity s
+      JOIN MasterKeyEntity mk ON s.masterKeyVersion = mk.version
       WHERE s.masterKeyVersion < :version
+      AND mk.status IN ('ACTIVE', 'RETIRED')
       AND (:lastId IS NULL OR s.id > :lastId)
       AND s.deletedAt IS NULL
       ORDER BY s.id ASC
@@ -101,9 +104,17 @@ public interface SecretRepository
 
   /**
    * Checks if any active secrets exist that are protected by a master key version older than the
-   * specified target. Uses short-circuiting EXISTS logic.
+   * specified version and whose current master key is NOT compromised.
    */
-  boolean existsByMasterKeyVersionLessThanAndDeletedAtIsNull(int version);
+  @Query(
+      """
+      SELECT COUNT(s) > 0 FROM SecretEntity s
+      JOIN MasterKeyEntity mk ON s.masterKeyVersion = mk.version
+      WHERE s.masterKeyVersion < :version
+      AND mk.status IN ('ACTIVE', 'RETIRED')
+      AND s.deletedAt IS NULL
+      """)
+  boolean existsByMasterKeyVersionLessThanAndDeletedAtIsNull(@Param("version") int version);
 
   /** Overrides standard findAll to ensure associated metadata is pre-fetched during searches. */
   @Override

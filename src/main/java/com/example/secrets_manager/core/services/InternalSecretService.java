@@ -4,6 +4,8 @@ import com.example.secrets_manager.core.components.MasterKeyProvider;
 import com.example.secrets_manager.core.data.repositories.SecretRepository;
 import com.example.secrets_manager.core.models.AuditAction;
 import com.example.secrets_manager.core.models.AuditLogPayload;
+import com.example.secrets_manager.core.models.MasterKeyState;
+import com.example.secrets_manager.core.services.exceptions.MasterKeyCompromisedException;
 import com.example.secrets_manager.core.services.exceptions.SecretServiceException;
 import com.example.secrets_manager.crypto.CryptographyService;
 import com.example.secrets_manager.crypto.dto.EncryptedData;
@@ -61,6 +63,16 @@ public class InternalSecretService {
     // Unwrap DEK with current Master Key
     final var oldMkMeta =
         internalMasterKeyService.getMasterKeyMetadata(entity.getMasterKeyVersion());
+
+    if (MasterKeyState.COMPROMISED.equals(oldMkMeta.getStatus())) {
+      log.error(
+          "Secret {} is protected by a COMPROMISED master key v{}. Migration is blocked.",
+          secretId,
+          oldMkMeta.getVersion());
+      throw new MasterKeyCompromisedException(
+          oldMkMeta.getVersion(), "Cannot migrate secret protected by a compromised master key");
+    }
+
     final var oldMkBytes = masterKeyProvider.getMasterKey(entity.getMasterKeyVersion());
 
     final var currentWrappedDek =
