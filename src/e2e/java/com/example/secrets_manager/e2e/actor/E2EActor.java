@@ -2,6 +2,7 @@ package com.example.secrets_manager.e2e.actor;
 
 import com.example.secrets_manager.e2e.client.AdminTestClient;
 import com.example.secrets_manager.e2e.client.AuditClient;
+import com.example.secrets_manager.e2e.client.MasterKeyClient;
 import com.example.secrets_manager.e2e.client.SecretClient;
 import com.example.secrets_manager.e2e.client.SecretGroupAuthorizationClient;
 import com.example.secrets_manager.e2e.client.SecretGroupClient;
@@ -23,6 +24,7 @@ public class E2EActor {
   private AdminTestClient adminTestClient;
   private AuditClient auditClient;
   private SecurityEventClient securityEventClient;
+  private MasterKeyClient masterKeyClient;
 
   public E2EActor(String token, String username, String password) {
     this.token = token;
@@ -84,6 +86,13 @@ public class E2EActor {
       securityEventClient = new SecurityEventClient(token);
     }
     return securityEventClient;
+  }
+
+  public MasterKeyClient masterKeys() {
+    if (masterKeyClient == null) {
+      masterKeyClient = new MasterKeyClient(token);
+    }
+    return masterKeyClient;
   }
 
   public AdminTestClient test() {
