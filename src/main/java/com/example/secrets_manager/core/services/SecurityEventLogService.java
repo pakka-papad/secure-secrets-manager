@@ -8,6 +8,7 @@ import com.example.secrets_manager.core.data.repositories.SecurityEventLogSpecif
 import com.example.secrets_manager.core.models.SecurityEventLog;
 import com.example.secrets_manager.core.models.SecurityEventLogPayload;
 import com.example.secrets_manager.core.models.search.SecurityEventSearchCriteria;
+import com.example.secrets_manager.core.utils.PaginationUtils;
 import com.example.secrets_manager.tracing.CorrelationContext;
 import com.example.secrets_manager.tracing.MissingCorrelationContextException;
 import jakarta.persistence.EntityNotFoundException;
@@ -16,7 +17,6 @@ import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
@@ -78,17 +78,15 @@ public class SecurityEventLogService {
   @PreAuthorize("hasRole('ADMIN')")
   public Page<SecurityEventLogInfo> listSecurityEvents(
       SecurityEventSearchCriteria criteria, Pageable pageable) {
-    // Force reverse chronological order by created time
-    Pageable sortedPageable =
-        PageRequest.of(
-            pageable.getPageNumber(),
-            pageable.getPageSize(),
-            Sort.by(Sort.Direction.DESC, "createdAt"));
+    PaginationUtils.validateSort(pageable, SecurityEventLogEntity.ALLOWED_SORT_FIELDS);
+
+    final var resolvedPageable =
+        PaginationUtils.getResolvedPageable(pageable, Sort.by(Sort.Direction.DESC, "createdAt"));
 
     Specification<SecurityEventLogEntity> spec =
         SecurityEventLogSpecifications.withCriteria(criteria);
     return securityEventLogRepository.findBy(
-        spec, q -> q.as(SecurityEventLogInfo.class).page(sortedPageable));
+        spec, q -> q.as(SecurityEventLogInfo.class).page(resolvedPageable));
   }
 
   /**

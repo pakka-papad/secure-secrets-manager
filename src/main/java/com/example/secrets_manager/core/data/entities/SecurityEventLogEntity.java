@@ -8,6 +8,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 import java.time.Instant;
+import java.util.Set;
 import java.util.UUID;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -35,6 +36,8 @@ public class SecurityEventLogEntity {
   public static final String COL_TARGET_SECRET_ID = "target_secret_id";
   public static final String COL_TARGET_MASTER_KEY_VERSION = "target_master_key_version";
   public static final String COL_DETAILS = "details";
+
+  public static final Set<String> ALLOWED_SORT_FIELDS = Set.of("createdAt");
 
   @Id
   @GeneratedValue

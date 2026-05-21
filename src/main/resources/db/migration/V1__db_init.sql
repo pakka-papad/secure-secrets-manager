@@ -116,6 +116,7 @@ ALTER TABLE sm.security_event_logs ADD CONSTRAINT security_event_logs_target_gro
 ALTER TABLE sm.security_event_logs ADD CONSTRAINT security_event_logs_target_secret_id_fk FOREIGN KEY (target_secret_id) REFERENCES sm.secrets(id);
 ALTER TABLE sm.security_event_logs ADD CONSTRAINT security_event_logs_target_master_key_version_fk FOREIGN KEY (target_master_key_version) REFERENCES sm.master_keys(version);
 CREATE INDEX IF NOT EXISTS idx_security_event_logs_correlation_id ON sm.security_event_logs (correlation_id);
+CREATE INDEX IF NOT EXISTS idx_security_event_logs_created_at_desc ON sm.security_event_logs (created_at DESC);
 
 CREATE TABLE IF NOT EXISTS sm.tasks(
     id UUID PRIMARY KEY DEFAULT uuidv7(),
