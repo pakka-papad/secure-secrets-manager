@@ -8,6 +8,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 import java.time.Instant;
+import java.util.Set;
 import java.util.UUID;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -38,6 +39,8 @@ public class TaskEntity {
   public static final String COL_STATE_EXTRA_INFO = "state_extra_info";
   public static final String COL_TASK_OUTPUT = "task_output";
   public static final String COL_METADATA = "metadata";
+
+  public static final Set<String> ALLOWED_SORT_FIELDS = Set.of("id");
 
   @Id
   @GeneratedValue

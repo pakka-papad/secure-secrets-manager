@@ -9,6 +9,7 @@ import com.example.secrets_manager.core.models.AuditLog;
 import com.example.secrets_manager.core.models.AuditLogPayload;
 import com.example.secrets_manager.core.models.SystemLockName;
 import com.example.secrets_manager.core.models.search.AuditLogSearchCriteria;
+import com.example.secrets_manager.core.utils.PaginationUtils;
 import com.example.secrets_manager.crypto.CryptographyService;
 import com.example.secrets_manager.tracing.CorrelationContext;
 import com.example.secrets_manager.tracing.MissingCorrelationContextException;
@@ -17,7 +18,6 @@ import java.time.Instant;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
@@ -97,18 +97,20 @@ public class AuditService {
     return AuditLogEntityConverter.toModel(savedEntity);
   }
 
-  /** Retrieves a paginated list of audit logs based on criteria. Restricted to administrators. */
+  /**
+   * Retrieves a paginated list of audit logs based on criteria. Enforces reverse chronological
+   * order by sequence ID. Supports unpaged requests.
+   */
   @Transactional(readOnly = true)
   @PreAuthorize("hasRole('ADMIN')")
   public Page<AuditLogInfo> listAuditLogs(AuditLogSearchCriteria criteria, Pageable pageable) {
-    Pageable sortedPageable =
-        PageRequest.of(
-            pageable.getPageNumber(),
-            pageable.getPageSize(),
-            Sort.by(Sort.Direction.DESC, "seqId"));
+    PaginationUtils.validateSort(pageable, AuditLogEntity.ALLOWED_SORT_FIELDS);
+
+    final var resolvedPageable =
+        PaginationUtils.getResolvedPageable(pageable, Sort.by(Sort.Direction.DESC, "seqId"));
 
     Specification<AuditLogEntity> spec = AuditLogSpecifications.withCriteria(criteria);
-    return auditLogRepository.findBy(spec, q -> q.as(AuditLogInfo.class).page(sortedPageable));
+    return auditLogRepository.findBy(spec, q -> q.as(AuditLogInfo.class).page(resolvedPageable));
   }
 
   /**

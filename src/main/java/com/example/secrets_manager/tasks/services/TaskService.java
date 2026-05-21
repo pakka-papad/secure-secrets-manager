@@ -1,5 +1,6 @@
 package com.example.secrets_manager.tasks.services;
 
+import com.example.secrets_manager.core.utils.PaginationUtils;
 import com.example.secrets_manager.security.SecurityUtils;
 import com.example.secrets_manager.tasks.data.converters.TaskEntityConverter;
 import com.example.secrets_manager.tasks.data.entities.TaskEntity;
@@ -14,7 +15,6 @@ import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
@@ -81,8 +81,7 @@ public class TaskService {
 
   /**
    * Retrieves a paginated list of background tasks based on the provided search criteria. This
-   * operation is restricted to administrators and always sorts results in reverse chronological
-   * order by ID (UUIDv7).
+   * operation is restricted to administrators.
    *
    * @param criteria The filtering criteria.
    * @param pageable The pagination parameters (sort order is ignored).
@@ -91,15 +90,15 @@ public class TaskService {
   @Transactional(readOnly = true)
   @PreAuthorize("hasRole('ADMIN')")
   public Page<TaskInfo> listTasks(TaskSearchCriteria criteria, Pageable pageable) {
-    // Force reverse chronological order using UUIDv7 property
-    Pageable sortedPageable =
-        PageRequest.of(
-            pageable.getPageNumber(), pageable.getPageSize(), Sort.by(Sort.Direction.DESC, "id"));
+    PaginationUtils.validateSort(pageable, TaskEntity.ALLOWED_SORT_FIELDS);
+
+    final var resolvedPageable =
+        PaginationUtils.getResolvedPageable(pageable, Sort.by(Sort.Direction.DESC, "id"));
 
     Specification<TaskEntity> spec = TaskSpecifications.withCriteria(criteria);
 
     // Use dynamic projection to avoid fetching large JSONB columns in list views
-    return taskRepository.findBy(spec, q -> q.as(TaskInfo.class).page(sortedPageable));
+    return taskRepository.findBy(spec, q -> q.as(TaskInfo.class).page(resolvedPageable));
   }
 
   /**

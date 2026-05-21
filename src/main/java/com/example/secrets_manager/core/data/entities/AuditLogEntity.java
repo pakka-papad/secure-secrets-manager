@@ -8,6 +8,7 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import java.time.Instant;
+import java.util.Set;
 import java.util.UUID;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -36,6 +37,8 @@ public class AuditLogEntity {
   public static final String COL_DETAILS = "details";
   public static final String COL_PREV_HASH = "prev_hash";
   public static final String COL_DATA_HASH = "data_hash";
+
+  public static final Set<String> ALLOWED_SORT_FIELDS = Set.of("seqId");
 
   @Id
   @GeneratedValue(strategy = GenerationType.IDENTITY)
