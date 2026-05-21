@@ -1,6 +1,7 @@
 package com.example.secrets_manager.core.utils;
 
 import java.util.Set;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 
@@ -9,6 +10,27 @@ public final class PaginationUtils {
 
   private PaginationUtils() {
     // Prevent instantiation
+  }
+
+  /**
+   * Applies a default sort if the input Pageable is unsorted. Maintains paged/unpaged status.
+   *
+   * @param pageable The input Pageable.
+   * @param defaultSort The default sort to apply if unsorted.
+   * @return A Pageable with sorting applied.
+   */
+  public static Pageable getResolvedPageable(Pageable pageable, Sort defaultSort) {
+    if (pageable == null) {
+      return Pageable.unpaged(defaultSort);
+    }
+    if (pageable.getSort().isSorted()) {
+      return pageable;
+    }
+
+    if (pageable.isPaged()) {
+      return PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), defaultSort);
+    }
+    return Pageable.unpaged(defaultSort);
   }
 
   /**

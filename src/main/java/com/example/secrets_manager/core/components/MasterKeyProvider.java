@@ -27,6 +27,7 @@ import org.springframework.context.event.EventListener;
 import org.springframework.core.env.ConfigurableEnvironment;
 import org.springframework.core.env.EnumerablePropertySource;
 import org.springframework.core.env.PropertySource;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
 
 /**
@@ -62,10 +63,13 @@ public class MasterKeyProvider {
   private void performInit() {
     // Fetch entire DB registry once to build a lookup map
     final var requiredKeys =
-        internalMasterKeyService.listMasterKeys(
-            MasterKeySearchCriteria.builder()
-                .statuses(EnumSet.of(MasterKeyState.ACTIVE, MasterKeyState.RETIRED))
-                .build());
+        internalMasterKeyService
+            .listMasterKeys(
+                MasterKeySearchCriteria.builder()
+                    .statuses(EnumSet.of(MasterKeyState.ACTIVE, MasterKeyState.RETIRED))
+                    .build(),
+                Pageable.unpaged())
+            .getContent();
 
     final var dbKeyMap =
         requiredKeys.stream().collect(Collectors.toMap(MasterKey::getVersion, Function.identity()));

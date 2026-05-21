@@ -24,6 +24,8 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 
 @ExtendWith(MockitoExtension.class)
@@ -36,7 +38,7 @@ class InternalMasterKeyServiceTest {
   @InjectMocks private InternalMasterKeyService internalMasterKeyService;
 
   @Test
-  void listMasterKeys_ShouldReturnConvertedList() {
+  void listMasterKeys_ShouldReturnConvertedPage() {
     // Given
     var criteria = MasterKeySearchCriteria.builder().build();
     var entity =
@@ -46,15 +48,16 @@ class InternalMasterKeyServiceTest {
             .encryptAlgo("AES-256-GCM")
             .build();
 
-    when(masterKeyRepository.findAll(any(Specification.class))).thenReturn(List.of(entity));
+    when(masterKeyRepository.findAll(any(Specification.class), any(Pageable.class)))
+        .thenReturn(new PageImpl<>(List.of(entity)));
 
     // When
-    var result = internalMasterKeyService.listMasterKeys(criteria);
+    var result = internalMasterKeyService.listMasterKeys(criteria, Pageable.unpaged());
 
     // Then
-    assertThat(result).hasSize(1);
-    assertThat(result.get(0).getVersion()).isEqualTo(1);
-    assertThat(result.get(0).getStatus()).isEqualTo(MasterKeyState.ACTIVE);
+    assertThat(result.getContent()).hasSize(1);
+    assertThat(result.getContent().get(0).getVersion()).isEqualTo(1);
+    assertThat(result.getContent().get(0).getStatus()).isEqualTo(MasterKeyState.ACTIVE);
   }
 
   @Test

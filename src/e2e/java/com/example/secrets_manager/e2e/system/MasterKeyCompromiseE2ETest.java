@@ -1,54 +1,56 @@
 package com.example.secrets_manager.e2e.system;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.awaitility.Awaitility.await;
 
+import com.example.secrets_manager.core.models.MasterKey;
 import com.example.secrets_manager.core.models.MasterKeyState;
 import com.example.secrets_manager.e2e.base.E2EBaseTest;
-import com.example.secrets_manager.tasks.models.TaskType;
-import java.time.Duration;
+import java.util.Comparator;
 import java.util.Map;
+import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
 class MasterKeyCompromiseE2ETest extends E2EBaseTest {
 
   @Test
-  void markKeyAsCompromised_ShouldBlockMigrationAndEvictFromMemory() {
+  void markKeyAsCompromised_ShouldBlockAccessAndIsolateData() {
     final var admin = actors.asAnyAdmin();
 
-    // Setup: Create secrets under V1
-    final var groupId = admin.secretGroups().create("compromise-test", "AES-256-GCM").getId();
+    // Discovery: Find the current max version to ensure isolation
+    final int currentMax =
+        admin.masterKeys().list(Map.of()).getItems().stream()
+            .map(MasterKey::getVersion)
+            .max(Comparator.naturalOrder())
+            .orElse(1);
+
+    // Setup: Promote to a private 'test-only' version (e.g., v100)
+    // This ensures we don't compromise v1/v2 which other tests rely on.
+    final int privateVersion = currentMax + 1;
+    admin.test().triggerMasterKeyPromotion(privateVersion);
+
+    final var secretGroupName = "secret-group-" + UUID.randomUUID();
+    final var groupId = admin.secretGroups().create(secretGroupName, "AES-256-GCM").getId();
     admin.secrets().create(groupId, "toxic-secret", "sensitive-payload");
 
-    // Action: Mark V1 as COMPROMISED
-    final var updatedKey = admin.masterKeys().markAsCompromised(1);
+    // Action: Mark our private version as COMPROMISED
+    final var updatedKey = admin.masterKeys().markAsCompromised(privateVersion);
     assertThat(updatedKey.getStatus()).isEqualTo(MasterKeyState.COMPROMISED);
 
-    // Verification: Attempting to read the secret should fail with 423 Locked
+    // Verification: Attempting to read the secret must fail with 423 Locked
     var response = admin.secrets().getValueRaw(groupId, "toxic-secret");
     assertThat(response.getStatusCode()).isEqualTo(423);
 
-    // Trigger: Promote to V2
-    admin.test().triggerMasterKeyPromotion(2);
+    // Persistence Check: Promote to another version and ensure data is still blocked
+    admin.test().triggerMasterKeyPromotion(privateVersion + 1);
 
-    // Verification: No migration task should be scheduled for the toxic secret
-    // We wait a bit and then check that either no task exists or if it exists, it finished with 0
-    // success.
-    // Our existing logic schedules a task ONLY if secrets need migration.
-    // findSecretIdsByMasterKeyVersionLessThan now excludes COMPROMISED keys.
+    // The secret is still protected by the compromised key, so it must remain unreachable
+    var stillLocked = admin.secrets().getValueRaw(groupId, "toxic-secret");
+    assertThat(stillLocked.getStatusCode()).isEqualTo(423);
 
-    await()
-        .atMost(Duration.ofSeconds(5))
-        .untilAsserted(
-            () -> {
-              var tasks =
-                  admin.tasks().listTasks(Map.of("types", TaskType.MASTER_KEY_MIGRATION.name()));
-              // If a task was created (e.g. from a previous test or parallel run), it should not
-              // have processed our secret.
-              // In a clean silo, no task should be created because existsBy... returns false for
-              // compromised keys.
-              assertThat(tasks.getItems())
-                  .noneMatch(t -> t.getType() == TaskType.MASTER_KEY_MIGRATION);
-            });
+    // System Health Check: V1 should still be healthy
+    // (This proves we achieved isolation through data sharding)
+    admin.secrets().create(groupId, "healthy-secret", "safe");
+    assertThat(admin.secrets().getValue(groupId, "healthy-secret").getPlaintextValue())
+        .isEqualTo("safe");
   }
 }

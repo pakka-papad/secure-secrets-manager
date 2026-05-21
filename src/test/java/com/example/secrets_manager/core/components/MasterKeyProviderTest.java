@@ -18,6 +18,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 import org.springframework.mock.env.MockEnvironment;
 import org.springframework.test.util.ReflectionTestUtils;
 
@@ -48,7 +50,8 @@ class MasterKeyProviderTest {
     // Set the property using the original naming convention
     environment.setProperty("MASTER_KEY__V1", base64Key);
 
-    when(internalMasterKeyService.listMasterKeys(any())).thenReturn(List.of());
+    when(internalMasterKeyService.listMasterKeys(any(), any(Pageable.class)))
+        .thenReturn(new PageImpl<>(List.of()));
     when(internalMasterKeyService.getHighestMasterKeyVersion()).thenReturn(0);
     when(cryptographyService.getRequiredSymmetricKeySizeBytes("AES-256-GCM")).thenReturn(32);
 
@@ -83,7 +86,8 @@ class MasterKeyProviderTest {
             .encryptAlgo("AES-256-GCM")
             .build();
 
-    when(internalMasterKeyService.listMasterKeys(any())).thenReturn(List.of(existingKey));
+    when(internalMasterKeyService.listMasterKeys(any(), any(Pageable.class)))
+        .thenReturn(new PageImpl<>(List.of(existingKey)));
     when(internalMasterKeyService.getHighestMasterKeyVersion()).thenReturn(1);
 
     // When & Then
@@ -93,7 +97,8 @@ class MasterKeyProviderTest {
   @Test
   void init_shouldThrowException_whenNoKeysFound() {
     // Given
-    when(internalMasterKeyService.listMasterKeys(any())).thenReturn(List.of());
+    when(internalMasterKeyService.listMasterKeys(any(), any(Pageable.class)))
+        .thenReturn(new PageImpl<>(List.of()));
     when(internalMasterKeyService.getHighestMasterKeyVersion()).thenReturn(0);
 
     // When & Then

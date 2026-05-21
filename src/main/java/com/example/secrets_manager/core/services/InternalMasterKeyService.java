@@ -11,12 +11,15 @@ import com.example.secrets_manager.core.models.MasterKeyState;
 import com.example.secrets_manager.core.models.events.MasterKeyCompromisedEvent;
 import com.example.secrets_manager.core.models.events.MasterKeyPromotedEvent;
 import com.example.secrets_manager.core.models.search.MasterKeySearchCriteria;
+import com.example.secrets_manager.core.utils.PaginationUtils;
 import com.example.secrets_manager.security.SecurityUtils;
 import jakarta.persistence.EntityNotFoundException;
-import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -33,13 +36,21 @@ public class InternalMasterKeyService {
   private final AuditService auditService;
   private final ApplicationEventPublisher eventPublisher;
 
-  /** Lists master keys based on the provided search criteria. Internal use only. */
+  /**
+   * Lists master keys based on the provided search criteria. Enforces version-based sorting,
+   * defaulting to descending order if none is provided.
+   */
   @Transactional(readOnly = true)
-  public List<MasterKey> listMasterKeys(MasterKeySearchCriteria criteria) {
+  public Page<MasterKey> listMasterKeys(MasterKeySearchCriteria criteria, Pageable pageable) {
+    PaginationUtils.validateSort(pageable, MasterKeyEntity.ALLOWED_SORT_FIELDS);
+
+    final var resolvedPageable =
+        PaginationUtils.getResolvedPageable(pageable, Sort.by(Sort.Direction.DESC, "version"));
+
     var spec = MasterKeySpecifications.withCriteria(criteria);
-    return masterKeyRepository.findAll(spec).stream()
-        .map(MasterKeyEntityConverter::toModel)
-        .toList();
+    return masterKeyRepository
+        .findAll(spec, resolvedPageable)
+        .map(MasterKeyEntityConverter::toModel);
   }
 
   /**
