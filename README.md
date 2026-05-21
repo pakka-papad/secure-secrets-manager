@@ -1,192 +1,102 @@
-# Secure Secrets Manager
-*A security-focused backend system showcasing encryption, auditability, and key rotation*
+# Secrets Manager with Distributed Task Orchestration
+*A security-focused backend system featuring hierarchical encryption and a resilient background task framework.*
 
 ---
 
-## Overview
+## Technical Overview
 
-This project implements a **secure secrets management service** designed to store and retrieve sensitive configuration data such as API keys, credentials, and tokens.  
-It emphasizes **strong encryption at rest**, **fine-grained access control**, **tamper-evident auditing**, and **safe cryptographic key rotation**.
+This project implements a secure secrets management platform designed for distributed backend environments. It focuses on solving complex infrastructure challenges: **distributed concurrency safety, hierarchical key lifecycles, and cross-boundary forensic traceability.**
 
-The goal of this project is to demonstrate **security-conscious software engineering practices**. It is intentionally scoped as a single-service system and does **not** aim to be a production replacement for tools like Vault or cloud-managed secret stores.
-
----
-
-## Key Features
-
-- Encrypted secret storage (no plaintext at rest)
-- Secret grouping with access control boundaries
-- Hierarchical key management (Master Keys & Data Encryption Keys)
-- Asynchronous key rotation (non-blocking)
-- Append-only, tamper-evident audit logs
-- Durable background task system
-- User-authored actions preserved across automated operations
+The system utilizes a leaderless **Distributed Task Engine** for cluster-wide consistency while maintaining a **Process-Local Root of Trust** for high-security cryptographic operations.
 
 ---
 
-## High-Level Architecture
+## Core Architecture
 
-The system is composed of the following logical components:
+### 1. Distributed Execution & Concurrency Control
+The background task engine follows a "shared-nothing" architecture, allowing multiple system nodes to operate concurrently without a central coordinator.
+*   **Optimistic Distributed Concurrency**: Instead of heavy row-level locking, the system uses optimistic fencing to ensure task integrity. This prevents "Zombie Processes" (slow or partitioned nodes) from interfering with active work.
+*   **Atomic Fencing**: Every state transition is verified against a distributed ownership model at the persistence layer, ensuring that only the authoritative worker can modify a given resource.
+*   **Self-Healing Resilience**: The system automatically detects and reclaims stale tasks from failed nodes, ensuring background operations eventually reach a terminal state.
 
-- **API Service**  
-  Handles authenticated client requests, enforces authorization, coordinates encryption, and persists state changes.
+### 2. Hierarchical Key Management (Versioning)
+The system implements a versioned cryptographic model that separates the "Root of Trust" from persistent data encryption.
+*   **Multi-State Key Lifecycle**: Supports `ACTIVE`, `RETIRED`, and `COMPROMISED` versions. Master keys are injected via the environment and never persisted, minimizing the attack surface.
+*   **Cryptographic Re-wrapping Engine**: A specialized background framework facilitates zero-downtime key rotation by updating the protection layer of every secret without exposing the underlying plaintext.
+*   **Immediate Forensic Blocking**: When a key is marked as `COMPROMISED`, the system enforces an immediate "Nuclear Stop" at the data layer, rendering all associated data unreadable across the cluster.
 
-- **Cryptography Module**  
-  Encapsulates all cryptographic operations such as key generation, encryption/decryption, and audit hash computation.
-
-- **Persistent Storage (PostgreSQL)**  
-  Stores encrypted secrets, encrypted data keys, audit logs, and background task state.  
-  Plaintext secrets and master keys are never persisted.
-
-- **Background Task Workers**  
-  Execute long-running or resource-intensive operations (e.g., key rotation) asynchronously.
-
-- **Authentication & Authorization Module**  
-  Verifies user identity and enforces read/write permissions at the secret-group level.
-
-The API service and workers are stateless with respect to persistent data. Master keys are injected at startup and held **only in memory**.
+### 3. End-to-End Traceability & Forensics
+Engineered to preserve accountability across complex asynchronous boundaries, from the initial REST request to background worker threads.
+*   **Causal Audit Chains**: Every cryptographic action is recorded in an append-only, tamper-evident audit trail. Each entry is cryptographically linked to its predecessor using SHA-256 hashes, creating an immutable history.
+*   **Cross-Boundary Correlation**: Distributed trace IDs are propagated across API, event, and thread boundaries, allowing administrators to follow the complete lifecycle of a transaction across the entire system.
 
 ---
 
-## Core Concepts
+## Cryptographic Design (Envelope Encryption)
 
-### Users
-Authenticated identities that interact with the system.
+The platform utilizes a multi-layered **Envelope Encryption** pattern to balance security and operational flexibility.
 
-### Secret Groups
-Logical groupings of secrets that define:
-- Encryption parameters
-- Access control boundaries
+```mermaid
+graph TD
+    subgraph "In-Memory (Root of Trust)"
+        MK[Master Key - Versioned]
+    end
+    subgraph "Persistent Storage (Encrypted at Rest)"
+        EDEK[Encrypted DEK]
+        CIPHER[Encrypted Secret Value]
+    end
 
-### Secrets
-Encrypted values identified by name and scoped to a secret group.  
-Secrets do **not** retain historical values.
-
-### Keys
-- **Master Keys (MKs)**: Versioned keys used to encrypt Data Encryption Keys.
-- **Data Encryption Keys (DEKs)**: Per-secret keys used to encrypt secret values.
-
-### Audit Logs
-Append-only records of all security-relevant actions, cryptographically chained to detect tampering.
-
-### Background Tasks
-Durable representations of asynchronous operations such as key rotation.
-
----
-
-## Cryptographic Design
-
-The system uses a layered encryption model:
-
-```
-Master Key (MK)
-      ↓
-Encrypts Data Encryption Key (DEK)
-      ↓
-Encrypts Secret Value
+    MK -- "Wraps / Unwraps" --> EDEK
+    DEK[Data Encryption Key] -- "Encrypts / Decrypts" --> CIPHER
+    EDEK -.-> DEK
 ```
 
-Key properties:
-- Each secret has its own DEK
-- Master keys are versioned and never persisted
-- Key rotation is supported without blocking reads or writes
-- Authenticated encryption (AEAD) ensures confidentiality and integrity
+*   **Master Key (MK)**: A high-entropy key held strictly in memory. It is the "Root of Trust" used to protect Data Encryption Keys.
+*   **Data Encryption Key (DEK)**: A unique, per-secret key generated by a CSPRNG. It is used to encrypt the actual secret payload and is stored in a "Wrapped" (encrypted) state alongside the secret.
+*   **Separation of Concerns**: This model allows for rotated Master Keys (re-wrapping the DEK) without the need to re-encrypt the massive underlying datasets.
 
 ---
 
-## Request Lifecycle
+## Task Execution State Machine
 
-### Write Secret (new secret)
-1. Authenticate and authorize the request
-2. Generate a new DEK
-3. Encrypt the secret value
-4. Encrypt the DEK with the current master key
-5. Persist encrypted data
-6. Append an audit log entry
+The durable execution of background operations is governed by the following deterministic lifecycle:
 
-### Read Secret
-1. Authenticate and authorize the request
-2. Decrypt the DEK using the appropriate master key
-3. Decrypt and return the secret value
-4. Append an audit log entry
-
-All state changes and audit logging occur atomically.
-
----
-
-## Audit Logging & Integrity
-
-- Audit logs are **append-only**
-- Each entry is cryptographically chained to the previous entry
-- Tampering can be detected through hash verification
-- Asynchronous system actions retain references to the initiating user action
-
-This preserves **causality** between human intent and automated system behavior.
+```mermaid
+stateDiagram
+    [*] --> PENDING
+    PENDING --> RUNNING : Atomic Claim
+    PENDING --> CANCELLED : Admin Cancel
+    RUNNING --> COMPLETED : Success
+    RUNNING --> FAILED : Domain Error
+    RUNNING --> CANCELLED : Admin Cancel (Fenced)
+    COMPLETED --> [*]
+    FAILED --> [*]
+    CANCELLED --> [*]
+```
 
 ---
 
-## Background Task System
+## Performance & Scalability
 
-Some operations (e.g., DEK or MK rotation) are intentionally performed asynchronously.
-
-Background tasks:
-- Are persisted in the database
-- Transition through a defined state machine
-- Are executed idempotently
-- Support retries and failure recovery
-- Retain references to the initiating user and audit log entry
+The system is designed to stay fast and responsive as data volume grows.
+*   **Lean Lists**: Administrative views fetch only essential metadata, ensuring that listing thousands of tasks or audit logs stays fast even if individual records contain large JSON payloads.
+*   **Naturally Ordered Storage**: By using time-ordered keys for all records, the database maintains high efficiency for "Latest-First" views and sequential writes without needing extra overhead.
+*   **Background Maintenance**: A built-in cleanup system automatically prunes old worker heartbeats and temporary metadata, keeping the database healthy and predictable.
 
 ---
 
-## Authentication & Authorization
+## Administrative Control
 
-- Users authenticate using securely hashed credentials
-- Authorization is enforced at the secret-group level
-- Permissions are explicitly separated into **read** and **write**
-- All access checks are enforced consistently across API requests and background tasks
-
----
-
-## Failure Handling & Recovery
-
-The system is designed to tolerate partial failures:
-
-- Worker crashes do not corrupt task state
-- Tasks can be retried safely
-- Key rotation can be paused and resumed
-- Failures are observable via task state and audit logs
+A specialized control plane gives admins the power to monitor and manage the system's internal state.
+*   **Kill-Switch Capability**: Long-running background tasks can be stopped at any time. The system uses atomic "fences" to ensure the stop is respected immediately across all nodes.
+*   **Forensic "Thread Pulling"**: Admins can use a single Trace ID to find everything that happened during a specific transaction, even if it involved multiple users or background threads.
+*   **Security Monitoring**: The system keeps a real-time record of failed security attempts and internal consistency violations, providing immediate forensic context for investigations.
 
 ---
 
-## Security Considerations
+## Technology Stack
 
-This project explicitly addresses:
-
-- Database compromise (encrypted data at rest)
-- Insider misuse (authorization + auditing)
-- Audit log tampering (hash chaining)
-- Key lifecycle management (versioning and rotation)
-
-Security trade-offs are made consciously to balance clarity, safety, and simplicity.
-
----
-
-## Non-Goals
-
-This project does **not** attempt to solve:
-
-- External KMS or HSM integration
-- Multi-region or distributed deployments
-- Client-side SDKs
-- Compliance frameworks (PCI, HIPAA, etc.)
-- Real-time key rotation guarantees
-
----
-
-## Future Improvements
-
-- External KMS / HSM integration
-- Secret version history
-- Merkle-tree–based audit verification
-- More expressive access policies
-- Multi-tenant isolation
+*   **Core**: Spring Boot 4.x, Spring Security (RBAC), JPA / Hibernate.
+*   **Crypto**: JCE (AES-GCM, AES-KW, ChaCha20-Poly1305), JWT (EC-P256).
+*   **Database**: PostgreSQL 18.x with JSONB.
+*   **Verification**: Dynamic E2E Grouping (isolated JVM processes per package).
