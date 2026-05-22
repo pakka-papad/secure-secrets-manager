@@ -1,3 +1,5 @@
+import com.diffplug.spotless.LineEnding;
+
 plugins {
 	id 'java'
 	id 'org.springframework.boot' version '4.0.1'
@@ -127,6 +129,7 @@ tasks.named('test') {
 }
 
 spotless {
+    lineEndings LineEnding.UNIX
     java {
         googleJavaFormat()
     }
