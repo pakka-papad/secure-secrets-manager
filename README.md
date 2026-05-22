@@ -100,3 +100,14 @@ A specialized control plane gives admins the power to monitor and manage the sys
 *   **Crypto**: JCE (AES-GCM, AES-KW, ChaCha20-Poly1305), JWT (EC-P256).
 *   **Database**: PostgreSQL 18.x with JSONB.
 *   **Verification**: Dynamic E2E Grouping (isolated JVM processes per package).
+
+---
+
+## Future Improvements
+
+*   **Secret Versioning**: Implementation of a versioned history model allowing for point-in-time recovery and cryptographic rollback protection.
+*   **Audit Inclusion Proofs**: Transitioning from a linear audit chain to a **Merkle Tree** structure to support $O(\log N)$ cryptographic proofs of event inclusion and non-tampering.
+*   **Attribute-Based Access Control (ABAC)**: A fine-grained policy engine supporting dynamic constraints such as time-of-day, IP-whitelisting, and multi-factor requirements.
+*   **External KMS / HSM Integration**: Outsourcing the cryptographic "Root of Trust" to dedicated hardware or cloud-managed key services (e.g., AWS KMS, HashiCorp Vault).
+*   **Secret Auto-Expiry**: Implementation of time-to-live (TTL) policies for sensitive data, utilizing the background task framework for automated secure purging of expired credentials.
+
