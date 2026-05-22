@@ -9,8 +9,8 @@ The system requires unique cryptographic keys to establish its **Root of Trust**
 
 ```bash
 # 1. Clone the repository
-git clone <repo-url>
-cd secrets-manager
+git clone git@github.com:pakka-papad/secure-secrets-manager.git
+cd secure-secrets-manager
 
 # 2. Generate unique local keys (Creates a .env file)
 # Requires a Bash-compatible shell (Linux, macOS, or Git Bash on Windows)
