@@ -74,8 +74,8 @@ public abstract class E2EBaseTest {
     registry.add("bucket4j.enabled", () -> false);
 
     // 6. Speed up Task Polling
-    registry.add("task.poll.pending-ms", () -> 1000);
-    registry.add("task.poll.stale-ms", () -> 1000);
+    registry.add("tasks.polling.pending-interval", () -> 1000);
+    registry.add("tasks.polling.stale-interval", () -> 1000);
   }
 
   @LocalServerPort private int port;
