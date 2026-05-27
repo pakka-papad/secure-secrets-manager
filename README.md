@@ -31,6 +31,25 @@ docker compose down -v
 
 ---
 
+## Verification
+
+The project includes both fast automated tests and full-stack end-to-end verification.
+
+```bash
+# Unit, service, controller, repository, and crypto-focused tests
+./gradlew test
+
+# Full-stack E2E suites
+./gradlew e2eTest
+```
+
+*   **`test`**: Covers domain logic, API behavior, security rules, tracing utilities, and cryptographic components.
+*   **`e2eTest`**: Exercises authentication, RBAC and ACL flows, envelope-encrypted secret CRUD, master key migration, compromised-key containment, audit visibility, and correlation propagation.
+*   **E2E Isolation Strategy**: End-to-end suites are grouped by workflow and run in isolated JVM processes. This avoids cross-test database state pollution without paying container startup cost for every individual test class.
+*   **CI Enforcement**: GitHub Actions runs formatting checks, unit tests, and end-to-end verification on the repository.
+
+---
+
 ## Technical Overview
 
 This project implements a secure secrets management platform for distributed backend environments. It focuses on three engineering problems: **safe concurrent background execution, versioned key lifecycle management, and traceability across synchronous and asynchronous boundaries.**
@@ -127,7 +146,7 @@ A specialized control plane gives admins the power to monitor and manage the sys
 *   **Core**: Spring Boot 4.x, Spring Security (RBAC), JPA / Hibernate.
 *   **Crypto**: JCE (AES-GCM, AES-KW, ChaCha20-Poly1305), JWT (EC-P256).
 *   **Database**: PostgreSQL 18.x with JSONB.
-*   **Verification**: Dynamic E2E Grouping (isolated JVM processes per package).
+*   **Verification**: Layered test suite with grouped E2E execution for stateful workflow isolation.
 
 ---
 
