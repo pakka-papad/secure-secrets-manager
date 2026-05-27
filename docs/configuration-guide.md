@@ -53,12 +53,14 @@ These settings control the distributed worker performance and distributed lockin
 
 ## 4. System & Security
 
-| Property | Required | Default | Description |
-| :--- | :--- | :--- | :--- |
-| `bootstrap.admin.username` | No | `admin` | Initial admin username if the user table is empty. |
-| `bootstrap.admin.password` | No | (Random) | Initial admin password. Check logs on first startup if not provided. |
-| `tracing.trust-external-id`| No | `false` | If true, the system will accept `X-Correlation-ID` from incoming HTTP headers. |
-| `bucket4j.enabled`         | No | `true` | Enables/Disables the API rate limiting filters. |
+| Property | Environment Variable | Required | Default | Description |
+| :--- | :--- | :--- | :--- | :--- |
+| `bootstrap.admin.username` | `BOOTSTRAP_USERNAME` | No | - | Username for the bootstrap administrator. If no administrator exists and this value is missing, bootstrap is skipped. |
+| `bootstrap.admin.password` | `BOOTSTRAP_PASSWORD` | No | - | Password for the bootstrap administrator. If no administrator exists and this value is missing, bootstrap is skipped. |
+| `tracing.trust-external-id`| - | No | `false` | If true, the system will accept `X-Correlation-ID` from incoming HTTP headers. |
+| `bucket4j.enabled`         | - | No | `true` | Enables/Disables the API rate limiting filters. |
+
+**Local development note:** The provided `bootstrap.sh` convenience script creates a `.env` file with fixed local bootstrap credentials (`admin` / `AdminPassword123!`) so the project can be started immediately after cloning. This is a local-only setup path, not a production credential strategy.
 
 ---
 
