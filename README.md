@@ -152,7 +152,8 @@ A specialized control plane gives admins the power to monitor and manage the sys
 
 ## Tradeoffs / Non-Goals
 
-*   **Single-Database Coordination**: Background task coordination, worker fencing, and recovery all rely on PostgreSQL. The current design is optimized for a single-region relational control plane rather than a multi-region scheduler.
+*   **Distributed Task Coordination, Process-Local Trust State**: Background task coordination, worker fencing, and recovery are designed to work across multiple nodes through PostgreSQL. Security-sensitive runtime state such as in-memory master-key residency and compromise eviction is intentionally kept process-local to keep the design focused and operationally lightweight.
+*   **No Distributed Cache or Invalidation Layer**: The application uses in-memory caching and local key state, but does not introduce Redis, a message bus, or cluster-wide invalidation. A larger deployment model would add one of those coordination layers for cross-node cache and key lifecycle propagation.
 *   **Process-Local Root of Trust**: Master keys are loaded from environment-backed configuration and held in process memory. External KMS / HSM integration is intentionally out of scope for this version.
 *   **Containment Over Availability**: When a master key is marked as `COMPROMISED`, affected secrets are blocked from being read until they are remediated. The system chooses security containment over degraded availability in that failure mode.
 *   **Pragmatic E2E Isolation**: End-to-end tests are grouped by workflow and run in isolated JVM processes to avoid cross-test state pollution without paying the runtime cost of provisioning a fresh database container for every test class.
