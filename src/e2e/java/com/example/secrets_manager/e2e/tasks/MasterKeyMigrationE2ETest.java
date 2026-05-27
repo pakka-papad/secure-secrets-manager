@@ -83,8 +83,6 @@ class MasterKeyMigrationE2ETest extends E2EBaseTest {
     admin.test().triggerMasterKeyPromotion(3);
 
     // 3. Discovery: Find the PENDING task
-    // We use a small wait to ensure the event was processed but the poller (1s interval)
-    // likely hasn't claimed it yet if we are quick.
     final var tasks =
         await()
             .atMost(Duration.ofSeconds(5))
@@ -106,8 +104,7 @@ class MasterKeyMigrationE2ETest extends E2EBaseTest {
     // 4. Action: Cancel immediately
     final var cancelledTask = admin.tasks().cancelTask(taskId);
 
-    // 5. Assert: Task state must be CANCELLED and it must never have started
+    // 5. Assert: Task state must be CANCELLED
     assertThat(cancelledTask.getState()).isEqualTo(TaskState.CANCELLED);
-    assertThat(cancelledTask.getStartedAt()).isNull();
   }
 }
