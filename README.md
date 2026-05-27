@@ -33,30 +33,30 @@ docker compose down -v
 
 ## Technical Overview
 
-This project implements a secure secrets management platform designed for distributed backend environments. It focuses on solving complex infrastructure challenges: **distributed concurrency safety, hierarchical key lifecycles, and cross-boundary forensic traceability.**
+This project implements a secure secrets management platform for distributed backend environments. It focuses on three engineering problems: **safe concurrent background execution, versioned key lifecycle management, and traceability across synchronous and asynchronous boundaries.**
 
-The system utilizes a leaderless **Distributed Task Engine** for cluster-wide consistency while maintaining a **Process-Local Root of Trust** for high-security cryptographic operations.
+The system uses leaderless workers coordinated through PostgreSQL-backed task, assignment, and worker-registry tables, while keeping the cryptographic root of trust process-local and out of persistent storage.
 
 ---
 
 ## Core Architecture
 
 ### 1. Distributed Execution & Concurrency Control
-The background task engine follows a "shared-nothing" architecture, allowing multiple system nodes to operate concurrently without a central coordinator.
-*   **Optimistic Distributed Concurrency**: Instead of heavy row-level locking, the system uses optimistic fencing to ensure task integrity. This prevents "Zombie Processes" (slow or partitioned nodes) from interfering with active work.
-*   **Atomic Fencing**: Every state transition is verified against a distributed ownership model at the persistence layer, ensuring that only the authoritative worker can modify a given resource.
-*   **Self-Healing Resilience**: The system automatically detects and reclaims stale tasks from failed nodes, ensuring background operations eventually reach a terminal state.
+Multiple nodes can poll for work concurrently without a dedicated coordinator.
+*   **Atomic Claim and Reclaim**: Workers claim pending tasks through database-backed assignment records and can reclaim abandoned work when the previous worker's heartbeat becomes stale.
+*   **Fenced State Updates**: Task state transitions are persisted only if the current worker still owns the assignment, preventing slow or partitioned workers from overwriting newer execution state.
+*   **Failure Recovery**: Stale-worker detection and reassignment allow background operations to continue progressing after node failure.
 
 ### 2. Hierarchical Key Management (Versioning)
 The system implements a versioned cryptographic model that separates the "Root of Trust" from persistent data encryption.
 *   **Multi-State Key Lifecycle**: Supports `ACTIVE`, `RETIRED`, and `COMPROMISED` versions. Master keys are injected via the environment and never persisted, minimizing the attack surface.
-*   **Cryptographic Re-wrapping Engine**: A specialized background framework facilitates zero-downtime key rotation by updating the protection layer of every secret without exposing the underlying plaintext.
-*   **Immediate Forensic Blocking**: When a key is marked as `COMPROMISED`, the system enforces an immediate "Nuclear Stop" at the data layer, rendering all associated data unreadable across the cluster.
+*   **Background Re-wrapping Workflow**: Master key rotation is handled as a durable background task that re-wraps stored DEKs under the new active key without re-encrypting the underlying secret plaintext.
+*   **Compromise Containment**: When a key is marked as `COMPROMISED`, its in-memory material is evicted and reads for secrets protected by that version are blocked until those secrets are replaced or migrated.
 
 ### 3. End-to-End Traceability & Forensics
-Engineered to preserve accountability across complex asynchronous boundaries, from the initial REST request to background worker threads.
+Engineered to preserve traceability across the initial REST request, domain events, and background worker execution.
 *   **Causal Audit Chains**: Every cryptographic action is recorded in an append-only, tamper-evident audit trail. Each entry is cryptographically linked to its predecessor using SHA-256 hashes, creating an immutable history.
-*   **Cross-Boundary Correlation**: Distributed trace IDs are propagated across API, event, and thread boundaries, allowing administrators to follow the complete lifecycle of a transaction across the entire system.
+*   **Cross-Boundary Correlation**: Correlation IDs are propagated across API, event, audit, security-event, and worker-thread boundaries so an operator can reconstruct the lifecycle of a request end to end.
 
 ---
 
@@ -117,7 +117,7 @@ The system is designed to stay fast and responsive as data volume grows.
 
 A specialized control plane gives admins the power to monitor and manage the system's internal state.
 *   **Kill-Switch Capability**: Long-running background tasks can be stopped at any time. The system uses atomic "fences" to ensure the stop is respected immediately across all nodes.
-*   **Forensic "Thread Pulling"**: Admins can use a single Trace ID to find everything that happened during a specific transaction, even if it involved multiple users or background threads.
+*   **Trace-Based Investigation**: Admins can use a single correlation ID to inspect the related audit records, security events, and background task activity for a transaction.
 *   **Security Monitoring**: The system keeps a real-time record of failed security attempts and internal consistency violations, providing immediate forensic context for investigations.
 
 ---
