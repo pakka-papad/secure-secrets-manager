@@ -150,11 +150,10 @@ A specialized control plane gives admins the power to monitor and manage the sys
 
 ---
 
-## Future Improvements
+## Tradeoffs / Non-Goals
 
-*   **Secret Versioning**: Implementation of a versioned history model allowing for point-in-time recovery and cryptographic rollback protection.
-*   **Audit Inclusion Proofs**: Transitioning from a linear audit chain to a **Merkle Tree** structure to support $O(\log N)$ cryptographic proofs of event inclusion and non-tampering.
-*   **Attribute-Based Access Control (ABAC)**: A fine-grained policy engine supporting dynamic constraints such as time-of-day, IP-whitelisting, and multi-factor requirements.
-*   **External KMS / HSM Integration**: Outsourcing the cryptographic "Root of Trust" to dedicated hardware or cloud-managed key services (e.g., AWS KMS, HashiCorp Vault).
-*   **Secret Auto-Expiry**: Implementation of time-to-live (TTL) policies for sensitive data, utilizing the background task framework for automated secure purging of expired credentials.
+*   **Single-Database Coordination**: Background task coordination, worker fencing, and recovery all rely on PostgreSQL. The current design is optimized for a single-region relational control plane rather than a multi-region scheduler.
+*   **Process-Local Root of Trust**: Master keys are loaded from environment-backed configuration and held in process memory. External KMS / HSM integration is intentionally out of scope for this version.
+*   **Containment Over Availability**: When a master key is marked as `COMPROMISED`, affected secrets are blocked from being read until they are remediated. The system chooses security containment over degraded availability in that failure mode.
+*   **Pragmatic E2E Isolation**: End-to-end tests are grouped by workflow and run in isolated JVM processes to avoid cross-test state pollution without paying the runtime cost of provisioning a fresh database container for every test class.
 
