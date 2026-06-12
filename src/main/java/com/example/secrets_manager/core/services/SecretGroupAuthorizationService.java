@@ -18,8 +18,8 @@ import jakarta.validation.constraints.NotNull;
 import java.time.Instant;
 import java.util.*;
 import java.util.stream.Collectors;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -36,6 +36,7 @@ import org.springframework.validation.annotation.Validated;
 @Service
 @Slf4j
 @Validated
+@RequiredArgsConstructor
 public class SecretGroupAuthorizationService {
 
   private final SecretGroupAuthorizationRepository authorizationRepository;
@@ -43,20 +44,6 @@ public class SecretGroupAuthorizationService {
   private final UserRepository userRepository;
   private final AuditService auditService;
   private final ObjectMapper objectMapper;
-
-  @Autowired
-  public SecretGroupAuthorizationService(
-      SecretGroupAuthorizationRepository authorizationRepository,
-      SecretGroupRepository secretGroupRepository,
-      UserRepository userRepository,
-      AuditService auditService,
-      ObjectMapper objectMapper) {
-    this.authorizationRepository = authorizationRepository;
-    this.secretGroupRepository = secretGroupRepository;
-    this.userRepository = userRepository;
-    this.auditService = auditService;
-    this.objectMapper = objectMapper;
-  }
 
   /**
    * Synchronizes the user's permissions on a secret group to match the desired state. Enforces role

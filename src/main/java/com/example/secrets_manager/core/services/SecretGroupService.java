@@ -8,15 +8,14 @@ import com.example.secrets_manager.core.models.*;
 import com.example.secrets_manager.core.services.exceptions.SecretGroupAlreadyExistsException;
 import com.example.secrets_manager.core.services.exceptions.SecretGroupServiceException;
 import com.example.secrets_manager.core.utils.PaginationUtils;
-import com.example.secrets_manager.crypto.CryptographyService;
 import com.example.secrets_manager.security.SecurityUtils;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import java.time.Instant;
 import java.util.UUID;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -30,27 +29,13 @@ import org.springframework.validation.annotation.Validated;
 @Service
 @Slf4j
 @Validated
+@RequiredArgsConstructor
 public class SecretGroupService {
 
   private final SecretGroupRepository secretGroupRepository;
   private final SecretRepository secretRepository;
   private final SecretGroupAuthorizationService authorizationService;
-  private final CryptographyService cryptographyService;
   private final AuditService auditService;
-
-  @Autowired
-  public SecretGroupService(
-      SecretGroupRepository secretGroupRepository,
-      SecretRepository secretRepository,
-      SecretGroupAuthorizationService authorizationService,
-      CryptographyService cryptographyService,
-      AuditService auditService) {
-    this.secretGroupRepository = secretGroupRepository;
-    this.secretRepository = secretRepository;
-    this.authorizationService = authorizationService;
-    this.cryptographyService = cryptographyService;
-    this.auditService = auditService;
-  }
 
   /**
    * Creates a new secret group and atomically grants the creator full permissions.

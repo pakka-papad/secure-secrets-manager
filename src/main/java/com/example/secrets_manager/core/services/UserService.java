@@ -28,7 +28,7 @@ import jakarta.validation.constraints.NotNull;
 import java.util.Arrays;
 import java.util.EnumSet;
 import java.util.UUID;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
@@ -41,6 +41,7 @@ import org.springframework.validation.annotation.Validated;
 
 @Service
 @Validated
+@RequiredArgsConstructor
 public class UserService {
 
   private final UserRepository userRepository;
@@ -49,22 +50,6 @@ public class UserService {
   private final SystemLockService systemLockService;
   private final ApplicationEventPublisher eventPublisher;
   private final ObjectMapper objectMapper;
-
-  @Autowired
-  public UserService(
-      UserRepository userRepository,
-      CryptographyService cryptographyService,
-      AuditService auditService,
-      SystemLockService systemLockService,
-      ApplicationEventPublisher eventPublisher,
-      ObjectMapper objectMapper) {
-    this.userRepository = userRepository;
-    this.cryptographyService = cryptographyService;
-    this.auditService = auditService;
-    this.systemLockService = systemLockService;
-    this.eventPublisher = eventPublisher;
-    this.objectMapper = objectMapper;
-  }
 
   /**
    * Creates a new user with the provided details. The password will be hashed and an audit log

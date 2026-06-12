@@ -25,7 +25,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import java.util.Objects;
 import java.util.UUID;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -38,6 +38,7 @@ import org.springframework.validation.annotation.Validated;
 
 @Service
 @Validated
+@RequiredArgsConstructor
 public class AuthenticationService {
 
   private final AuthenticationManager authenticationManager;
@@ -48,26 +49,6 @@ public class AuthenticationService {
   private final SecurityEventLogService securityEventLogService;
   private final CryptographyService cryptographyService;
   private final ApplicationEventPublisher eventPublisher;
-
-  @Autowired
-  public AuthenticationService(
-      AuthenticationManager authenticationManager,
-      UserRepository userRepository,
-      JwtTokenService jwtTokenService,
-      RefreshTokenRepository refreshTokenRepository,
-      AuditService auditService,
-      SecurityEventLogService securityEventLogService,
-      CryptographyService cryptographyService,
-      ApplicationEventPublisher eventPublisher) {
-    this.authenticationManager = authenticationManager;
-    this.userRepository = userRepository;
-    this.jwtTokenService = jwtTokenService;
-    this.refreshTokenRepository = refreshTokenRepository;
-    this.auditService = auditService;
-    this.securityEventLogService = securityEventLogService;
-    this.cryptographyService = cryptographyService;
-    this.eventPublisher = eventPublisher;
-  }
 
   /**
    * Authenticates a user and generates a pair of access and refresh tokens.
