@@ -4,12 +4,14 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
 import com.example.secrets_manager.api.rest.dto.AuditLogSummaryResponse;
+import com.example.secrets_manager.core.models.SecurityEvent;
 import com.example.secrets_manager.e2e.base.E2EBaseTest;
 import com.example.secrets_manager.e2e.client.AuthClient;
 import com.example.secrets_manager.tasks.models.TaskState;
 import com.example.secrets_manager.tasks.models.TaskType;
 import java.time.Duration;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
@@ -73,7 +75,7 @@ class AuditVisibilityE2ETest extends E2EBaseTest {
     // Create the user first so we can log in
     final var username = "audit-user-" + UUID.randomUUID();
     final var password = "UserPass123!";
-    admin.users().create(username, password);
+    final var createdUser = admin.users().create(username, password);
     final var user = actors.asUser(username, password);
 
     // Scenario C: Administrative Access Control
@@ -82,8 +84,39 @@ class AuditVisibilityE2ETest extends E2EBaseTest {
     assertThat(admin.securityEvents().listRaw(Map.of()).getStatusCode()).isEqualTo(200);
 
     // 2. Regular user is forbidden
-    assertThat(user.audit().listRaw(Map.of()).getStatusCode()).isEqualTo(403);
+    final var deniedResponse = user.audit().listRaw(Map.of());
+    assertThat(deniedResponse.getStatusCode()).isEqualTo(403);
     assertThat(user.securityEvents().listRaw(Map.of()).getStatusCode()).isEqualTo(403);
+
+    // 3. The denied method authorization is persisted with the request's correlation ID
+    final var correlationId = UUID.fromString(deniedResponse.getHeader("X-Correlation-ID"));
+    final var accessDeniedEvent =
+        await()
+            .atMost(Duration.ofSeconds(10))
+            .until(
+                () ->
+                    admin
+                        .securityEvents()
+                        .list(
+                            Map.of(
+                                "action",
+                                SecurityEvent.ACCESS_DENIED.name(),
+                                "actorUserId",
+                                createdUser.getId()))
+                        .getItems()
+                        .stream()
+                        .filter(event -> correlationId.equals(event.getCorrelationId()))
+                        .findFirst(),
+                Optional::isPresent)
+            .orElseThrow();
+
+    assertThat(accessDeniedEvent.getActorUserId()).isEqualTo(createdUser.getId());
+    assertThat(accessDeniedEvent.getAction()).isEqualTo(SecurityEvent.ACCESS_DENIED);
+
+    final var details = admin.securityEvents().get(accessDeniedEvent.getId()).getDetails();
+    assertThat(details)
+        .contains("\"target_class\"", "\"AdminAuditLogController\"")
+        .contains("\"target_method\"", "\"listAuditLogs\"");
   }
 
   @Test
