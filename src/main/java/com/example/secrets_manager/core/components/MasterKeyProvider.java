@@ -8,7 +8,6 @@ import com.example.secrets_manager.core.services.InternalMasterKeyService;
 import com.example.secrets_manager.crypto.CryptographyService;
 import com.example.secrets_manager.security.SecurityUtils;
 import com.example.secrets_manager.tracing.CorrelationContext;
-import jakarta.annotation.PostConstruct;
 import java.util.Base64;
 import java.util.EnumSet;
 import java.util.HashMap;
@@ -23,7 +22,11 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.hibernate.id.uuid.UuidVersion7Strategy;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.ApplicationArguments;
+import org.springframework.boot.ApplicationRunner;
 import org.springframework.context.event.EventListener;
+import org.springframework.core.Ordered;
+import org.springframework.core.annotation.Order;
 import org.springframework.core.env.ConfigurableEnvironment;
 import org.springframework.core.env.EnumerablePropertySource;
 import org.springframework.core.env.PropertySource;
@@ -40,7 +43,8 @@ import org.springframework.stereotype.Component;
 @Component
 @Slf4j
 @RequiredArgsConstructor
-public class MasterKeyProvider {
+@Order(Ordered.HIGHEST_PRECEDENCE)
+public class MasterKeyProvider implements ApplicationRunner {
 
   private final Map<Integer, byte[]> masterKeys = new ConcurrentHashMap<>();
   private final CryptographyService cryptographyService;
@@ -53,8 +57,8 @@ public class MasterKeyProvider {
   // Case-insensitive pattern to match keys like "MASTER_KEY__V1"
   private static final Pattern MASTER_KEY_PATTERN = Pattern.compile("(?i)MASTER_KEY__V(\\d+)");
 
-  @PostConstruct
-  public void init() {
+  @Override
+  public void run(ApplicationArguments args) {
     // Generate a fresh UUIDv7 for this specific initialization run
     final var masterKeyInitId = UuidVersion7Strategy.INSTANCE.generateUuid(null);
     CorrelationContext.runWithId(masterKeyInitId, this::performInit);

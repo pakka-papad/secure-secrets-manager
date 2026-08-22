@@ -1,18 +1,18 @@
 package com.example.secrets_manager.api.rest;
 
 import com.example.secrets_manager.core.components.MasterKeyProvider;
-import com.example.secrets_manager.core.services.InternalMasterKeyService;
 import com.example.secrets_manager.crypto.CryptographyService;
-import com.example.secrets_manager.security.SecurityUtils;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import java.lang.reflect.Field;
 import java.security.SecureRandom;
+import java.util.Base64;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Profile;
+import org.springframework.core.env.ConfigurableEnvironment;
+import org.springframework.core.env.MapPropertySource;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -32,9 +32,9 @@ import org.springframework.web.bind.annotation.RestController;
 @Slf4j
 public class AdminTaskTestController {
 
-  private final InternalMasterKeyService internalMasterKeyService;
   private final MasterKeyProvider masterKeyProvider;
   private final CryptographyService cryptographyService;
+  private final ConfigurableEnvironment environment;
   private final SecureRandom secureRandom = new SecureRandom();
 
   @Operation(summary = "Triggers a Master Key promotion event (Simulates discovery of a new key)")
@@ -50,26 +50,15 @@ public class AdminTaskTestController {
     byte[] newKeyBytes = new byte[keySize];
     secureRandom.nextBytes(newKeyBytes);
 
-    // Use standard Java reflection to populate the private map in
-    try {
-      Field field = MasterKeyProvider.class.getDeclaredField("masterKeys");
-      field.setAccessible(true);
-      @SuppressWarnings("unchecked")
-      Map<Integer, byte[]> masterKeysMap = (Map<Integer, byte[]>) field.get(masterKeyProvider);
-
-      if (masterKeysMap != null) {
-        masterKeysMap.put(version, newKeyBytes);
-      } else {
-        throw new IllegalStateException("masterKeys map is null");
-      }
-    } catch (Exception e) {
-      log.error("Reflection failed to inject key into MasterKeyProvider", e);
-      return ResponseEntity.internalServerError().build();
-    }
-
-    // Trigger the internal promotion logic (simulates discovery)
-    SecurityUtils.runAsSystem(
-        () -> internalMasterKeyService.promoteNewKeyInternal(version, defaultAlgo));
+    // Add the key through the same environment-backed path used in production, then run discovery.
+    environment
+        .getPropertySources()
+        .addFirst(
+            new MapPropertySource(
+                "e2e-master-key-v" + version,
+                Map.of(
+                    "MASTER_KEY__V" + version, Base64.getEncoder().encodeToString(newKeyBytes))));
+    masterKeyProvider.run(null);
 
     return ResponseEntity.accepted().build();
   }

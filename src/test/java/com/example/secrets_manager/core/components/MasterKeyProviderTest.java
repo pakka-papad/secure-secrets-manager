@@ -18,6 +18,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.boot.ApplicationArguments;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.mock.env.MockEnvironment;
@@ -42,7 +43,7 @@ class MasterKeyProviderTest {
   }
 
   @Test
-  void init_shouldLoadKeyFromEnvironment_andPromoteIfNewWithinCorrelationContext() {
+  void run_shouldLoadKeyFromEnvironment_andPromoteIfNewWithinCorrelationContext() {
     // Given
     byte[] keyBytes = new byte[32];
     String base64Key = Base64.getEncoder().encodeToString(keyBytes);
@@ -65,7 +66,7 @@ class MasterKeyProviderTest {
         .promoteNewKeyInternal(anyInt(), anyString());
 
     // When
-    masterKeyProvider.init();
+    masterKeyProvider.run(mock(ApplicationArguments.class));
 
     // Then
     assertThat(masterKeyProvider.getActiveVersion()).isEqualTo(1);
@@ -77,7 +78,7 @@ class MasterKeyProviderTest {
   }
 
   @Test
-  void init_shouldThrowException_whenRequiredKeyMissingFromEnv() {
+  void run_shouldThrowException_whenRequiredKeyMissingFromEnv() {
     // Given
     MasterKey existingKey =
         MasterKey.builder()
@@ -91,17 +92,19 @@ class MasterKeyProviderTest {
     when(internalMasterKeyService.getHighestMasterKeyVersion()).thenReturn(1);
 
     // When & Then
-    assertThrows(IllegalStateException.class, () -> masterKeyProvider.init());
+    assertThrows(
+        IllegalStateException.class, () -> masterKeyProvider.run(mock(ApplicationArguments.class)));
   }
 
   @Test
-  void init_shouldThrowException_whenNoKeysFound() {
+  void run_shouldThrowException_whenNoKeysFound() {
     // Given
     when(internalMasterKeyService.listMasterKeys(any(), any(Pageable.class)))
         .thenReturn(new PageImpl<>(List.of()));
     when(internalMasterKeyService.getHighestMasterKeyVersion()).thenReturn(0);
 
     // When & Then
-    assertThrows(IllegalStateException.class, () -> masterKeyProvider.init());
+    assertThrows(
+        IllegalStateException.class, () -> masterKeyProvider.run(mock(ApplicationArguments.class)));
   }
 }
