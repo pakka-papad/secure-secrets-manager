@@ -1,6 +1,7 @@
 package com.example.secrets_manager.tasks.services;
 
 import com.example.secrets_manager.tasks.data.repositories.TaskAssignmentRepository;
+import com.example.secrets_manager.tasks.services.exceptions.TaskAssignmentReclaimException;
 import com.example.secrets_manager.tasks.utils.TaskUtils;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -34,15 +35,31 @@ public class TaskAssignmentService {
     return updatedRows == 1;
   }
 
-  /** Reclaims a task from a stale worker. */
+  /**
+   * Reclaims a task only if its assignment still belongs to the worker that was observed as stale.
+   * The fenced release prevents delayed reapers from evicting a replacement owner.
+   */
   @Transactional
-  public boolean reclaimTask(UUID taskId) {
-    // 1. Force release the stale assignment
-    assignmentRepository.deleteById(taskId);
-    assignmentRepository.flush();
+  public boolean reclaimTask(UUID taskId, UUID expectedWorkerId) {
+    if (TaskUtils.WORKER_ID.equals(expectedWorkerId)) {
+      return false;
+    }
 
-    // 2. Try to claim it for ourselves (handles worker registration)
-    return claimTask(taskId);
+    // 1. Ensure our worker exists before the replacement assignment is made.
+    workerService.registerWorker();
+
+    // 2. Release only the assignment that was observed as stale.
+    int releasedRows = assignmentRepository.deleteByTaskIdAndWorkerId(taskId, expectedWorkerId);
+    if (releasedRows != 1) {
+      return false;
+    }
+
+    // 3. Claim it in the same transaction so a failed replacement rolls back the release.
+    int claimedRows = assignmentRepository.atomicClaim(taskId, TaskUtils.WORKER_ID);
+    if (claimedRows != 1) {
+      throw new TaskAssignmentReclaimException(taskId, expectedWorkerId);
+    }
+    return true;
   }
 
   /** Confirms that THIS instance still owns the task assignment. Used for "Zombie" protection. */

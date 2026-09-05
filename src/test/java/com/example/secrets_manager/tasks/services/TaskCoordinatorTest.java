@@ -4,11 +4,13 @@ import static org.mockito.Mockito.*;
 
 import com.example.secrets_manager.tasks.data.converters.TaskEntityConverter;
 import com.example.secrets_manager.tasks.data.entities.TaskEntity;
+import com.example.secrets_manager.tasks.data.repositories.StaleTaskCandidate;
 import com.example.secrets_manager.tasks.data.repositories.TaskAssignmentRepository;
 import com.example.secrets_manager.tasks.data.repositories.TaskCandidate;
 import com.example.secrets_manager.tasks.data.repositories.TaskRepository;
 import com.example.secrets_manager.tasks.models.TaskState;
 import com.example.secrets_manager.tasks.models.TaskType;
+import com.example.secrets_manager.tasks.services.exceptions.TaskAssignmentReclaimException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import java.time.Duration;
@@ -124,15 +126,17 @@ class TaskCoordinatorTest {
   void pollStaleTasks_ShouldReclaimAndSubmitTasks_WhenSupported() {
     // Given
     UUID taskId = UUID.randomUUID();
+    UUID staleWorkerId = UUID.randomUUID();
     String type = TaskType.MASTER_KEY_MIGRATION.name();
-    TaskCandidate candidate = mock(TaskCandidate.class);
+    StaleTaskCandidate candidate = mock(StaleTaskCandidate.class);
     when(candidate.getId()).thenReturn(taskId);
     when(candidate.getType()).thenReturn(type);
+    when(candidate.getWorkerId()).thenReturn(staleWorkerId);
 
     when(assignmentRepository.findStaleCandidates(any(Duration.class), eq(200)))
         .thenReturn(List.of(candidate));
     when(handlerRegistry.isSupported(type)).thenReturn(true);
-    when(assignmentService.reclaimTask(taskId)).thenReturn(true);
+    when(assignmentService.reclaimTask(taskId, staleWorkerId)).thenReturn(true);
 
     TaskEntity entity = new TaskEntity();
     entity.setId(taskId);
@@ -145,5 +149,43 @@ class TaskCoordinatorTest {
 
     // Then
     verify(executorService).submitTask(argThat(task -> task.getId().equals(taskId)));
+  }
+
+  @Test
+  void pollStaleTasks_ShouldContinue_WhenAssignmentTransferFails() {
+    // Given
+    UUID failedTaskId = UUID.randomUUID();
+    UUID successfulTaskId = UUID.randomUUID();
+    UUID staleWorkerId = UUID.randomUUID();
+    String type = TaskType.MASTER_KEY_MIGRATION.name();
+
+    StaleTaskCandidate failedCandidate = mock(StaleTaskCandidate.class);
+    when(failedCandidate.getId()).thenReturn(failedTaskId);
+    when(failedCandidate.getType()).thenReturn(type);
+    when(failedCandidate.getWorkerId()).thenReturn(staleWorkerId);
+
+    StaleTaskCandidate successfulCandidate = mock(StaleTaskCandidate.class);
+    when(successfulCandidate.getId()).thenReturn(successfulTaskId);
+    when(successfulCandidate.getType()).thenReturn(type);
+    when(successfulCandidate.getWorkerId()).thenReturn(staleWorkerId);
+
+    when(assignmentRepository.findStaleCandidates(any(Duration.class), eq(200)))
+        .thenReturn(List.of(failedCandidate, successfulCandidate));
+    when(handlerRegistry.isSupported(type)).thenReturn(true);
+    when(assignmentService.reclaimTask(failedTaskId, staleWorkerId))
+        .thenThrow(new TaskAssignmentReclaimException(failedTaskId, staleWorkerId));
+    when(assignmentService.reclaimTask(successfulTaskId, staleWorkerId)).thenReturn(true);
+
+    TaskEntity entity = new TaskEntity();
+    entity.setId(successfulTaskId);
+    entity.setType(type);
+    entity.setState(TaskState.PENDING.name());
+    when(taskRepository.findById(successfulTaskId)).thenReturn(Optional.of(entity));
+
+    // When
+    coordinator.pollStaleTasks();
+
+    // Then
+    verify(executorService).submitTask(argThat(task -> task.getId().equals(successfulTaskId)));
   }
 }

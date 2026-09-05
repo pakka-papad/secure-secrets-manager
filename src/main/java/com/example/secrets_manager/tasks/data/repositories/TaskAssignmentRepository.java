@@ -30,7 +30,7 @@ public interface TaskAssignmentRepository extends JpaRepository<TaskAssignmentEn
   @Query(
       value =
           """
-          SELECT ta.task_id as id, t.type as type
+          SELECT ta.task_id as id, t.type as type, ta.worker_id as "workerId"
           FROM sm.task_assignments ta
           JOIN sm.worker_registry w ON ta.worker_id = w.id
           JOIN sm.tasks t ON ta.task_id = t.id
@@ -38,11 +38,11 @@ public interface TaskAssignmentRepository extends JpaRepository<TaskAssignmentEn
           LIMIT :limit
           """,
       nativeQuery = true)
-  List<TaskCandidate> _findStaleCandidates(
+  List<StaleTaskCandidate> _findStaleCandidates(
       @Param("intervalStr") String intervalStr, @Param("limit") int limit);
 
   /** Finds candidates of tasks assigned to workers whose heartbeat is older than the threshold. */
-  default List<TaskCandidate> findStaleCandidates(Duration threshold, int limit) {
+  default List<StaleTaskCandidate> findStaleCandidates(Duration threshold, int limit) {
     if (threshold == null) {
       return List.of();
     }
@@ -55,5 +55,10 @@ public interface TaskAssignmentRepository extends JpaRepository<TaskAssignmentEn
    * mechanism during task release.
    */
   @Modifying(clearAutomatically = true, flushAutomatically = true)
-  void deleteByTaskIdAndWorkerId(@Param("taskId") UUID taskId, @Param("workerId") UUID workerId);
+  @Query(
+      """
+      DELETE FROM TaskAssignmentEntity a
+      WHERE a.taskId = :taskId AND a.workerId = :workerId
+      """)
+  int deleteByTaskIdAndWorkerId(@Param("taskId") UUID taskId, @Param("workerId") UUID workerId);
 }

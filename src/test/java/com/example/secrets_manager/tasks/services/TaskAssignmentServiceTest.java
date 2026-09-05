@@ -1,10 +1,12 @@
 package com.example.secrets_manager.tasks.services;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.*;
 
 import com.example.secrets_manager.tasks.data.entities.TaskAssignmentEntity;
 import com.example.secrets_manager.tasks.data.repositories.TaskAssignmentRepository;
+import com.example.secrets_manager.tasks.services.exceptions.TaskAssignmentReclaimException;
 import com.example.secrets_manager.tasks.utils.TaskUtils;
 import java.util.Optional;
 import java.util.UUID;
@@ -75,18 +77,67 @@ class TaskAssignmentServiceTest {
   }
 
   @Test
-  void reclaimTask_ShouldDeleteAndThenClaim() {
+  void reclaimTask_ShouldDeleteAndThenClaim_WhenObservedAssignmentIsStillStale() {
     // Given
     UUID taskId = UUID.randomUUID();
+    UUID staleWorkerId = UUID.randomUUID();
+
+    when(assignmentRepository.deleteByTaskIdAndWorkerId(taskId, staleWorkerId)).thenReturn(1);
     when(assignmentRepository.atomicClaim(taskId, TaskUtils.WORKER_ID)).thenReturn(1);
 
     // When
-    boolean result = assignmentService.reclaimTask(taskId);
+    boolean result = assignmentService.reclaimTask(taskId, staleWorkerId);
 
     // Then
     assertThat(result).isTrue();
-    verify(assignmentRepository).deleteById(taskId);
+    verify(workerService).registerWorker();
+    verify(assignmentRepository).deleteByTaskIdAndWorkerId(taskId, staleWorkerId);
     verify(assignmentRepository).atomicClaim(taskId, TaskUtils.WORKER_ID);
+  }
+
+  @Test
+  void reclaimTask_ShouldNotEvictReplacementOwner_WhenAssignmentChangedAfterPolling() {
+    // Given
+    UUID taskId = UUID.randomUUID();
+    UUID staleWorkerId = UUID.randomUUID();
+
+    when(assignmentRepository.deleteByTaskIdAndWorkerId(taskId, staleWorkerId)).thenReturn(0);
+
+    // When
+    boolean result = assignmentService.reclaimTask(taskId, staleWorkerId);
+
+    // Then
+    assertThat(result).isFalse();
+    verify(assignmentRepository, never()).atomicClaim(any(), any());
+  }
+
+  @Test
+  void reclaimTask_ShouldNotReclaimAssignmentOwnedByThisWorker() {
+    // Given
+    UUID taskId = UUID.randomUUID();
+
+    // When
+    boolean result = assignmentService.reclaimTask(taskId, TaskUtils.WORKER_ID);
+
+    // Then
+    assertThat(result).isFalse();
+    verifyNoInteractions(workerService, assignmentRepository);
+  }
+
+  @Test
+  void reclaimTask_ShouldFailTransaction_WhenValidatedAssignmentCannotBeReplaced() {
+    // Given
+    UUID taskId = UUID.randomUUID();
+    UUID staleWorkerId = UUID.randomUUID();
+
+    when(assignmentRepository.deleteByTaskIdAndWorkerId(taskId, staleWorkerId)).thenReturn(1);
+    when(assignmentRepository.atomicClaim(taskId, TaskUtils.WORKER_ID)).thenReturn(0);
+
+    // When / Then
+    assertThatThrownBy(() -> assignmentService.reclaimTask(taskId, staleWorkerId))
+        .isInstanceOf(TaskAssignmentReclaimException.class)
+        .hasFieldOrPropertyWithValue("taskId", taskId)
+        .hasFieldOrPropertyWithValue("previousWorkerId", staleWorkerId);
   }
 
   @Test

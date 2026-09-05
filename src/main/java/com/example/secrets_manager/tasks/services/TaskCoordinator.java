@@ -4,6 +4,7 @@ import com.example.secrets_manager.tasks.data.converters.TaskEntityConverter;
 import com.example.secrets_manager.tasks.data.repositories.TaskAssignmentRepository;
 import com.example.secrets_manager.tasks.data.repositories.TaskRepository;
 import com.example.secrets_manager.tasks.models.TaskState;
+import com.example.secrets_manager.tasks.services.exceptions.TaskAssignmentReclaimException;
 import java.time.Duration;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -88,17 +89,31 @@ public class TaskCoordinator {
       log.warn(
           "Found stale task {} (Type: {}). Reclaiming...", candidate.getId(), candidate.getType());
 
-      // Atomic reclaim (delete old assignment and create new one)
-      if (assignmentService.reclaimTask(candidate.getId())) {
-        taskRepository
-            .findById(candidate.getId())
-            .ifPresent(
-                entity -> {
-                  log.info("Successfully reclaimed task {}. Resubmitting...", candidate.getId());
-                  executorService.submitTask(taskConverter.toModel(entity));
-                });
-        reclaimedCount++;
+      final boolean reclaimed;
+      try {
+        // Atomic reclaim (delete old assignment and create new one)
+        reclaimed = assignmentService.reclaimTask(candidate.getId(), candidate.getWorkerId());
+      } catch (TaskAssignmentReclaimException e) {
+        log.error(
+            "Failed to reclaim task {} from stale worker {}.",
+            e.getTaskId(),
+            e.getPreviousWorkerId(),
+            e);
+        continue;
       }
+
+      if (!reclaimed) {
+        continue;
+      }
+
+      taskRepository
+          .findById(candidate.getId())
+          .ifPresent(
+              entity -> {
+                log.info("Successfully reclaimed task {}. Resubmitting...", candidate.getId());
+                executorService.submitTask(taskConverter.toModel(entity));
+              });
+      reclaimedCount++;
     }
   }
 }
